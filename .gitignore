@@ -1,0 +1,35 @@
+# .gitignore file - boiler plate from gemini
+# 
+
+#wmft adds the following for this specific directory
+bin
+include
+lib
+lib64
+
+
+
+# Ansible Vault files
+group_vars/vault.yml
+host_vars/vault.yml
+*.vault
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary files and logs
+*.log
+*.tmp
+*.swp
+.cache/
+
+# SSH keys (if applicable)
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+
+# Any other sensitive files
+secrets.yml
+credentials.json
