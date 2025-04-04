@@ -1,3 +1,6 @@
+#This ansible playbook installs wazuh  agent. 
+#A smarter man would have written down where it came from. 
+#I think it might have come from Wazuh site. 
 #
 #
 - hosts: <WAZUH_AGENT_IP_ADDRESS>
