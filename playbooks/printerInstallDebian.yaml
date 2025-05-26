@@ -1,0 +1,166 @@
+---
+- name: Configure Printer on Debian Workranstation
+  hosts: debian
+  become: yes
+
+  vars:
+    printers:
+      - name: "HP_LaserJet_P2055dn"
+        ip: "hp-laserjet.home.arpa"
+        device_uri: "socket://hp-laserjet.home.arpa:9100"
+        is_default: true
+        # Path to the PPD file on the Ansible control machine
+        ppd_local_path: "laserjet.ppd" # Corrected: Path to your PPD file on the control machine
+        # The temporary filename on the target workstation
+        ppd_target_filename: "HP-LaserJet-p2055dn.ppd"
+
+      - name: "HP_OfficeJet_Pro_9010"
+        ip: "hp-inkjet.home.arpa"
+        device_uri: "ipp://hp-inkjet.home.arpa/ipp/print"
+        is_default: false
+        ppd_local_path: "" # Not applicable for IPP Everywhere
+        ppd_target_filename: ""
+
+    enable_cups_web_access: "yes"
+
+  tasks:
+    - name: Update apt package cache
+      ansible.builtin.apt:
+        update_cache: yes
+      tags:
+        - setup
+
+    - name: Install CUPS and common printer drivers
+      ansible.builtin.apt:
+        name:
+          - cups
+          - cups-client
+          - cups-bsd
+          - printer-driver-all
+          - hplip
+          - system-config-printer-udev
+          - cups-browsed
+        state: present
+      tags:
+        - setup
+
+    - name: Ensure CUPS service is running and enabled at boot
+      ansible.builtin.systemd:
+        name: cups
+        state: started
+        enabled: yes
+      tags:
+        - setup
+
+    - name: Ensure cups-browsed service is running and enabled at boot
+      ansible.builtin.systemd:
+        name: cups-browsed
+        state: started
+        enabled: yes
+      tags:
+        - setup
+
+    - name: Configure CUPS to listen on all interfaces for web interface (if enabled_cups_web_access is 'yes')
+      ansible.builtin.lineinfile:
+        path: /etc/cups/cupsd.conf
+        regexp: '^#Listen localhost:631'
+        line: 'Listen 0.0.0.0:631'
+        backup: yes
+      when: enable_cups_web_access | bool
+      notify: Restart cups
+      tags:
+        - cups_config
+
+    - name: Allow CUPS web interface administration from local network (if enabled_cups_web_access is 'yes')
+      ansible.builtin.blockinfile:
+        path: /etc/cups/cupsd.conf
+        block: |
+          <Location />
+            Order allow,deny
+            Allow @LOCAL
+          </Location>
+          <Location /admin>
+            Order allow,deny
+            Allow @LOCAL
+          </Location>
+          <Location /admin/conf>
+            AuthType Basic
+            Require user @SYSTEM
+            Order allow,deny
+            Allow @LOCAL
+          </Location>
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR CUPS LOCAL ACCESS"
+        backup: yes
+      when: enable_cups_web_access | bool
+      notify: Restart cups
+      tags:
+        - cups_config
+
+    - name: Restart CUPS and cups-browsed to refresh driver lists
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - cups
+        - cups-browsed
+      tags:
+        - refresh_cups_drivers
+
+    - name: Copy PPD file from control machine to target workstation
+      ansible.builtin.copy:
+        src: "{{ item.ppd_local_path }}"
+        dest: "/tmp/{{ item.ppd_target_filename }}"
+        mode: '0644'
+      when: item.ppd_local_path is defined and item.ppd_local_path != ''
+      loop: "{{ printers }}"
+      loop_control:
+        loop_var: item
+      tags:
+        - printer_config_prep
+
+    - name: Add network printers using lpadmin
+      ansible.builtin.command: >-
+        lpadmin -p {{ item.name }}
+        -v {{ item.device_uri }}
+        -E
+        {% if item.device_uri.startswith('ipp://') %}
+        -m everywhere
+        {% elif item.ppd_local_path is defined and item.ppd_local_path != '' %}
+        -P /tmp/{{ item.ppd_target_filename }}
+        {% else %}
+        -m raw
+        {% endif %}
+      args:
+        creates: "/etc/cups/ppd/{{ item.name }}.ppd"
+      register: add_printer_result
+      changed_when: add_printer_result.rc != 0 and "printer already exists" not in add_printer_result.stderr
+      failed_when: add_printer_result.rc != 0 and "printer already exists" not in add_printer_result.stderr
+      loop: "{{ printers }}"
+      tags:
+        - printer_config
+
+    - name: Clean up temporary PPD file on target workstation
+      ansible.builtin.file:
+        path: "/tmp/{{ item.ppd_target_filename }}"
+        state: absent
+      when: item.ppd_local_path is defined and item.ppd_local_path != ''
+      loop: "{{ printers }}"
+      loop_control:
+        loop_var: item
+      tags:
+        - cleanup
+
+    - name: Set default printer
+      ansible.builtin.command: "lpoptions -d {{ item.name }}"
+      changed_when: true
+      when: item.is_default | bool
+      loop: "{{ printers }}"
+      tags:
+        - printer_config
+
+  handlers:
+    - name: Restart cups
+      ansible.builtin.systemd:
+        name: cups
+        state: restarted
+      listen: "Restart cups"
