@@ -1,0 +1,58 @@
+---
+- name: Update Tailscale TLS Certificate for YunoHost
+  hosts: yunohost_servers
+  become: yes
+  vars:
+    # Define your domain and certificate path here for easy updates.
+    domain_name: "ynh2.van-bee.ts.net"
+    cert_dir: "/etc/yunohost/certs/{{ domain_name }}"
+    backup_dir: "{{ cert_dir }}/self-signed"
+
+  tasks:
+    - name: Ensure backup directory exists
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Find existing certificate files (.pem)
+      ansible.builtin.find:
+        paths: "{{ cert_dir }}"
+        patterns: "*.pem"
+        use_regex: no
+        file_type: file
+      register: old_certs
+
+    - name: Back up old certificate files if they exist
+      ansible.builtin.command:
+        cmd: "mv {{ item.path }} {{ backup_dir }}/"
+      loop: "{{ old_certs.files }}"
+      when: old_certs.files | length > 0
+
+    - name: Generate new Tailscale certificate
+      ansible.builtin.command:
+        cmd: "tailscale cert --cert-file crt.pem --key-file key.pem {{ domain_name }}"
+        chdir: "{{ cert_dir }}"
+        creates: "{{ cert_dir }}/crt.pem"
+      register: cert_generation
+      changed_when: "'Wrote public cert' in cert_generation.stdout"
+      notify: Reload Nginx
+
+    - name: Set correct permissions on certificate files
+      ansible.builtin.file:
+        path: "{{ cert_dir }}/{{ item }}"
+        owner: root
+        group: metronome
+        mode: '0640'
+      loop:
+        - crt.pem
+        - key.pem
+      notify: Reload Nginx
+
+  handlers:
+    - name: Reload Nginx
+      listen: "Reload Nginx"
+      ansible.builtin.command:
+        cmd: "yunohost service reload nginx"
+      # We don't want the play to fail if nginx isn't running for some reason
+      ignore_errors: true
