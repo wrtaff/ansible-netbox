@@ -1,0 +1,18 @@
+[servers]
+wazuh-siem ansible_host=wazuh.home.arpa
+zeus       ansible_host=zeus.home.arpa
+mw2        ansible_host=www.home.arpa
+netbox     ansible_host=netbox1.home.arpa
+
+[yunohost_servers]
+ynh2       ansible_host=ynh2.home.arpa   ansible_user=root
+
+[debian]
+#netbox     ansible_host=netbox1.home.arpa
+#mw2        ansible_host=www.home.arpa
+venus       ansible_host=venus.home.arpa
+titan2      ansible_host=titan2.home.arpa ansible_user=will
+zeus       ansible_host=zeus.home.arpa ansible_user=will 
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3

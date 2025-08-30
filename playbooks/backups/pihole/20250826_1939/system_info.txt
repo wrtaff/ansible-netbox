@@ -1,0 +1,31 @@
+=== SYSTEM INFO ===
+Linux rpi2 5.10.103-v7+ #1529 SMP Tue Mar 8 12:21:37 GMT 2022 armv7l GNU/Linux
+
+=== OS RELEASE ===
+PRETTY_NAME="Raspbian GNU/Linux 10 (buster)"
+NAME="Raspbian GNU/Linux"
+VERSION_ID="10"
+VERSION="10 (buster)"
+VERSION_CODENAME=buster
+ID=raspbian
+ID_LIKE=debian
+HOME_URL="http://www.raspbian.org/"
+SUPPORT_URL="http://www.raspbian.org/RaspbianForums"
+BUG_REPORT_URL="http://www.raspbian.org/RaspbianBugs"
+
+=== MEMORY INFO ===
+              total        used        free      shared  buff/cache   available
+Mem:          923Mi       223Mi        33Mi        16Mi       667Mi       629Mi
+Swap:          99Mi        85Mi        14Mi
+
+=== DISK INFO ===
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/root        59G  6.4G   50G  12% /
+devtmpfs        430M     0  430M   0% /dev
+tmpfs           462M   11M  452M   3% /dev/shm
+tmpfs           462M   47M  416M  11% /run
+tmpfs           5.0M  4.0K  5.0M   1% /run/lock
+tmpfs           462M     0  462M   0% /sys/fs/cgroup
+/dev/mmcblk0p1  253M   49M  204M  20% /boot
+tmpfs            93M     0   93M   0% /run/user/999
+tmpfs            93M     0   93M   0% /run/user/1000

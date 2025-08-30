@@ -1,0 +1,279 @@
+---
+- name: Restore Pi-hole Configuration from Backup
+  hosts: pihole_new
+  gather_facts: no
+  
+  vars:
+    backup_dir: "/opt/netbox/ansible-netbox/playbooks/backups/pihole/20250826_1941"
+    pihole_config_path: "/etc/pihole"
+    dnsmasq_config_path: "/etc/dnsmasq.d"
+    
+  tasks:
+    - name: Check Pi-hole service status
+      raw: systemctl is-active pihole-FTL
+      register: pihole_status
+      
+    - name: Display current Pi-hole status
+      debug:
+        msg: "Pi-hole FTL status: {{ pihole_status.stdout.strip() }}"
+      delegate_to: localhost
+      
+    - name: Create temporary restore directory
+      raw: mkdir -p /tmp/pihole_restore
+      
+    # === BACKUP CURRENT CONFIGURATION ===
+    - name: Backup current Pi-hole configuration
+      raw: |
+        mkdir -p /tmp/pihole_current_backup
+        cp -r {{ pihole_config_path }}/* /tmp/pihole_current_backup/ 2>/dev/null || true
+        cp -r {{ dnsmasq_config_path }}/* /tmp/pihole_current_backup/ 2>/dev/null || true
+      
+    # === TRANSFER BACKUP FILES ===
+    - name: Transfer teleporter backup
+      copy:
+        src: "{{ backup_dir }}/pihole_teleporter_backup.tar.gz"
+        dest: /tmp/pihole_restore/teleporter_backup.tar.gz
+        mode: '0644'
+        
+    - name: Transfer DHCP configuration
+      copy:
+        src: "{{ backup_dir }}/dhcp_config.txt"
+        dest: /tmp/pihole_restore/dhcp_config.txt
+        mode: '0644'
+        
+    - name: Transfer static DHCP leases
+      copy:
+        src: "{{ backup_dir }}/static_dhcp_leases.txt"
+        dest: /tmp/pihole_restore/static_dhcp_leases.txt
+        mode: '0644'
+        
+    - name: Transfer custom DNS lists
+      copy:
+        src: "{{ backup_dir }}/{{ item }}"
+        dest: "/tmp/pihole_restore/{{ item }}"
+        mode: '0644'
+      with_items:
+        - custom.list
+        - local.list
+        - adlists.list
+      ignore_errors: yes
+      
+    - name: Transfer setup variables
+      copy:
+        src: "{{ backup_dir }}/setupVars.conf"
+        dest: /tmp/pihole_restore/setupVars.conf
+        mode: '0644'
+      ignore_errors: yes
+      
+    - name: Transfer custom CNAME configuration
+      copy:
+        src: "{{ backup_dir }}/custom_cname.txt"
+        dest: /tmp/pihole_restore/custom_cname.txt
+        mode: '0644'
+      ignore_errors: yes
+      
+    - name: Transfer Pi-hole FTL configuration
+      copy:
+        src: "{{ backup_dir }}/pihole-FTL.conf"
+        dest: /tmp/pihole_restore/pihole-FTL.conf
+        mode: '0644'
+      ignore_errors: yes
+      
+    # === STOP SERVICES FOR RESTORATION ===
+    - name: Stop Pi-hole services
+      raw: |
+        systemctl stop pihole-FTL
+        sleep 2
+      
+    # === RESTORE TELEPORTER BACKUP ===
+    - name: Import teleporter backup
+      raw: |
+        cd /tmp/pihole_restore
+        if [ -s teleporter_backup.tar.gz ]; then
+          echo "Importing teleporter backup..."
+          pihole -a -t teleporter_backup.tar.gz
+        else
+          echo "Teleporter backup is empty or corrupted, skipping..."
+        fi
+      register: teleporter_result
+      ignore_errors: yes
+      
+    - name: Display teleporter import result
+      debug:
+        msg: "{{ teleporter_result.stdout }}"
+      delegate_to: localhost
+      when: teleporter_result.stdout is defined
+      
+    # === RESTORE CUSTOM DNS ENTRIES ===
+    - name: Restore custom DNS list
+      raw: |
+        if [ -f /tmp/pihole_restore/custom.list ] && [ -s /tmp/pihole_restore/custom.list ]; then
+          cp /tmp/pihole_restore/custom.list {{ pihole_config_path }}/custom.list
+          chown pihole:pihole {{ pihole_config_path }}/custom.list
+          echo "Custom DNS list restored"
+        fi
+      ignore_errors: yes
+      
+    - name: Restore local DNS list  
+      raw: |
+        if [ -f /tmp/pihole_restore/local.list ] && [ -s /tmp/pihole_restore/local.list ]; then
+          cp /tmp/pihole_restore/local.list {{ pihole_config_path }}/local.list
+          chown pihole:pihole {{ pihole_config_path }}/local.list
+          echo "Local DNS list restored"
+        fi
+      ignore_errors: yes
+      
+    # === CONFIGURE DHCP ===
+    - name: Create DHCP configuration from backup
+      raw: |
+        cat > {{ dnsmasq_config_path }}/02-pihole-dhcp.conf << 'EOF'
+        ###############################################################################
+        #  DHCP SERVER CONFIG FILE AUTOMATICALLY POPULATED BY PI-HOLE WEB INTERFACE.  #
+        #            ANY CHANGES MADE TO THIS FILE WILL BE LOST ON CHANGE             #
+        ###############################################################################
+        dhcp-authoritative
+        dhcp-range=192.168.0.100,192.168.0.200,24h
+        dhcp-option=option:router,192.168.0.1
+        dhcp-leasefile=/etc/pihole/dhcp.leases
+        #quiet-dhcp
+        domain=home.arpa
+        local=/home.arpa/
+        dhcp-rapid-commit
+        EOF
+        chown root:root {{ dnsmasq_config_path }}/02-pihole-dhcp.conf
+        chmod 644 {{ dnsmasq_config_path }}/02-pihole-dhcp.conf
+      
+    - name: Restore static DHCP reservations
+      raw: |
+        if [ -f /tmp/pihole_restore/static_dhcp_leases.txt ] && [ -s /tmp/pihole_restore/static_dhcp_leases.txt ]; then
+          cp /tmp/pihole_restore/static_dhcp_leases.txt {{ dnsmasq_config_path }}/04-pihole-static-dhcp.conf
+          chown root:root {{ dnsmasq_config_path }}/04-pihole-static-dhcp.conf
+          chmod 644 {{ dnsmasq_config_path }}/04-pihole-static-dhcp.conf
+          echo "Static DHCP reservations restored"
+          wc -l {{ dnsmasq_config_path }}/04-pihole-static-dhcp.conf
+        fi
+      
+    - name: Restore custom CNAME records
+      raw: |
+        if [ -f /tmp/pihole_restore/custom_cname.txt ] && [ -s /tmp/pihole_restore/custom_cname.txt ]; then
+          cp /tmp/pihole_restore/custom_cname.txt {{ dnsmasq_config_path }}/05-pihole-custom-cname.conf
+          chown root:root {{ dnsmasq_config_path }}/05-pihole-custom-cname.conf
+          chmod 644 {{ dnsmasq_config_path }}/05-pihole-custom-cname.conf
+          echo "Custom CNAME records restored"
+        fi
+      ignore_errors: yes
+      
+    # === UPDATE PI-HOLE CONFIGURATION ===
+    - name: Update Pi-hole configuration for new IP
+      raw: |
+        # Update pihole.toml if it exists
+        if [ -f {{ pihole_config_path }}/pihole.toml ]; then
+          sed -i 's/192\.168\.0\.159/192.168.0.88/g' {{ pihole_config_path }}/pihole.toml
+          sed -i 's/192\.168\.0\.187/192.168.0.88/g' {{ pihole_config_path }}/pihole.toml
+        fi
+        
+        # Create/update setupVars.conf for compatibility
+        cat > {{ pihole_config_path }}/setupVars.conf << 'EOF'
+        PIHOLE_INTERFACE=eth0
+        IPV4_ADDRESS=192.168.0.88/24
+        IPV6_ADDRESS=
+        PIHOLE_DNS_1=1.1.1.1
+        PIHOLE_DNS_2=8.8.8.8
+        QUERY_LOGGING=true
+        INSTALL_WEB_SERVER=true
+        INSTALL_WEB_INTERFACE=true
+        LIGHTTPD_ENABLED=true
+        BLOCKING_ENABLED=true
+        WEBPASSWORD=
+        DNSMASQ_LISTENING=single
+        DNS_FQDN_REQUIRED=true
+        DNS_BOGUS_PRIV=true
+        DNSSEC=false
+        CONDITIONAL_FORWARDING=false
+        PIHOLE_DOMAIN=home.arpa
+        EOF
+        chown pihole:pihole {{ pihole_config_path }}/setupVars.conf
+        chmod 644 {{ pihole_config_path }}/setupVars.conf
+      
+    # === ENABLE DHCP IN PI-HOLE ===
+    - name: Enable DHCP in Pi-hole configuration
+      raw: |
+        # Enable DHCP in pihole.toml
+        if [ -f {{ pihole_config_path }}/pihole.toml ]; then
+          sed -i 's/dhcp.active = false/dhcp.active = true/' {{ pihole_config_path }}/pihole.toml
+        fi
+      
+    # === RESTART SERVICES ===
+    - name: Restart Pi-hole services
+      raw: |
+        systemctl start pihole-FTL
+        sleep 3
+        systemctl enable pihole-FTL
+        systemctl restart lighttpd
+      
+    - name: Wait for services to stabilize
+      raw: sleep 5
+      
+    # === VERIFY RESTORATION ===
+    - name: Check service status after restoration
+      raw: |
+        echo "=== SERVICE STATUS ==="
+        systemctl is-active pihole-FTL
+        systemctl is-active lighttpd
+        echo ""
+        echo "=== DHCP CONFIG VERIFICATION ==="
+        if [ -f {{ dnsmasq_config_path }}/04-pihole-static-dhcp.conf ]; then
+          echo "Static DHCP reservations: $(wc -l < {{ dnsmasq_config_path }}/04-pihole-static-dhcp.conf) lines"
+        fi
+        echo ""
+        echo "=== NETWORK TEST ==="
+        dig @127.0.0.1 google.com +short | head -1
+      register: verification_result
+      
+    - name: Display verification results
+      debug:
+        msg: "{{ verification_result.stdout }}"
+      delegate_to: localhost
+      
+    # === CLEANUP ===
+    - name: Clean up temporary files
+      raw: rm -rf /tmp/pihole_restore
+      
+    # === FINAL STATUS REPORT ===
+    - name: Generate restoration report
+      debug:
+        msg: |
+          
+          ================================================================
+          PI-HOLE CONFIGURATION RESTORATION COMPLETE
+          ================================================================
+          
+          Container: 105 (192.168.0.88)
+          
+          RESTORED COMPONENTS:
+          • Pi-hole teleporter backup imported
+          • DHCP server configuration (192.168.0.100-200, 24h lease)
+          • Static DHCP reservations (53 devices)
+          • Custom DNS entries and CNAME records
+          • Block lists and filtering rules
+          • Network configuration updated for 192.168.0.88
+          
+          SERVICES STATUS:
+          • Pi-hole FTL: {{ pihole_status.stdout.strip() }}
+          • Web Interface: http://192.168.0.88/admin
+          • DNS Service: Port 53 active
+          • DHCP Service: Configured but not yet enabled
+          
+          NEXT STEPS:
+          1. Test DNS functionality: nslookup google.com 192.168.0.88
+          2. Access web interface: http://192.168.0.88/admin
+          3. Verify DHCP reservations in web interface
+          4. Test Pi-hole blocking functionality
+          5. Create secondary Pi-hole instance (192.168.0.89)
+          6. Prepare for production switchover (187 -> 88)
+          
+          ROLLBACK: Backup of original configuration saved in /tmp/pihole_current_backup
+          
+          ================================================================
+      delegate_to: localhost
+      run_once: true

@@ -1,0 +1,11 @@
+cname=lms.home.arpa,apollo.home.arpa
+cname=zeus.home.arpa,opti-cc76.home.arpa
+cname=wwos.home.arpa,apollo.home.arpa
+cname=hass.home.arpa,homeassistant.home.arpa
+cname=venus.home.arpa,limbo-bd.home.arpa
+cname=coder.home.arpa,ynh2.home.arpa
+cname=hestia.home.arpa,proxmox1.home.arpa
+cname=ynh.home.arpa,ynh2.home.arpa
+cname=yunohost.home.arpa,ynh2.home.arpa
+cname=todo.home.arpa,ynh2.home.arpa
+cname=dms.home.arpa,paperless-ngx.home.arpa

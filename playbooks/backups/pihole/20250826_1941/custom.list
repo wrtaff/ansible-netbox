@@ -1,0 +1,16 @@
+192.168.0.1 pfsense
+192.168.0.99 apollo
+192.168.0.187 pihole
+192.168.0.99 piwigo
+192.168.0.99 trac
+192.168.0.95 proxmox1
+192.168.0.150 ynh2.van-bee.ts.net
+192.168.0.179 www.home.arpa
+192.168.0.11 wazuh
+100.83.119.74 tandoor.van-bee.ts.net
+192.168.0.158 tandoor
+192.168.0.140 zig.home.arpa
+192.168.0.190 pve2
+192.168.0.104 graylog
+192.168.0.189 n8n
+192.168.0.25 gmailctl-ansible

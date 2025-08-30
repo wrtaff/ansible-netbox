@@ -1,0 +1,65 @@
+================================================================
+Pi-hole COMPLETE BACKUP INVENTORY
+================================================================
+
+Backup Created: 20250826_1941
+Source Host: 192.168.0.187 (rpi2)
+Pi-hole Version:   Pi-hole version is v5.14.2 (Latest: v6.1.4)
+Backup Location: ./backups/pihole/20250826_1941/
+
+================================================================
+CRITICAL FILES BACKED UP:
+================================================================
+
+🔑 ESSENTIAL FILES:
+✅ pihole_teleporter_backup.tar.gz - COMPLETE Pi-hole export (MOST IMPORTANT)
+✅ setupVars.conf - Pi-hole setup variables and passwords
+
+🌐 DNS CONFIGURATION:
+✅ custom.list - Custom DNS entries
+✅ local.list - Local DNS entries  
+✅ 01-pihole.conf - Main dnsmasq configuration
+✅ custom_cname.txt - Custom CNAME records
+
+📡 DHCP CONFIGURATION:
+✅ dhcp_config.txt - DHCP server settings (02-pihole-dhcp.conf)
+✅ static_dhcp_leases.txt - Static DHCP reservations (04-pihole-static-dhcp.conf)
+✅ dhcp.leases - Current active DHCP leases
+
+🚫 BLOCKING CONFIGURATION:
+✅ adlists.list - Block list sources
+
+⚙️ SYSTEM CONFIGURATION:
+✅ pihole-FTL.conf - FTL daemon configuration
+✅ pihole_version.txt - Version information
+✅ system_info.txt - System details
+✅ network_info.txt - Network interface configuration
+
+================================================================
+MIGRATION NOTES:
+================================================================
+
+🎯 TO RESTORE ON NEW SYSTEM:
+1. Use pihole_teleporter_backup.tar.gz for complete settings restore
+2. Apply DHCP configuration from dhcp_config.txt and static_dhcp_leases.txt
+3. Verify custom DNS entries from custom.list and local.list
+4. Check CNAME records from custom_cname.txt
+
+⚠️  IMPORTANT:
+- Live databases excluded to prevent corruption
+- Teleporter backup contains all Pi-hole settings
+- DHCP reservations preserved for IP address transition
+- All custom configurations backed up individually
+
+================================================================
+NEXT STEPS:
+================================================================
+
+1. ✅ Backup completed successfully
+2. 🚀 Create new Pi-hole containers on Proxmox (192.168.0.188, 192.168.0.189)
+3. 📋 Restore configuration using teleporter backup
+4. 🔄 Configure DHCP with preserved settings
+5. 🧪 Test DNS/DHCP functionality before switching
+6. 🔀 Execute coordinated IP switchover (187 → 188)
+
+================================================================

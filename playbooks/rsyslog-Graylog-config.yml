@@ -1,0 +1,56 @@
+---
+- name: Configure rsyslog to send logs to Graylog
+  hosts: all # You can change this to a specific group of hosts from your inventory
+  become: yes # This tells Ansible to use sudo to run the tasks
+
+  # --- Variables ---
+  # Define your Graylog server details here to easily manage them.
+  vars:
+    graylog_server_ip: 192.168.0.104 # <-- IMPORTANT: Change this to your Graylog server's IP address
+    graylog_port: 1514
+    # Use '@' for UDP (default, less reliable) or '@@' for TCP (more reliable)
+    graylog_protocol: "@"
+
+  # --- Tasks ---
+  # The sequence of operations Ansible will perform on each host.
+  tasks:
+    - name: Ensure rsyslog is installed
+      ansible.builtin.apt:
+        name: rsyslog
+        state: present
+        update_cache: yes # Good practice to run 'apt update' before installing
+
+    - name: Ensure the rsyslog.d directory exists
+      ansible.builtin.file:
+        path: /etc/rsyslog.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Create rsyslog configuration file for Graylog
+      ansible.builtin.copy:
+        # The destination path for the new configuration file.
+        dest: /etc/rsyslog.d/90-graylog.conf
+        # The content of the configuration file. It uses the variables defined above.
+        # This line configures rsyslog to forward all logs (*.*) to your Graylog server.
+        content: "*.* {{ graylog_protocol }}{{ graylog_server_ip }}:{{ graylog_port }}\n"
+        owner: root
+        group: root
+        mode: '0644'
+      # This 'notify' keyword triggers the handler below, but only if this task makes a change.
+      notify:
+        - Restart rsyslog
+
+  # --- Handlers ---
+  # Handlers are special tasks that only run when notified by another task.
+  # This is the best practice for restarting services.
+  handlers:
+    - name: Restart rsyslog
+      # The 'listen' keyword connects this handler to the 'notify' call above.
+      listen: "Restart rsyslog"
+      # Using the generic 'service' module for better compatibility across different Linux versions.
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted
+

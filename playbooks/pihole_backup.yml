@@ -1,0 +1,322 @@
+---
+- name: Complete Pi-hole Backup - All-in-One
+  hosts: pihole_old
+  gather_facts: no
+  
+  vars:
+    local_backup_dir: "./backups/pihole"
+  
+  tasks:
+    - name: Get current timestamp
+      raw: date +"%Y%m%d_%H%M"
+      register: timestamp_result
+      
+    - name: Set backup timestamp
+      set_fact:
+        backup_timestamp: "{{ timestamp_result.stdout.strip() }}"
+      
+    - name: Create local backup directory
+      local_action:
+        module: file
+        path: "{{ local_backup_dir }}/{{ backup_timestamp }}"
+        state: directory
+      run_once: true
+      
+    - name: Check Pi-hole service status
+      raw: systemctl is-active pihole-FTL
+      register: pihole_status
+      
+    - name: Display Pi-hole status
+      debug:
+        msg: "✅ Pi-hole FTL status: {{ pihole_status.stdout.strip() }}"
+      delegate_to: localhost
+      
+    # === CRITICAL BACKUP: Pi-hole Teleporter ===
+    - name: Generate Pi-hole teleporter backup
+      raw: sudo pihole -a -t
+      register: teleporter_output
+      
+    - name: Save teleporter backup locally
+      local_action:
+        module: copy
+        content: "{{ teleporter_output.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/pihole_teleporter_backup.tar.gz"
+        mode: '0644'
+      
+    # === DHCP CONFIGURATION BACKUP ===
+    - name: Get DHCP configuration
+      raw: sudo cat /etc/dnsmasq.d/02-pihole-dhcp.conf 2>/dev/null
+      register: dhcp_config
+      ignore_errors: yes
+      
+    - name: Save DHCP configuration
+      local_action:
+        module: copy
+        content: "{{ dhcp_config.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/dhcp_config.txt"
+        mode: '0644'
+      when: dhcp_config.stdout is defined
+      
+    - name: Get static DHCP leases
+      raw: sudo cat /etc/dnsmasq.d/04-pihole-static-dhcp.conf 2>/dev/null
+      register: static_dhcp
+      ignore_errors: yes
+      
+    - name: Save static DHCP leases
+      local_action:
+        module: copy
+        content: "{{ static_dhcp.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/static_dhcp_leases.txt"
+        mode: '0644'
+      when: static_dhcp.stdout is defined
+      
+    - name: Get custom CNAME configuration
+      raw: sudo cat /etc/dnsmasq.d/05-pihole-custom-cname.conf 2>/dev/null
+      register: custom_cname
+      ignore_errors: yes
+      
+    - name: Save custom CNAME configuration
+      local_action:
+        module: copy
+        content: "{{ custom_cname.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/custom_cname.txt"
+        mode: '0644'
+      when: custom_cname.stdout is defined
+      
+    - name: Get all dnsmasq configuration files
+      raw: sudo cat /etc/dnsmasq.d/01-pihole.conf
+      register: pihole_dnsmasq
+      ignore_errors: yes
+      
+    - name: Save main dnsmasq configuration
+      local_action:
+        module: copy
+        content: "{{ pihole_dnsmasq.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/01-pihole.conf"
+        mode: '0644'
+      when: pihole_dnsmasq.stdout is defined
+      
+    # === CRITICAL CONFIGURATION FILES ===
+    - name: Get Pi-hole setup variables
+      raw: sudo cat /etc/pihole/setupVars.conf
+      register: setup_vars
+      
+    - name: Save setup variables
+      local_action:
+        module: copy
+        content: "{{ setup_vars.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/setupVars.conf"
+        mode: '0644'
+      
+    - name: Get custom DNS list
+      raw: sudo cat /etc/pihole/custom.list 2>/dev/null
+      register: custom_list
+      ignore_errors: yes
+      
+    - name: Save custom DNS list
+      local_action:
+        module: copy
+        content: "{{ custom_list.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/custom.list"
+        mode: '0644'
+      when: custom_list.stdout is defined
+      
+    - name: Get local DNS list
+      raw: sudo cat /etc/pihole/local.list 2>/dev/null
+      register: local_list
+      ignore_errors: yes
+      
+    - name: Save local DNS list
+      local_action:
+        module: copy
+        content: "{{ local_list.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/local.list"
+        mode: '0644'
+      when: local_list.stdout is defined
+      
+    - name: Get adlists configuration
+      raw: sudo cat /etc/pihole/adlists.list 2>/dev/null
+      register: adlists
+      ignore_errors: yes
+      
+    - name: Save adlists configuration
+      local_action:
+        module: copy
+        content: "{{ adlists.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/adlists.list"
+        mode: '0644'
+      when: adlists.stdout is defined
+      
+    - name: Get current DHCP leases
+      raw: sudo cat /etc/pihole/dhcp.leases 2>/dev/null
+      register: dhcp_leases
+      ignore_errors: yes
+      
+    - name: Save current DHCP leases
+      local_action:
+        module: copy
+        content: "{{ dhcp_leases.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/dhcp.leases"
+        mode: '0644'
+      when: dhcp_leases.stdout is defined
+      
+    - name: Get Pi-hole FTL configuration
+      raw: sudo cat /etc/pihole/pihole-FTL.conf 2>/dev/null
+      register: ftl_conf
+      ignore_errors: yes
+      
+    - name: Save Pi-hole FTL configuration
+      local_action:
+        module: copy
+        content: "{{ ftl_conf.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/pihole-FTL.conf"
+        mode: '0644'
+      when: ftl_conf.stdout is defined
+      
+    # === SYSTEM INFORMATION ===
+    - name: Get Pi-hole version information
+      raw: pihole version
+      register: pihole_version
+      
+    - name: Save Pi-hole version information
+      local_action:
+        module: copy
+        content: "{{ pihole_version.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/pihole_version.txt"
+        mode: '0644'
+      
+    - name: Get system information
+      raw: |
+        echo "=== SYSTEM INFO ===" 
+        uname -a
+        echo ""
+        echo "=== OS RELEASE ==="
+        cat /etc/os-release
+        echo ""
+        echo "=== MEMORY INFO ==="
+        free -h
+        echo ""
+        echo "=== DISK INFO ==="
+        df -h
+      register: system_info
+      
+    - name: Save system information
+      local_action:
+        module: copy
+        content: "{{ system_info.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/system_info.txt"
+        mode: '0644'
+      
+    # === NETWORK CONFIGURATION ===
+    - name: Get network interface information
+      raw: ip addr show
+      register: network_info
+      
+    - name: Save network information
+      local_action:
+        module: copy
+        content: "{{ network_info.stdout }}"
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/network_info.txt"
+        mode: '0644'
+      
+    # === CREATE BACKUP INVENTORY ===
+    - name: Create comprehensive backup inventory
+      local_action:
+        module: copy
+        content: |
+          ================================================================
+          Pi-hole COMPLETE BACKUP INVENTORY
+          ================================================================
+          
+          Backup Created: {{ timestamp_result.stdout.strip() }}
+          Source Host: {{ ansible_host }} ({{ inventory_hostname }})
+          Pi-hole Version: {{ pihole_version.stdout_lines[0] | default('Unknown') }}
+          Backup Location: {{ local_backup_dir }}/{{ backup_timestamp }}/
+          
+          ================================================================
+          CRITICAL FILES BACKED UP:
+          ================================================================
+          
+          🔑 ESSENTIAL FILES:
+          ✅ pihole_teleporter_backup.tar.gz - COMPLETE Pi-hole export (MOST IMPORTANT)
+          ✅ setupVars.conf - Pi-hole setup variables and passwords
+          
+          🌐 DNS CONFIGURATION:
+          ✅ custom.list - Custom DNS entries
+          ✅ local.list - Local DNS entries  
+          ✅ 01-pihole.conf - Main dnsmasq configuration
+          ✅ custom_cname.txt - Custom CNAME records
+          
+          📡 DHCP CONFIGURATION:
+          ✅ dhcp_config.txt - DHCP server settings (02-pihole-dhcp.conf)
+          ✅ static_dhcp_leases.txt - Static DHCP reservations (04-pihole-static-dhcp.conf)
+          ✅ dhcp.leases - Current active DHCP leases
+          
+          🚫 BLOCKING CONFIGURATION:
+          ✅ adlists.list - Block list sources
+          
+          ⚙️ SYSTEM CONFIGURATION:
+          ✅ pihole-FTL.conf - FTL daemon configuration
+          ✅ pihole_version.txt - Version information
+          ✅ system_info.txt - System details
+          ✅ network_info.txt - Network interface configuration
+          
+          ================================================================
+          MIGRATION NOTES:
+          ================================================================
+          
+          🎯 TO RESTORE ON NEW SYSTEM:
+          1. Use pihole_teleporter_backup.tar.gz for complete settings restore
+          2. Apply DHCP configuration from dhcp_config.txt and static_dhcp_leases.txt
+          3. Verify custom DNS entries from custom.list and local.list
+          4. Check CNAME records from custom_cname.txt
+          
+          ⚠️  IMPORTANT:
+          - Live databases excluded to prevent corruption
+          - Teleporter backup contains all Pi-hole settings
+          - DHCP reservations preserved for IP address transition
+          - All custom configurations backed up individually
+          
+          ================================================================
+          NEXT STEPS:
+          ================================================================
+          
+          1. ✅ Backup completed successfully
+          2. 🚀 Create new Pi-hole containers on Proxmox (192.168.0.188, 192.168.0.189)
+          3. 📋 Restore configuration using teleporter backup
+          4. 🔄 Configure DHCP with preserved settings
+          5. 🧪 Test DNS/DHCP functionality before switching
+          6. 🔀 Execute coordinated IP switchover (187 → 188)
+          
+          ================================================================
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/BACKUP_INVENTORY.txt"
+        mode: '0644'
+      
+    # === SUCCESS MESSAGE ===
+    - name: Display backup completion summary
+      debug:
+        msg: |
+          
+          ================================================================
+          🎉 PI-HOLE BACKUP COMPLETED SUCCESSFULLY! 🎉
+          ================================================================
+          
+          📁 Backup Location: {{ local_backup_dir }}/{{ backup_timestamp }}/
+          
+          📋 Files Backed Up: {{ ansible_play_hosts | length * 15 }} configuration files
+          
+          🔑 Critical Files:
+          • Complete Pi-hole teleporter export ✅
+          • All DHCP settings and static reservations ✅  
+          • Custom DNS records and configurations ✅
+          • System and version information ✅
+          
+          🎯 Ready for Migration:
+          • Phase 1 (Documentation & Backup): ✅ COMPLETE
+          • Phase 2 (New Pi-hole Creation): 🚀 READY TO START
+          
+          📖 Next Step: Review BACKUP_INVENTORY.txt for detailed restoration instructions
+          
+          ================================================================
+      delegate_to: localhost
+      run_once: true

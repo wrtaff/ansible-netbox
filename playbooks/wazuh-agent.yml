@@ -3,11 +3,10 @@
 #I think it might have come from Wazuh site. 
 #
 #
-- hosts: <WAZUH_AGENT_IP_ADDRESS>
+- hosts: wazuh_agents
   become: yes
-  become_user: root
   roles:
-    - ../roles/wazuh/ansible-wazuh-agent
+    - ../roles/wazuh-ansible
   vars:
     wazuh_managers:
       - address: 192.168.0.11
@@ -18,3 +17,4 @@
         api_user: wazuh
         max_retries: 5
         retry_interval: 5
+
