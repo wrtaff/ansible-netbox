@@ -1,13 +1,22 @@
 #This ansible playbook installs wazuh  agent. 
-#A smarter man would have written down where it came from. 
-#I think it might have come from Wazuh site. 
+# http://trac.home.arpa/ticket/2440
+# "Ansible playbook for Wazuh Deployment 'wazuh-agent.yml' needs action"
+# LATEST: 2025-08-30
+# I started with this from wzuh doc site
+# but then tuned with gemini
 #
 #
 - hosts: wazuh_agents
   become: yes
+
+
   roles:
-    - ../roles/wazuh-ansible
+    - ansible-wazuh-agent # Corrected role name
   vars:
+    wazuh_agent_config:
+      repo:
+        apt: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
+
     wazuh_managers:
       - address: 192.168.0.11
         port: 1514
@@ -17,4 +26,5 @@
         api_user: wazuh
         max_retries: 5
         retry_interval: 5
-
+    wazuh_agent_authd:
+      enable: true
