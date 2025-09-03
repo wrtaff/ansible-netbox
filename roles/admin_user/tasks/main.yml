@@ -1,0 +1,16 @@
+# roles/admin_user/tasks/main.yml
+---
+- name: Ensure the 'will' admin user exists
+  ansible.builtin.user:
+    name: will
+    state: present
+    shell: /bin/bash
+    groups: sudo
+    append: yes
+    create_home: yes
+
+- name: Authorize SSH key for the 'will' user
+  ansible.posix.authorized_key:
+    user: will
+    state: present
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"

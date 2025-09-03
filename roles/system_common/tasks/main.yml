@@ -1,0 +1,25 @@
+# roles/system_common/tasks/main.yml
+---
+- name: Update apt package cache and upgrade all packages
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+    cache_valid_time: 3600
+
+- name: Set system timezone from group_vars
+  become: yes
+  community.general.timezone:
+    name: "{{ system_timezone }}"
+
+- name: Set vim.tiny as the default system editor
+  community.general.alternatives:
+    name: editor
+    path: /usr/bin/vim.tiny
+
+- name: Enable vim showmode for all users
+  become: yes
+  ansible.builtin.lineinfile:
+    path: /etc/vim/vimrc.local
+    line: "set showmode"
+    create: yes
+    mode: '0644'

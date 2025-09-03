@@ -1,0 +1,54 @@
+---
+- name: Install Go Language
+  hosts: all
+  become: true
+  vars:
+    go_version: "1.22.5"
+    go_arch: "amd64"
+    go_download_url: "https://go.dev/dl/go{{ go_version }}.linux-{{ go_arch }}.tar.gz"
+    go_install_dir: "/usr/local"
+    go_binary_path: "{{ go_install_dir }}/go/bin/go"
+
+  tasks:
+    - name: Check if desired Go version is already installed
+      command: "{{ go_binary_path }} version"
+      register: go_version_check
+      changed_when: false
+      failed_when: false # Don't fail if the command doesn't exist
+
+    - name: Set installed_version fact
+      set_fact:
+        is_correct_version_installed: "{{ go_version_check.rc == 0 and go_version in go_version_check.stdout }}"
+
+    - name: Debug | Display version check status
+      debug:
+        msg: "Correct version of Go is installed: {{ is_correct_version_installed }}"
+
+    - name: Install dependencies
+      apt:
+        name: wget
+        state: present
+      when: not is_correct_version_installed
+
+    - name: Remove previous Go installation if it exists
+      file:
+        path: "{{ go_install_dir }}/go"
+        state: absent
+      when: not is_correct_version_installed
+
+    - name: Download and unarchive Go
+      unarchive:
+        src: "{{ go_download_url }}"
+        dest: "{{ go_install_dir }}"
+        remote_src: yes
+        mode: '0755'
+        owner: 'root'
+        group: 'root'
+      when: not is_correct_version_installed
+
+    - name: Set up Go PATH environment variable for all users
+      copy:
+        content: 'export PATH=$PATH:{{ go_install_dir }}/go/bin'
+        dest: /etc/profile.d/go.sh
+        mode: '0644'
+

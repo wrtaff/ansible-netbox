@@ -1,0 +1,8 @@
+# system_standards.yml
+---
+- name: Apply baseline configuration to new servers
+  hosts: servers
+  become: yes
+  roles:
+    - admin_user
+    - system_common
