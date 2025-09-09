@@ -1,0 +1,107 @@
+---
+- name: Bootstrap Configuration Repository and Git
+  hosts: all
+  become: yes
+  vars:
+    # --- User and Git settings ---
+    git_user_name: "wrtaff"
+    git_user_email: "wrtaff@gmail.com"
+    git_default_editor: "vim" # Or nano, code, etc.
+
+    # --- Source control settings ---
+    repo_url: "git@github.com:wrtaff/config-repo.git"
+    repo_dest_path: "/opt/config-repo"
+
+    # --- SSH key settings ---
+    ssh_key_src_path: "../files/github_rw_deploy_key"
+    ssh_key_dest_path: "/root/.ssh/id_ed25519_github_deploy"
+
+  tasks:
+    - name: Ensure git is installed
+      ansible.builtin.package:
+        name: git
+        state: present
+
+    # ------------------------------------------------------------------
+    # NEW TASKS: Set global Git configuration for the root user
+    # We use the community.general.git_config module for idempotency.
+    # ------------------------------------------------------------------
+    - name: Set git user name globally
+      community.general.git_config:
+        name: user.name
+        scope: global
+        value: "{{ git_user_name }}"
+      tags:
+        - git-config
+
+    - name: Set git user email globally
+      community.general.git_config:
+        name: user.email
+        scope: global
+        value: "{{ git_user_email }}"
+      tags:
+        - git-config
+
+    - name: Set default git editor
+      community.general.git_config:
+        name: core.editor
+        scope: global
+        value: "{{ git_default_editor }}"
+      tags:
+        - git-config
+
+    - name: Set default branch name for new repos to 'main'
+      community.general.git_config:
+        name: init.defaultBranch
+        scope: global
+        value: main
+      tags:
+        - git-config
+    # ------------------------------------------------------------------
+
+    - name: Ensure .ssh directory exists with correct permissions
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        mode: '0700'
+
+    - name: Deploy the encrypted private SSH key
+      ansible.builtin.copy:
+        src: "{{ ssh_key_src_path }}"
+        dest: "{{ ssh_key_dest_path }}"
+        mode: '0600'
+
+    - name: Clone or update the configuration repository via SSH
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_dest_path }}"
+        key_file: "{{ ssh_key_dest_path }}"
+        accept_hostkey: yes
+        clone: yes
+        update: yes
+        force: yes
+      tags:
+        - git
+
+    - name: Create machine-specific etc directory in the repo
+      ansible.builtin.file:
+        path: "{{ repo_dest_path }}/{{ ansible_hostname }}/etc"
+        state: directory
+        mode: '0755'
+      tags:
+        - directories
+
+# --- MANUAL STEP REQUIRED ---
+# You must uncomment and customize tasks like this to copy specific files.
+# Ansible cannot know which configuration files are important to you. if you
+# ever get around to it, anyway. You might always want to have fstab, for example.
+#
+# - name: Example - Copy fstab into the repo
+#   ansible.builtin.copy:
+#     src: /etc/fstab
+#     dest: "{{ repo_dest_path }}/{{ ansible_hostname }}/etc/fstab"
+#     remote_src: yes
+#     mode: '0644'
+#     owner: root
+#     group: root
+

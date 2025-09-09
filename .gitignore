@@ -33,3 +33,4 @@ id_dsa.pub
 # Any other sensitive files
 secrets.yml
 credentials.json
+files/github_rw_deploy_key

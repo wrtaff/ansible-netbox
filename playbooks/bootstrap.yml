@@ -1,39 +1,48 @@
 ---
+# Play 1: Bootstrap the node as the root user
+# This play connects as root to install sudo and Python, which are
+# prerequisites for Ansible's more advanced modules.
 - hosts: debian
   gather_facts: no
   become: no
+  remote_user: root # <-- Connect directly as root for this play
+
+  tasks:
+    - name: 1. Run apt-get update
+      ansible.builtin.raw: apt-get update -y
+      changed_when: false
+
+    - name: 2. Install sudo and python3
+      ansible.builtin.raw: apt-get install -y sudo python3
+      changed_when: false
+
+# Play 2: Configure the standard admin user
+# This play assumes the bootstrap is complete. It connects as your default
+# user (or 'will' if specified in inventory) and uses 'become' (sudo)
+# for all privileged tasks, which is the standard best practice.
+- hosts: debian
+  gather_facts: yes # <-- Gather facts now that python is installed
+  become: yes      # <-- Use sudo for all tasks in this play
 
   vars:
     admin_user: will
 
   tasks:
-    - name: 1. Run apt-get update using raw command
-      ansible.builtin.raw: apt-get update -y
-      changed_when: false
-      failed_when: false
-
-    - name: 2. Install sudo and python3 using raw command
-      ansible.builtin.raw: apt-get install -y sudo python3
-      changed_when: false
-
-    - name: 3. Gather facts now that python is installed
-      ansible.builtin.setup:
-
-    - name: 4. Create the '{{ admin_user }}' admin user
+    - name: 1. Create the '{{ admin_user }}' admin user
       ansible.builtin.user:
         name: "{{ admin_user }}"
         state: present
         shell: /bin/bash
         create_home: yes
 
-    - name: 5. Grant the admin user passwordless sudo privileges
+    - name: 2. Grant the admin user passwordless sudo privileges
       ansible.builtin.copy:
         dest: "/etc/sudoers.d/{{ admin_user }}"
         content: "{{ admin_user }} ALL=(ALL) NOPASSWD: ALL"
         mode: '0440'
         validate: 'visudo -cf %s'
 
-    - name: 6. Deploy SSH key for the admin user
+    - name: 3. Deploy SSH key for the admin user
       ansible.posix.authorized_key:
         user: "{{ admin_user }}"
         state: present
