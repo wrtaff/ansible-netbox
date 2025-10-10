@@ -7,6 +7,8 @@ include
 lib
 lib64
 
+#because these get big and break shit
+backups/
 
 
 # Ansible Vault files

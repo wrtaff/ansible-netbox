@@ -6,7 +6,7 @@
     # --- User and Git settings ---
     git_user_name: "wrtaff"
     git_user_email: "wrtaff@gmail.com"
-    git_default_editor: "vim" # Or nano, code, etc.
+    git_default_editor: "vim"
 
     # --- Source control settings ---
     repo_url: "git@github.com:wrtaff/config-repo.git"
@@ -22,10 +22,6 @@
         name: git
         state: present
 
-    # ------------------------------------------------------------------
-    # NEW TASKS: Set global Git configuration for the root user
-    # We use the community.general.git_config module for idempotency.
-    # ------------------------------------------------------------------
     - name: Set git user name globally
       community.general.git_config:
         name: user.name
@@ -57,7 +53,16 @@
         value: main
       tags:
         - git-config
-    # ------------------------------------------------------------------
+
+    # --- NEW TASK ADDED ---
+    # Sets the default pull strategy to rebase, avoiding merge commits for a cleaner history.
+    - name: Set default pull strategy to rebase
+      community.general.git_config:
+        name: pull.rebase
+        scope: global
+        value: true
+      tags:
+        - git-config
 
     - name: Ensure .ssh directory exists with correct permissions
       ansible.builtin.file:
@@ -71,11 +76,25 @@
         dest: "{{ ssh_key_dest_path }}"
         mode: '0600'
 
+    - name: Configure SSH client to use the correct deploy key for GitHub
+      ansible.builtin.blockinfile:
+        path: /root/.ssh/config
+        create: yes
+        mode: '0600'
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR GITHUB DEPLOY KEY"
+        block: |
+          Host github.com
+            HostName github.com
+            User git
+            IdentityFile {{ ssh_key_dest_path }}
+            IdentitiesOnly yes
+      tags:
+        - git
+
     - name: Clone or update the configuration repository via SSH
       ansible.builtin.git:
         repo: "{{ repo_url }}"
         dest: "{{ repo_dest_path }}"
-        key_file: "{{ ssh_key_dest_path }}"
         accept_hostkey: yes
         clone: yes
         update: yes

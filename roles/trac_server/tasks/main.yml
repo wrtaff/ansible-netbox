@@ -1,0 +1,63 @@
+# roles/trac_server/tasks/main.yml (FINAL SQLite Version)
+---
+- name: 1. Install System Dependencies
+  apt:
+    name: [python3-pip, apache2, libapache2-mod-wsgi-py3, sqlite3]
+    state: present
+    update_cache: yes
+
+- name: 2. Install Latest Trac via pip
+  pip:
+    name: Trac
+    executable: pip3
+    extra_args: --break-system-packages
+
+- name: 3. Copy the final backup tarball to the remote host
+  copy:
+    src: ../../backups/final_trac_backup.tar.gz # <-- Make sure this filename is correct
+    dest: /tmp/trac_backup.tar.gz
+
+- name: 4. Unarchive the backup to create the Trac environment
+  unarchive:
+    src: /tmp/trac_backup.tar.gz
+    dest: /var/trac/
+    remote_src: yes
+
+- name: 5. Copy the htpasswd file
+  copy:
+    src: /var/trac/trac_bak_TEMP/.htpasswd
+    dest: /etc/apache2/.htpasswd
+    remote_src: yes
+
+- name: 6. Update trac.ini to point to the new SQLite database
+  ini_file:
+    path: /var/trac/trac_bak_TEMP/conf/trac.ini
+    section: trac
+    option: database
+    value: sqlite:db/trac.db
+    backup: yes
+
+- name: 7. Run Trac Environment Upgrade
+  command: trac-admin /var/trac/trac_bak_TEMP upgrade --no-backup
+  changed_when: true
+
+- name: 8. Run Trac Wiki Upgrade
+  command: trac-admin /var/trac/trac_bak_TEMP wiki upgrade
+  changed_when: true
+
+- name: 9. Deploy WSGI Script
+  template:
+    src: trac.wsgi.j2
+    dest: /var/trac/trac.wsgi
+    owner: www-data
+
+- name: 10. Deploy Apache Config
+  template:
+    src: trac-apache.conf.j2
+    dest: /etc/apache2/sites-available/trac.conf
+
+- name: 11. Enable new Apache site and modules
+  shell: a2ensite trac.conf && a2enmod wsgi
+  args:
+    creates: /etc/apache2/sites-enabled/trac.conf
+  notify: Restart Apache

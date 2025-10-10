@@ -1,0 +1,20 @@
+# trac-apache.conf.j2
+<VirtualHost *:80>
+    ServerName trac.home.arpa
+    ServerAlias 192.168.0.144
+
+
+    WSGIScriptAlias / /var/trac/trac.wsgi
+
+    <Directory /var/trac>
+        WSGIApplicationGroup %{GLOBAL}
+        Require all granted
+    </Directory>
+
+    <Location "/login">
+        AuthType Basic
+        AuthName "Trac"
+        AuthUserFile /etc/apache2/.htpasswd
+        Require valid-user
+    </Location>
+</VirtualHost>

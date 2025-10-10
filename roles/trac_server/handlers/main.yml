@@ -1,0 +1,6 @@
+---
+# handlers file for trac_server
+- name: Restart Apache
+  systemd:
+    name: apache2
+    state: restarted

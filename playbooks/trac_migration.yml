@@ -1,0 +1,6 @@
+---
+- hosts: trac_new
+  become: true
+  roles:
+    - role: trac_server
+

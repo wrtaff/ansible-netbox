@@ -1,0 +1,55 @@
+---
+- name: Configure NUT Server
+  hosts: all
+  become: yes
+  vars:
+    # A unique name for the UPS connected to this host
+    nut_ups_name: "zeusups"
+
+    # A new user for Home Assistant to monitor this server
+    ha_monitor_user: "ha_mon"
+    ha_monitor_pass: "a_new_password"
+
+  tasks:
+    - name: Ensure full NUT package is installed (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: nut # Installs the server components, not just nut-client
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Configure NUT mode to be a network server
+      ansible.builtin.lineinfile:
+        path: /etc/nut/nut.conf
+        regexp: '^MODE='
+        line: MODE=netserver
+
+    - name: Define the local UPS in ups.conf
+      ansible.builtin.blockinfile:
+        path: /etc/nut/ups.conf
+        block: |
+          [{{ nut_ups_name }}]
+              driver = usbhid-ups
+              port = auto
+              desc = "APC BR700G"
+
+    - name: Configure upsd to listen for network connections
+      ansible.builtin.lineinfile:
+        path: /etc/nut/upsd.conf
+        line: "LISTEN 0.0.0.0"
+        insertafter: EOF
+
+    - name: Create a user for Home Assistant to monitor with
+      ansible.builtin.blockinfile:
+        path: /etc/nut/upsd.users
+        block: |
+          [{{ ha_monitor_user }}]
+              password = {{ ha_monitor_pass }}
+              actions = SET
+              instcmds = ALL
+              upsmon slave
+
+    - name: Ensure nut-server service is started and enabled
+      ansible.builtin.service:
+        name: nut-server
+        state: restarted # Use restarted to apply all new configs
+        enabled: yes
