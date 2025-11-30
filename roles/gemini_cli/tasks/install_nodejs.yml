@@ -1,0 +1,29 @@
+---
+#
+# FILENAME:    tasks/install_nodejs.yml
+# DATE:        2025-11-26
+# VERSION:     1.0
+#
+# PURPOSE:
+#   Installs Node.js (version 20+) and NPM on Debian-based systems.
+#   This is a required prerequisite for the Gemini CLI.
+#
+
+- name: Add NodeSource PPA key
+  ansible.builtin.apt_key:
+    url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
+    state: present
+  become: true
+
+- name: Add NodeSource repository for Node.js 20.x
+  ansible.builtin.apt_repository:
+    repo: "deb https://deb.nodesource.com/node_20.x {{ ansible_distribution_release }} main"
+    state: present
+    update_cache: true
+  become: true
+
+- name: Install Node.js and NPM
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+  become: true

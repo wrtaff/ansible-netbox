@@ -1,0 +1,27 @@
+---
+#
+# FILENAME:    install_gemini_controller.yml
+# DATE:        2025-11-26
+# VERSION:     1.1
+#
+# PURPOSE:
+#   Installs the Gemini CLI platform on the Ansible controller (localhost).
+#   This uses the existing 'gemini_cli' role logic for consistency.
+#
+# DEPENDENCIES / PREREQUISITES:
+#   - Role 'gemini_cli' must exist at /opt/netbox/ansible-netbox/roles/gemini_cli.
+#   - Ansible must have permission to use 'become: true' on localhost.
+#
+
+- name: Install Gemini CLI Platform on Ansible Controller
+  hosts: localhost
+  gather_facts: true  # <--- CHANGED: Required to determine OS release (e.g. 'bookworm')
+  become: true        # Required to write to /usr/local/bin and install pkgs
+
+  # Override the user variable to ensure configuration is placed in root's home
+  # directory, or a specific user's home directory if you prefer.
+  vars:
+    gemini_cli_config_user: 'root' # Using 'root' since you are running as root@netbox1
+
+  roles:
+    - role: gemini_cli

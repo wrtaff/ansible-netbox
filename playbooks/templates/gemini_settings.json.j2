@@ -1,0 +1,18 @@
+{#
+# FILENAME:    gemini_settings.json.j2
+# DATE:        2025-11-26
+# VERSION:     1.0
+#
+# PURPOSE:
+#   Jinja2 template for the Gemini CLI configuration file (settings.json).
+#   It securely injects the API key retrieved from Ansible Vault.
+#
+# DEPENDENCIES / PREREQUISITES:
+#   - Ansible variable 'gemini_api_key' must be defined (via vault.yml).
+#   - User '{{ gemini_cli_config_user }}' must exist on the target host.
+#}
+{
+  "apiKey": "{{ gemini_api_key }}",
+  "defaultModel": "gemini-2.5-flash",
+  "interactive": true
+}

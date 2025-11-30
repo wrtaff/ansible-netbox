@@ -1,0 +1,17 @@
+#
+# FILENAME:    install_gemini.yml
+# PURPOSE:     Provisions desktops with the Gemini CLI using the 'gemini_cli' role.
+#
+
+- name: Install Google Gemini CLI
+  hosts: desktops        # Targets your newly renamed [desktops] group
+  gather_facts: true     # Required for the role to detect OS version
+  become: true           # Required to install Node.js and global NPM packages
+  vars_files: [../vault.yml]
+
+  roles:
+    - role: gemini_cli
+      # The role defaults to user 'will'. If 'venus' uses a different user,
+      # uncomment the next line and change it:
+      # vars:
+      #   gemini_cli_config_user: 'your_username'

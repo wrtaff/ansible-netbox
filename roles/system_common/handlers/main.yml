@@ -1,0 +1,7 @@
+---
+# handlers file for system_common
+
+- name: Restart cron
+  ansible.builtin.service:
+    name: cron
+    state: restarted

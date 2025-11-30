@@ -1,0 +1,19 @@
+---
+# FILENAME:    meta/main.yml
+# ... (rest of the header)
+
+galaxy_info:
+  author: Your Name/Team
+  description: Installs the Google Gemini CLI binary on Debian-based systems.
+  license: MIT
+  min_ansible_version: "2.10"
+
+  platforms:
+    - name: Debian
+      versions:
+        - all
+
+  galaxy_tags:
+    - cli
+    - google
+    - ai

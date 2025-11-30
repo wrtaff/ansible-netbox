@@ -1,0 +1,45 @@
+---
+- name: Configure Trac Backup
+  hosts: trac-lxc
+  become: yes  # Ensure all tasks run as root
+
+  tasks:
+    - name: Ensure backup SSH private key is in place
+      ansible.builtin.copy:
+        content: "{{ trac_backup_private_key }}"  # <-- This is your vault variable
+        dest: /root/.ssh/id_trac_backup
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true # Prevents the secret from leaking to logs
+
+    - name: Ensure SSH config uses the correct key for TrueNAS
+      ansible.builtin.blockinfile:
+        path: /root/.ssh/config
+        create: true
+        owner: root
+        group: root
+        mode: '0600'
+        block: |
+          Host truenas.home.arpa
+            IdentityFile /root/.ssh/id_trac_backup
+            User will
+
+    - name: Deploy Trac backup script
+      ansible.builtin.copy:
+        # 'src' assumes your script is in a 'files' dir in your ansible project
+        # e.g., /opt/netbox/ansible-netbox/files/backup_trac.sh
+        src: ../files/backup_trac.sh
+        dest: /usr/local/bin/backup_trac.sh
+        owner: root
+        group: root
+        mode: '0750' # Make it executable
+
+    - name: Schedule daily Trac backup
+      ansible.builtin.cron:
+        name: "Daily Trac Backup"
+        user: root
+        minute: "30"
+        hour: "2" # Runs at 2:30 AM
+        job: "/usr/local/bin/backup_trac.sh > /var/log/trac_backup.log 2>&1"
+        cron_file: ansible_trac_backup # Creates /etc/cron.d/ansible_trac_backup

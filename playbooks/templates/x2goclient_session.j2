@@ -1,0 +1,27 @@
+[General]
+name={{ item.name }}
+host={{ item.host }}
+user={{ item.user }}
+key={{ item.keyfile }}
+usekey={{ 'true' if item.usekey else 'false' }}
+autologin={{ 'true' if item.autologin else 'false' }}
+command=XFCE
+speed=2
+quality=9
+pack=16m-jpeg
+fullscreen=false
+width=800
+height=600
+dpi=141
+setkbd=true
+kbd_type=auto
+kbd_layout=us
+clipboard=both
+sound=true
+soundsystem=pulse
+soundtunnel=true
+soundport=4713
+print=true
+root=/home/{{ target_user if item.user else 'user' }}/
+sshport=22
+useproxy=false

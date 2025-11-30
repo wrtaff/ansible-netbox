@@ -1,0 +1,74 @@
+---
+- name: Provision Core Users and Groups
+  hosts: all
+  become: yes
+  vars:
+    # Define the 'family' group state
+    group_name: family
+    group_gid: 1004 # Taken from the script's 'family' user UID
+
+    # Define list of users to create
+    user_accounts:
+      - name: will
+        uid: 1000
+        home: yes
+        groups: [ 'family' ]
+      - name: jen
+        uid: 1001
+        home: yes
+        groups: [ 'family' ]
+      - name: henry
+        uid: 1002
+        home: yes
+        groups: [ 'family' ]
+      - name: walter
+        uid: 1003
+        home: yes
+        groups: [ 'family' ]
+      - name: guest
+        uid: 1006
+        home: yes
+        groups: [] # No secondary groups
+      - name: media
+        uid: 1007
+        home: no   # From script's useradd -M
+        system: yes # Mark as system account
+        groups: []
+      - name: jennifertaff
+        uid: 501
+        home: no   # From script's useradd -M
+        groups: [ 'family' ]
+      
+      # === NEW USER REQUEST ===
+      - name: rhett
+        uid: 1010
+        home: yes  # Assumed new family user needs a home dir
+        groups: [ 'family' ]
+
+  tasks:
+    - name: Ensure 'family' group exists
+      ansible.builtin.group:
+        name: "{{ group_name }}"
+        gid: "{{ group_gid }}"
+        state: present
+
+    - name: Create all user accounts
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        uid: "{{ item.uid }}"
+        comment: "" # From script's --gecos ""
+        password: "!" # Disables password login (rely on SSH keys)
+        state: present
+        create_home: "{{ item.home | default('yes') }}"
+        system: "{{ item.system | default('no') }}"
+        groups: "{{ item.groups | join(',') }}"
+      loop: "{{ user_accounts }}"
+      loop_control:
+        label: "{{ item.name }}" 
+
+    - name: Show next steps
+      ansible.builtin.debug:
+        msg:
+          - "User accounts created or verified."
+          - "Password login is disabled for all users."
+          - "RECOMMENDATION: Use a separate Ansible role (e.g., using ansible.posix.authorized_key) to deploy SSH keys for logins."

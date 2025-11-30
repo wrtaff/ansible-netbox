@@ -1,0 +1,22 @@
+section: screens
+	{{ barrier_server_host }}:
+		halfDuplexCapsLock = false
+		halfDuplexNumLock = false
+	{{ barrier_client_host }}:
+		halfDuplexCapsLock = false
+		halfDuplexNumLock = false
+end
+
+section: links
+	{{ barrier_server_host }}:
+		# Assumes client is to the right of the server.
+		# You can change 'right' to 'left', 'up', or 'down'.
+		right = {{ barrier_client_host }}
+	{{ barrier_client_host }}:
+		left = {{ barrier_server_host }}
+end
+
+section: options
+	clipboardSharing = true
+	screenSaverSync = true
+end

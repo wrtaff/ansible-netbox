@@ -1,0 +1,11 @@
+section: screens
+	{{ barrier_client_host }}:
+		halfDuplexCapsLock = false
+		halfDuplexNumLock = false
+end
+
+section: options
+	clientName = {{ barrier_client_host }}
+	# Connect to the FQDN of the server from inventory
+	serverHost = {{ hostvars[barrier_server_host]['ansible_host'] }}
+end

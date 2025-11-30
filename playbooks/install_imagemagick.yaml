@@ -1,0 +1,58 @@
+---
+# Version: Q4-2025 Automation Script
+# This playbook is intended for **Workstation** installation and configuration.
+# It installs necessary prerequisites (ImageMagick and Ghostscript)
+# and updates the ImageMagick policy file to allow PDF conversion,
+# which fixes the 'security policy PDF' error.
+
+# This playbook assumes the target host is running a Debian/Ubuntu-based system,
+# but uses the 'package' module to handle different distributions gracefully.
+
+- name: Configure Workstation for PDF Conversion (ImageMagick Policy Fix)
+  hosts: all  # Replace 'all' with your specific workstation group (e.g., 'workstations')
+  become: yes # Required to install packages and modify files in /etc/
+
+  tasks:
+    - name: 01. Install core system prerequisites (ImageMagick and Ghostscript)
+      # Using the 'package' module ensures compatibility across different distributions.
+      # Ghostscript is mandatory for ImageMagick's PDF support.
+      ansible.builtin.package:
+        name:
+          - imagemagick # Explicitly installing ImageMagick
+          - ghostscript
+        state: present
+        update_cache: yes
+      register: install_result
+      ignore_errors: yes
+
+    - name: 02. Locate and set the path for the policy.xml file
+      # Use the 'shell' module to reliably find the versioned ImageMagick policy file path
+      # (e.g., /etc/ImageMagick-6/policy.xml or /etc/ImageMagick-7/policy.xml).
+      ansible.builtin.shell:
+        cmd: "find /etc -maxdepth 3 -type f -name policy.xml | grep 'ImageMagick' | head -n 1"
+      register: policy_file_find
+      changed_when: false # This task is only reading data
+      failed_when: policy_file_find.stdout == "" # Explicitly fail if no path is returned
+
+    - name: 03. Set the discovered policy file path as a fact
+      ansible.builtin.set_fact:
+        imagemagick_policy_path: "{{ policy_file_find.stdout | trim }}"
+      # The failure check is now handled in Task 02 with 'failed_when'
+
+    - name: 04. Update ImageMagick policy to allow PDF reading and writing
+      # The 'lineinfile' module is idempotent and only replaces the matching line.
+      # It changes 'rights="none"' to 'rights="read|write"'.
+      ansible.builtin.lineinfile:
+        path: "{{ imagemagick_policy_path }}"
+        regexp: '(<policy domain="coder" rights="none" pattern="PDF" />)'
+        line: '<policy domain="coder" rights="read|write" pattern="PDF" />'
+        state: present
+      register: policy_update_status
+
+    - name: 05. Report the result of the policy update
+      ansible.builtin.debug:
+        msg: |
+          ImageMagick policy file updated successfully at {{ imagemagick_policy_path }}
+          Change Made: {{ policy_update_status.changed }}
+          (If 'false', the policy was already correct.)
+      when: policy_update_status.changed or policy_update_status.rc == 0

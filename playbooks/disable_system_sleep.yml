@@ -1,0 +1,47 @@
+---
+# ==============================================================================
+# Playbook: disable_system_sleep.yml
+# Purpose:  Configure systemd-logind to permanently prevent the target host from
+#           entering system-wide suspend, hibernate, or hybrid-sleep states.
+# Target:   Workstations intended to be "always-on" devices (e.g., venus.home.arpa).
+# Platform: Debian 12 (Bookworm) and other modern systemd-based distributions.
+# ==============================================================================
+
+- name: Configure systemd-logind to prevent all system sleep states
+  hosts: desktops  # Targeting the 'desktops' inventory group
+  become: yes
+  tasks:
+
+    - name: Ensure correct settings are in /etc/systemd/logind.conf
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/logind.conf
+        regexp: '^{{ item.regexp_prefix }}'
+        line: '{{ item.line_content }}'
+        state: present
+        # Create file if it doesn't exist
+        create: yes
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        # Prevent actions when the power button is pressed
+        - { regexp_prefix: '#?HandlePowerKey', line_content: 'HandlePowerKey=ignore' }
+        # Prevent actions when the sleep button is pressed
+        - { regexp_prefix: '#?HandleSuspendKey', line_content: 'HandleSuspendKey=ignore' }
+        # Prevent actions when the hibernate button is pressed
+        - { regexp_prefix: '#?HandleHibernateKey', line_content: 'HandleHibernateKey=ignore' }
+        # Prevent system from suspending on idle timeout
+        - { regexp_prefix: '#?IdleAction', line_content: 'IdleAction=none' }
+        # Handle the lid switch (important for some chassis)
+        - { regexp_prefix: '#?HandleLidSwitch', line_content: 'HandleLidSwitch=ignore' }
+        # Explicitly ignore common suspend/hibernate actions if they were set globally
+        - { regexp_prefix: '#?HandleSuspend', line_content: 'HandleSuspend.Inhibit=no' }
+        - { regexp_prefix: '#?HandleHibernate', line_content: 'HandleHibernate.Inhibit=no' }
+      notify:
+        - Restart systemd-logind
+
+  handlers:
+    - name: Restart systemd-logind
+      ansible.builtin.service:
+        name: systemd-logind
+        state: restarted

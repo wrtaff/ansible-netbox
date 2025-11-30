@@ -1,0 +1,16 @@
+---
+# FILENAME:    defaults/main.yml
+# PURPOSE:     Default variables for the Gemini CLI role
+
+# The user under which the CLI configuration will be stored.
+gemini_cli_config_user: 'will'
+
+# Flag to control Node.js installation
+gemini_cli_install_nodejs: true
+
+# NPM package name
+gemini_cli_npm_package: '@google/gemini-cli'
+
+# API Key Default (Static string to prevent recursion error)
+# This will be overridden by your Vault.
+gemini_api_key: "UNSET_KEY"

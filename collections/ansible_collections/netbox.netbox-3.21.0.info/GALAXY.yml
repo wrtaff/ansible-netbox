@@ -1,0 +1,8 @@
+download_url: https://galaxy.ansible.com/api/v3/plugin/ansible/content/published/collections/artifacts/netbox-netbox-3.21.0.tar.gz
+format_version: 1.0.0
+name: netbox
+namespace: netbox
+server: https://galaxy.ansible.com/api/
+signatures: []
+version: 3.21.0
+version_url: /api/v3/plugin/ansible/content/published/collections/index/netbox/netbox/versions/3.21.0/

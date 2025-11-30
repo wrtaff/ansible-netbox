@@ -1,0 +1,51 @@
+---
+#
+# FILENAME:    configure_gemini_service.yml
+# DATE:        2025-11-26
+# VERSION:     1.0
+#
+# PURPOSE:
+#   Deploys and configures the Gemini CLI service by securely distributing
+#   the API key from Ansible Vault. This completes the "Service Configuration"
+#   child ticket (Phase 4).
+#
+# DEPENDENCIES / PREREQUISITES:
+#   - Role 'gemini_cli' must have been run successfully (Platform Configuration).
+#   - Requires Ansible Vault password at runtime (using --ask-vault-pass).
+#   - Template 'gemini_settings.json.j2' must be available in the templates directory.
+#
+
+- name: Phase 4 - Deploy and Configure Gemini CLI Service
+  hosts: workstations
+  gather_facts: false
+  become: false # Configuration is written to a user's home directory, no root needed.
+
+  # Note: The 'gemini_cli_config_user' variable is loaded from the role's defaults
+  # and used here, demonstrating role reusability.
+
+  tasks:
+    - name: 1. Deploy secret configuration file (settings.json)
+      # Uses the 'template' module to render the Jinja2 file with the secret.
+      # The template is sourced from /opt/netbox/ansible-netbox/playbooks/templates.
+      ansible.builtin.template:
+        src: gemini_settings.json.j2
+        dest: "/home/{{ gemini_cli_config_user }}/.gemini/settings.json"
+        owner: "{{ gemini_cli_config_user }}"
+        group: "{{ gemini_cli_config_user }}"
+        mode: '0600' # Strict permissions to protect the API key
+      tags: configure_secrets
+
+    - name: 2. Final Service Validation (Testing the API Connection)
+      # This task ensures the CLI is configured and can communicate with the API.
+      # We run this as the user 'will' to use their configuration file.
+      ansible.builtin.command:
+        cmd: "/usr/local/bin/gemini say 'Hello, world!'"
+      become: true # Temporarily elevate to run as the target user
+      become_user: "{{ gemini_cli_config_user }}"
+      register: gemini_test_output
+      changed_when: false
+      tags: validate_service
+
+    - name: Report Service Validation Result
+      ansible.builtin.debug:
+        msg: "Gemini CLI successfully responded. Test output: {{ gemini_test_output.stdout }}"

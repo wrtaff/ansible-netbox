@@ -1,0 +1,60 @@
+# Filename: deploy_trac_vik_servlet_helper.yml
+#
+# Description:
+# This Ansible playbook deploys the Python "Vikunja Helper Servlet"
+# as a systemd service on the 'gmailctl-ansible' host.
+#
+# This servlet listens for POST requests from the Trac bookmarklet
+# and executes a curl command to create a Vikunja task.
+#
+# Dependencies:
+#   On Control Node (where you run `ansible-playbook`):
+#     - Ansible
+#     - `local_vikunja_server.py` (in `files/` at project root)
+#     - `vikunja-helper.service.j2` (in `playbooks/templates/`)
+#
+#   On Target Host (gmailctl-ansible):
+#     - Python 3 (installed by this playbook)
+#     - systemd (assumed, as it's targeted by the playbook)
+#
+---
+- name: Deploy Vikunja Helper Servlet
+  hosts: gmailctl-ansible
+  vars:
+    app_dir: "/opt/vikunja-helper"
+    service_name: "vikunja-helper"
+
+  tasks:
+    - name: Ensure Python 3 is installed
+      ansible.builtin.package:
+        name: python3
+        state: present
+      # Assuming a Debian/Ubuntu-based LXC. 
+      # Change to 'dnf' or 'yum' if it's RHEL/CentOS/Fedora.
+
+    - name: Create application directory
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy Vikunja helper script
+      ansible.builtin.copy:
+        src: ../files/local_vikunja_server.py # <-- UPDATED: Uses the root 'files' dir
+        dest: "{{ app_dir }}/local_vikunja_server.py"
+        mode: '0755'
+
+    - name: Create systemd service file
+      ansible.builtin.template:
+        src: vikunja-helper.service.j2 # <-- UPDATED: Finds this in 'playbooks/templates/'
+        dest: "/etc/systemd/system/{{ service_name }}.service"
+        mode: '0644'
+      notify: Reload and restart service
+
+  handlers:
+    - name: Reload and restart service
+      ansible.builtin.systemd:
+        name: "{{ service_name }}"
+        state: restarted
+        enabled: yes
+        daemon_reload: yes

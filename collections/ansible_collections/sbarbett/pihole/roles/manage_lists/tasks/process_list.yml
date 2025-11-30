@@ -1,0 +1,37 @@
+---
+- name: Process list on Pi-hole instance
+  block:
+    - name: Manage allow list
+      ansible.builtin.debug:
+        msg: "Processing allow list {{ list_item.address }} on {{ pihole_instance.name }}"
+
+    - name: Manage allow list
+      sbarbett.pihole.allow_list:
+        address: "{{ list_item.address }}"
+        state: "{{ list_item.state }}"
+        comment: "{{ list_item.comment | default(omit) }}"
+        groups: "{{ list_item.groups | default([]) }}"
+        enabled: "{{ list_item.enabled | default(true) }}"
+        url: "{{ pihole_instance.name }}"
+        password: "{{ pihole_instance.password }}"
+      when: list_item.type == "allow"
+
+    - name: Manage block list
+      ansible.builtin.debug:
+        msg: "Processing block list {{ list_item.address }} on {{ pihole_instance.name }}"
+
+    - name: Manage block list
+      sbarbett.pihole.block_list:
+        address: "{{ list_item.address }}"
+        state: "{{ list_item.state }}"
+        comment: "{{ list_item.comment | default(omit) }}"
+        groups: "{{ list_item.groups | default([]) }}"
+        enabled: "{{ list_item.enabled | default(true) }}"
+        url: "{{ pihole_instance.name }}"
+        password: "{{ pihole_instance.password }}"
+      when: list_item.type == "block"
+
+    # - name: Pause for 1 second
+    #   ansible.builtin.command: sleep 1
+    #   changed_when: false
+    #   no_log: true

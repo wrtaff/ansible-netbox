@@ -1,0 +1,34 @@
+{
+ "collection_info": {
+  "namespace": "sbarbett",
+  "name": "pihole",
+  "version": "1.1.1",
+  "authors": [
+   "Shane Barbetta"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "pihole",
+   "dns",
+   "networking"
+  ],
+  "description": "A collection of modules for managing your Pi-hole installation.\n",
+  "license": [
+   "MIT"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/sbarbett/pihole-ansible",
+  "documentation": null,
+  "homepage": null,
+  "issues": null
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "51fbe349c29be085dc0362bc5e3aa0a3f282a5324eca59bbf2ef5012e8414dd5",
+  "format": 1
+ },
+ "format": 1
+}

@@ -1,0 +1,139 @@
+---
+name: All CI related tasks
+
+# Run this workflow every time a new commit pushed to your repository
+on: [push, pull_request]
+
+jobs:
+  linting:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run black
+        uses: psf/black@stable
+
+  unit_testing:
+    runs-on: ubuntu-24.04
+    needs: linting
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13"]
+
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: false
+
+      - name: Install Python packages
+        run: poetry install --no-root
+
+      - name: Build and install collection
+        run: |
+          ansible-galaxy collection build .
+          ansible-galaxy collection install netbox*.tar.gz -p /home/runner/.ansible/collections
+
+      - name: Run Ansible Sanity tests
+        run: poetry run ansible-test sanity -v --requirements --python ${{ matrix.python-version }} --skip-test pep8 plugins/
+        working-directory: /home/runner/.ansible/collections/ansible_collections/netbox/netbox
+
+      - name: Run Ansible Unit tests
+        run: poetry run ansible-test units -vvv --coverage --python ${{ matrix.python-version }}
+        working-directory: /home/runner/.ansible/collections/ansible_collections/netbox/netbox
+
+      - name: Run Ansible Coverage
+        run: poetry run ansible-test coverage report --all --omit "tests/*,hacking/*,docs/*" --show-missing
+        working-directory: /home/runner/.ansible/collections/ansible_collections/netbox/netbox
+
+  integration_testing:
+    runs-on: ubuntu-latest
+    needs: unit_testing
+    env:
+      python-version: "3.13"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:                              
+          - VERSION: "v4.1"
+            NETBOX_DOCKER_VERSION: 3.0.1
+          - VERSION: "v4.2"
+            NETBOX_DOCKER_VERSION: 3.2.1
+          - VERSION: "v4.3"
+            NETBOX_DOCKER_VERSION: 3.3.0
+
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Clone & Start netbox-docker containers - ${{ matrix.VERSION }}
+        run: |
+          cd ..
+          git clone https://github.com/netbox-community/netbox-docker.git
+          cd netbox-docker
+          git checkout ${{ matrix.NETBOX_DOCKER_VERSION }}
+          cp $GITHUB_WORKSPACE/tests/netbox-docker/${{ matrix.VERSION }}/docker-compose.override.yml docker-compose.override.yml
+          docker compose up -d --quiet-pull netbox netbox-worker postgres redis redis-cache
+          docker container ls
+          cd ..
+
+      - name: Set up Python ${{ env.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.python-version }}
+
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1.3.4
+        with:
+          virtualenvs-create: false
+
+      - name: Install Python packages
+        run: poetry install --no-root
+
+      - name: Build and install collection
+        run: |
+          ansible-galaxy collection install community.general -p /home/runner/.ansible/collections
+          ansible-galaxy collection build .
+          ansible-galaxy collection install netbox*.tar.gz -p /home/runner/.ansible/collections
+
+      - name: Wait for NetBox to be available
+        run: |
+          docker container ls
+          docker logs netbox-docker-netbox-1
+          timeout 300 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:32768/login/)" != "200" ]]; do echo "waiting for NetBox"; sleep 5; done' || false
+        working-directory: /home/runner/.ansible/collections/ansible_collections/netbox/netbox        
+
+      - name: Pre-populate NetBox
+        run: ./tests/integration/netbox-deploy.py
+        working-directory: /home/runner/.ansible/collections/ansible_collections/netbox/netbox
+
+      - name: Run inventory tests
+        continue-on-error: true
+        run: |
+          ansible-test integration -v --color --coverage --python ${{ env.python-version }} inventory-${{ matrix.VERSION }}
+        working-directory: /home/runner/.ansible/collections/ansible_collections/netbox/netbox
+
+      - name: Run regression tests        
+        continue-on-error: true
+        run: |          
+          ansible-test integration -v --color --coverage --python ${{ env.python-version }} regression-${{ matrix.VERSION }}          
+        working-directory: /home/runner/.ansible/collections/ansible_collections/netbox/netbox
+
+      - name: Run integration tests        
+        run: |
+          ansible-test integration -v --color --coverage --python ${{ env.python-version }} ${{ matrix.VERSION }}
+          ansible-test coverage report --all --omit "tests/*,hacking/*,docs/*" --show-missing
+        working-directory: /home/runner/.ansible/collections/ansible_collections/netbox/netbox

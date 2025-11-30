@@ -1,0 +1,57 @@
+---
+- name: Install and Configure Barrier
+  hosts: desktops # Targets titan2 and zeus from your inventory
+  vars:
+    barrier_server_host: "titan2"
+    barrier_client_host: "zeus"
+
+  tasks:
+    - name: Install barrier package
+      become: yes
+      ansible.builtin.apt:
+        name: barrier
+        state: present
+        update_cache: yes
+
+    - name: Define user variables for config path
+      set_fact:
+        barrier_user_id: "{{ ansible_user_id }}"
+        barrier_user_home: "/home/{{ ansible_user_id }}"
+
+    - name: Ensure Barrier config directory exists
+      ansible.builtin.file:
+        path: "{{ barrier_user_home }}/.config/Barrier"
+        state: directory
+        owner: "{{ barrier_user_id }}"
+        group: "{{ barrier_user_id }}"
+        mode: '0755'
+
+    - name: Configure Barrier Server ({{ barrier_server_host }})
+      when: inventory_hostname == barrier_server_host
+      ansible.builtin.template:
+        src: templates/barrier_server.conf.j2
+        dest: "{{ barrier_user_home }}/.config/Barrier/Barrier.conf"
+        owner: "{{ barrier_user_id }}"
+        group: "{{ barrier_user_id }}"
+        mode: '0644'
+      notify: Restart Barrier user service
+
+    - name: Configure Barrier Client ({{ barrier_client_host }})
+      when: inventory_hostname == barrier_client_host
+      ansible.builtin.template:
+        src: templates/barrier_client.conf.j2
+        dest: "{{ barrier_user_home }}/.config/Barrier/Barrier.conf"
+        owner: "{{ barrier_user_id }}"
+        group: "{{ barrier_user_id }}"
+        mode: '0644'
+      notify: Restart Barrier user service
+
+  handlers:
+    - name: Restart Barrier user service
+      ansible.builtin.systemd:
+        name: barrier.service
+        state: restarted
+        enabled: yes
+        scope: user
+      become: no # Handlers for user services must not use 'become'
+      listen: "Restart Barrier user service"

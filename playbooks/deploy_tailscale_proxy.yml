@@ -1,0 +1,46 @@
+---
+- name: Configure and Enable Persistent Tailscale TCP Proxy
+  hosts: ynh2
+  become: true
+
+  tasks:
+    - name: Ensure any manual Tailscale serve TCP proxy on port 443 is stopped
+      ansible.builtin.command: tailscale serve --tcp=443 off
+      # This command will fail if the proxy isn't running, so we ignore errors.
+      # The goal is just to make sure the port is free for our service.
+      failed_when: false
+      changed_when: false
+
+    - name: Create systemd service file for the Tailscale TCP proxy
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/tailscale-yunohost-proxy.service
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Tailscale TCP Proxy for YunoHost
+          After=network-online.target tailscaled.service
+          Wants=network-online.target tailscaled.service
+
+          [Service]
+          Type=simple
+          # This is the command that systemd will run persistently.
+          # We don't use --bg because systemd handles backgrounding.
+          ExecStart=/usr/bin/tailscale serve --tcp 443 127.0.0.1:443
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      # This 'notify' ensures the service is started/restarted ONLY if the file changes.
+      notify:
+        - Enable and start tailscale proxy service
+
+  handlers:
+    # This handler is called by the 'notify' directive above.
+    - name: Enable and start tailscale proxy service
+      ansible.builtin.systemd:
+        name: tailscale-yunohost-proxy.service
+        daemon_reload: true
+        enabled: true
+        state: started

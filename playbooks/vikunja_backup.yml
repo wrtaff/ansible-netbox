@@ -1,0 +1,111 @@
+---
+# ==============================================================================
+# Playbook Name: vikunja_backup.yml
+# Description:   Automates the backup of the Vikunja application on Yunohost.
+#                1. Triggers 'yunohost backup' on ynh2.
+#                2. Compresses and Pulls the backup to the Ansible Controller.
+#                3. Pushes the backup via SCP to TrueNAS storage using a specific key.
+#                4. Cleans up local and remote temporary files.
+#
+# Author:        Will Taff
+# Date Created:  2025-11-04
+# Last Modified: 2025-11-17
+# Version:       1.3 (Pull-Push with Explicit Key)
+#
+# Dependencies:
+#   - SSH Key (/root/.ssh/vikunja_backup_key): Must be authorized on ynh2 and TrueNAS.
+#   - Python dependencies: community.general collection (for archive module).
+#
+# Cron Usage:
+#   5 3 * * * cd /opt/netbox/ansible-netbox && /opt/netbox/ansible-netbox/bin/ansible-playbook playbooks/vikunja_backup.yml -i inventory.ini --limit ynh2 --private-key /root/.ssh/vikunja_backup_key >> /var/log/ansible_vikunja_backup.log 2>&1
+# ==============================================================================
+
+- name: Back up Vikunja on ynh2 and scp to TrueNAS
+  hosts: ynh2
+  gather_facts: no  # Disabling facts speeds up the run and avoids some connection issues
+
+  # --- Define paths ---
+  vars:
+    # Path on ynh2 where yunohost stores backups
+    remote_backup_path: "/home/yunohost.backup/archives"
+    
+    # Temporary path on the ansible controller (netbox1)
+    controller_temp_path: "/tmp"
+
+    # SCP Destination on TrueNAS
+    scp_user: "root"
+    scp_host: "truenas.home.arpa"
+    scp_dest_path: "/mnt/tank22/smb-share/smb-home/Backups/Vikunja/"
+    
+    # SSH Key to use for the SCP transfer (Must match the key used in Cron)
+    ssh_key_path: "/root/.ssh/vikunja_backup_key"
+
+  tasks:
+    # --- Phase 1: Creation on ynh2 ---
+    - name: 1. Create Vikunja backup on ynh2
+      ansible.builtin.shell: "yunohost backup create --apps vikunja"
+      register: backup_result
+      changed_when: "'SUCCESS Backup created' in backup_result.stdout"
+
+    - name: 2. Extract backup name from command output
+      ansible.builtin.set_fact:
+        vikunja_backup_name: "{{ backup_result.stdout | regex_search('SUCCESS Backup created: (\\S+)', '\\1') | first }}"
+      when: backup_result.changed
+
+    - name: 3. Verify backup name was found
+      ansible.builtin.fail:
+        msg: "Could not parse backup name from command output."
+      when: vikunja_backup_name is not defined or vikunja_backup_name == ""
+
+    - name: 4. Compress the backup archive (.tar -> .tar.gz)
+      community.general.archive:
+        path: "{{ remote_backup_path }}/{{ vikunja_backup_name }}.tar"
+        dest: "{{ remote_backup_path }}/{{ vikunja_backup_name }}.tar.gz"
+        format: gz
+        remove: yes # Deletes the original .tar file
+      when: vikunja_backup_name is defined
+
+    # --- Phase 2: Transfer to Controller (Pull) ---
+    - name: 5. Fetch backup files from ynh2 to controller
+      ansible.builtin.fetch:
+        src: "{{ remote_backup_path }}/{{ item }}"
+        dest: "{{ controller_temp_path }}/"
+        flat: yes # Don't create a /host/path/ structure
+      loop:
+        - "{{ vikunja_backup_name }}.tar.gz"
+        - "{{ vikunja_backup_name }}.info.json"
+      when: vikunja_backup_name is defined
+
+    # --- Phase 3: Transfer to TrueNAS (Push) ---
+    - name: 6. Push backup files from controller to TrueNAS
+      # This runs on your controller (netbox1)
+      delegate_to: localhost
+      ansible.builtin.shell: |
+        scp -i "{{ ssh_key_path }}" \
+            "{{ controller_temp_path }}/{{ item }}" \
+            "{{ scp_user }}@{{ scp_host }}:{{ scp_dest_path }}"
+      loop:
+        - "{{ vikunja_backup_name }}.tar.gz"
+        - "{{ vikunja_backup_name }}.info.json"
+      when: vikunja_backup_name is defined
+      changed_when: true
+
+    # --- Phase 4: Cleanup ---
+    - name: 7. Clean up local files from controller
+      delegate_to: localhost
+      ansible.builtin.file:
+        path: "{{ controller_temp_path }}/{{ item }}"
+        state: absent
+      loop:
+        - "{{ vikunja_backup_name }}.tar.gz"
+        - "{{ vikunja_backup_name }}.info.json"
+      when: vikunja_backup_name is defined
+
+    - name: 8. Clean up remote backup files from ynh2
+      ansible.builtin.file:
+        path: "{{ remote_backup_path }}/{{ item }}"
+        state: absent
+      loop:
+        - "{{ vikunja_backup_name }}.tar.gz"
+        - "{{ vikunja_backup_name }}.info.json"
+      when: vikunja_backup_name is defined

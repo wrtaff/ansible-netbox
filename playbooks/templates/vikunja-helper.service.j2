@@ -1,0 +1,14 @@
+[Unit]
+Description=Vikunja Helper Server for Trac
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 {{ app_dir }}/local_vikunja_server.py
+WorkingDirectory={{ app_dir }}
+Restart=always
+# Running as root is simple for an internal LXC,
+# but you could create a dedicated 'vikunja-helper' user
+# and set User=vikunja-helper for better security.
+
+[Install]
+WantedBy=multi-user.target

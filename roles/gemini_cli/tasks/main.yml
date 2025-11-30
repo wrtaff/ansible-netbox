@@ -1,0 +1,32 @@
+---
+# FILENAME:    tasks/main.yml
+# PURPOSE:     Installation logic for Gemini CLI
+
+- name: "PREREQUISITE: Install Node.js (v20+) and NPM"
+  ansible.builtin.include_tasks: install_nodejs.yml
+  when: gemini_cli_install_nodejs | default(true)
+
+- name: 1. Install Gemini CLI Globally via NPM
+  ansible.builtin.npm:
+    name: "{{ gemini_cli_npm_package | default('@google/gemini-cli') }}"
+    global: true
+    state: present
+  tags: install
+
+- name: 2. Configure Gemini API Key (Persistent Env Var)
+  ansible.builtin.lineinfile:
+    path: "/home/{{ gemini_cli_config_user }}/.bashrc"
+    line: 'export GEMINI_API_KEY="{{ gemini_api_key }}"'
+    regexp: '^export GEMINI_API_KEY='
+    create: true
+    owner: "{{ gemini_cli_config_user }}"
+    group: "{{ gemini_cli_config_user }}"
+    mode: '0644'
+  tags: configure
+
+- name: 3. Verify Gemini CLI is installed
+  ansible.builtin.command:
+    cmd: gemini --version
+  register: gemini_version_output
+  changed_when: false
+  tags: verify

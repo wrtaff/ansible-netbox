@@ -1,0 +1,132 @@
+#
+# FILENAME: deploy_x2go_client.yml
+# PURPOSE:  Install x2goclient and configure session profiles in the correct single-file format.
+# VERSION:  2.3
+#
+---
+- name: Deploy and Configure X2Go Client
+  hosts: desktops
+  become: true
+  vars:
+    target_user: will
+    x2go_sessions:
+      - section: "zeus_autologin_will"
+        # 'settings' is now a LIST of key/value dictionaries
+        settings:
+          - { key: "name", value: "Zeus - Auto Login" }
+          - { key: "host", value: "zeus.home.arpa" }
+          - { key: "user", value: "{{ target_user }}" }
+          - { key: "autologin", value: "true" }
+          - { key: "usekey", value: "true" }
+          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_rsa" }
+          - { key: "command", value: "XFCE" }
+          - { key: "speed", value: "2" }
+          - { key: "quality", value: "9" }
+          - { key: "pack", value: "16m-jpeg" }
+          - { key: "width", value: "800" }
+          - { key: "height", value: "600" }
+          - { key: "dpi", value: "141" }
+          - { key: "clipboard", value: "both" }
+          - { key: "sound", value: "true" }
+          - { key: "soundsystem", value: "pulse" }
+          - { key: "soundtunnel", value: "true" }
+          - { key: "print", value: "true" }
+          - { key: "fstunnel", value: "true" }
+
+      - section: "zeus_manual_login"
+        settings:
+          - { key: "name", value: "Zeus - Manual Login" }
+          - { key: "host", value: "zeus.home.arpa" }
+          - { key: "autologin", value: "false" }
+          - { key: "usekey", value: "false" }
+          - { key: "command", value: "XFCE" }
+          - { key: "speed", value: "2" }
+          - { key: "quality", value: "9" }
+          - { key: "pack", value: "16m-jpeg" }
+          - { key: "width", value: "800" }
+          - { key: "height", value: "600" }
+          - { key: "dpi", value: "141" }
+          - { key: "clipboard", value: "both" }
+          - { key: "sound", value: "true" }
+          - { key: "soundsystem", value: "pulse" }
+          - { key: "soundtunnel", value: "true" }
+          - { key: "print", value: "true" }
+          - { key: "fstunnel", value: "true" }
+
+      - section: "venus_autologin_will"
+        settings:
+          - { key: "name", value: "Venus - Auto Login" }
+          - { key: "host", value: "venus.home.arpa" }
+          - { key: "user", value: "{{ target_user }}" }
+          - { key: "autologin", value: "true" }
+          - { key: "usekey", value: "true" }
+          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_rsa" }
+          - { key: "command", value: "XFCE" }
+          - { key: "speed", value: "2" }
+          - { key: "quality", value: "9" }
+          - { key: "pack", value: "16m-jpeg" }
+          - { key: "width", value: "800" }
+          - { key: "height", value: "600" }
+          - { key: "dpi", value: "141" }
+          - { key: "clipboard", value: "both" }
+          - { key: "sound", value: "true" }
+          - { key: "soundsystem", value: "pulse" }
+          - { key: "soundtunnel", value: "true" }
+          - { key: "print", value: "true" }
+          - { key: "fstunnel", value: "true" }
+
+      - section: "venus_manual_login"
+        settings:
+          - { key: "name", value: "Venus - Manual Login" }
+          - { key: "host", value: "venus.home.arpa" }
+          - { key: "autologin", value: "false" }
+          - { key: "usekey", value: "false" }
+          - { key: "command", value: "XFCE" }
+          - { key: "speed", value: "2" }
+          - { key: "quality", value: "9" }
+          - { key: "pack", value: "16m-jpeg" }
+          - { key: "width", value: "800" }
+          - { key: "height", value: "600" }
+          - { key: "dpi", value: "141" }
+          - { key: "clipboard", value: "both" }
+          - { key: "sound", value: "true" }
+          - { key: "soundsystem", value: "pulse" }
+          - { key: "soundtunnel", value: "true" }
+          - { key: "print", value: "true" }
+          - { key: "fstunnel", value: "true" }
+
+  tasks:
+    - name: 1. Install x2go-client package
+      ansible.builtin.apt:
+        name: x2goclient
+        state: present
+        update_cache: true
+
+    - name: 2. Ensure .x2goclient directory exists for user
+      ansible.builtin.file:
+        path: "/home/{{ target_user }}/.x2goclient"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+
+    - name: 3. Ensure the main sessions file exists
+      ansible.builtin.file:
+        path: "/home/{{ target_user }}/.x2goclient/sessions"
+        state: touch
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+
+    - name: 4. Configure all session profiles in the INI file
+      ansible.builtin.ini_file:
+        path: "/home/{{ target_user }}/.x2goclient/sessions"
+        section: "{{ item.0.section }}"
+        option: "{{ item.1.key }}"
+        value: "{{ item.1.value }}"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+      loop: "{{ x2go_sessions | subelements('settings') }}"
+      loop_control:
+        label: "Configuring {{ item.0.section }} -> {{ item.1.key }}"

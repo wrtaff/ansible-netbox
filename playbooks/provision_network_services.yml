@@ -1,0 +1,36 @@
+---
+- name: "Consolidated Playbook: Fetch Device Info from NetBox"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # This is the device name you're provisioning (e.g., 'rpi2')
+    # You will pass this in from the command line:
+    #   --extra-vars "target_device=rpi2"
+    target_device: ""
+
+  tasks:
+    - name: "TASK 1: Fail if target_device is not set"
+      ansible.builtin.fail:
+        msg: "You must specify the device name. e.g. --extra-vars 'target_device=my-new-vm'"
+      when: target_device == ""
+
+    - name: "TASK 2: Fetch device info from NetBox"
+      netbox.netbox.netbox_device:
+        netbox_url: "{{ lookup('env', 'NETBOX_API') }}"
+        netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+        validate_certs: false
+        data:
+          name: "{{ target_device }}"
+      register: device_data
+
+    - name: "TASK 3: Print Device Name and Primary IP ID"
+      ansible.builtin.debug:
+        msg: |
+          --- Successfully fetched device data ---
+          Device Name: {{ device_data.device.name }}
+          Primary IP ID: {{ device_data.device.primary_ip4 }}
+          
+          Next Step:
+          1. Log in to your NetBox UI.
+          2. Go to IPAM > IP Addresses.
+          3. Search for ID #{{ device_data.device.primary_ip4 }} to find the IP and MAC address.
