@@ -1,0 +1,20 @@
+== Playbook: `configure_autofs_client.yml` ==
+
+=== Purpose ===
+This Ansible playbook configures a client machine to use `autofs` for automatically mounting network file shares. It is designed to ensure that specified mounts are available on demand, improving system resource utilization and simplifying share management.
+
+=== Usage ===
+To run this playbook, ensure the target host is defined in your Ansible `inventory.ini` and accessible via SSH. You can execute it using the following command:
+
+<code>
+ansible-playbook playbooks/configure_autofs_client.yml -i inventory.ini --limit &lt;target_host&gt;
+</code>
+
+=== Variables ===
+This playbook may utilize variables defined in `group_vars/all.yml` or `host_vars/<target_host>.yml` for configuring specific mount points, server addresses, and other `autofs` related settings.
+
+=== Configuration Details ===
+*   Installs the `autofs` package.
+*   Configures the main `autofs` configuration files (e.g., `/etc/auto.master`).
+*   Sets up specific mount maps (e.g., `/etc/auto.misc` or custom maps) for network shares.
+*   Ensures the `autofs` service is running and enabled.

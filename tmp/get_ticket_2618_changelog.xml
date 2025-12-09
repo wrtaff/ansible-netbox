@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>ticket.getChangelog</methodName>
+  <params>
+    <param><i4>2618</i4></param>
+  </params>
+</methodCall>

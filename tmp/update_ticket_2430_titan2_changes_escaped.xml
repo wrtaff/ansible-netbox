@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>ticket.update</methodName>
+  <params>
+    <param><i4>2430</i4></param>
+    <param><string>Documenting recent changes and troubleshooting for titan2:&#10;&#10;=== SSH Connectivity Troubleshooting ===&#10;Initial attempts to connect to titan2 via Ansible failed with &quot;Permission denied (publickey,password)&quot;. Investigation revealed:&#10;*   Incorrect public key in `/home/will/.ssh/authorized_keys` on titan2 (it was an old root@netbox1 key).&#10;*   `PubkeyAuthentication yes` and `AuthorizedKeysFile .ssh/authorized_keys` were commented out in `/etc/ssh/sshd_config`.&#10;&#10;Action Taken:&#10;*   Manually uncommented `PubkeyAuthentication yes` and `AuthorizedKeysFile .ssh/authorized_keys` in `/etc/ssh/sshd_config` via direct SSH session.&#10;*   Restarted SSH service (`sudo systemctl restart ssh`).&#10;*   Used Ansible `copy` module (with password-based SSH initially) to replace the content of `/home/will/.ssh/authorized_keys` with the correct `will@titan2` public key.&#10;Result: SSH connectivity was successfully established via public key authentication.&#10;&#10;=== Autofs Client Configuration &amp; Verification ===&#10;After restoring SSH connectivity, the `autofs_client` role (now updated to include NFS configuration) was applied to titan2.&#10;&#10;Action Taken:&#10;*   Ran `ansible-playbook playbooks/configure_autofs_client.yml -i inventory.ini -e &quot;ansible_user=will&quot; --ask-become-pass` on titan2.&#10;*   Ran `ansible-playbook playbooks/verify_autofs_client.yml -i inventory.ini -e &quot;target_host=titan2&quot; -e &quot;ansible_user=will&quot; --ask-become-pass` to verify the mounts.&#10;Result:&#10;*   CIFS mount at `/mnt/smb/share` successfully verified.&#10;*   NFS mount at `/mnt/nfs/will` successfully verified.&#10;&#10;titan2 is now fully configured with autofs for both SMB and NFS shares.</string></param>
+    <param><struct><member><name>author</name><value><string>gemini</string></value></member></struct></param>
+    <param><boolean>1</boolean></param>
+  </params>
+</methodCall>

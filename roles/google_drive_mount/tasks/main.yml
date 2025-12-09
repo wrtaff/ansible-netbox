@@ -1,0 +1,60 @@
+---
+- name: Ensure rclone is installed
+  become: yes
+  apt:
+    name: rclone
+    state: present
+
+- name: Create ~/.config/rclone directory
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.config/rclone"
+    state: directory
+    mode: '0700'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Check if rclone.conf exists
+  ansible.builtin.stat:
+    path: "{{ ansible_user_dir }}/.config/rclone/rclone.conf"
+  register: rclone_conf_stat
+  become: no
+
+- name: Include vault variables
+  include_vars:
+    file: vault.yml
+
+- name: Deploy rclone.conf
+  ansible.builtin.template:
+    src: rclone.conf.j2
+    dest: "{{ ansible_user_dir }}/.config/rclone/rclone.conf"
+    mode: '0600'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  become: no
+  when: not rclone_conf_stat.stat.exists
+
+- name: Create ~/gDrive mount point
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/gDrive"
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Deploy gdrive-rclone system service
+  become: yes
+  ansible.builtin.template:
+    src: gdrive-rclone.service.j2
+    dest: /etc/systemd/system/gdrive-rclone.service
+    mode: '0644'
+    owner: root
+    group: root
+  notify: reload systemd
+
+- name: Start and enable gdrive-rclone.service
+  become: yes
+  ansible.builtin.systemd_service:
+    name: gdrive-rclone.service
+    state: started
+    enabled: yes
+    daemon_reload: yes

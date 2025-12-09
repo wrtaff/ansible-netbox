@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>ticket.update</methodName>
+  <params>
+    <param><int>2823</int></param>
+    <param><string>Identified `/srv` as the primary consumer of disk space (738G). The `/mnt` directory, which contains NFS/CIFS shares, is also taking up 38G.
+
+Next step: Investigate the contents of `/srv` to determine which subdirectories or files are responsible for this usage.
+</string></param>
+    <param>
+      <struct>
+        <member>
+          <name>keywords</name>
+          <value><string>Performance, DiskUsage, Workstation, Maintenance, venus, limbo-bd, srv-investigation</string></value>
+        </member>
+      </struct>
+    </param>
+    <param><int>1</int></param>
+    <param><string>gemini</string></param>
+  </params>
+</methodCall>
