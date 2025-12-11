@@ -1,3 +1,8 @@
+# playbook: provision_users.yml
+# description: This playbook provisions core user accounts and groups across all hosts.
+# prerequisites: None, but SSH keys should be deployed separately for user access.
+# when_run: This playbook should be run whenever new core users need to be added or existing ones modified.
+# version: 1.0.0
 ---
 - name: Provision Core Users and Groups
   hosts: all

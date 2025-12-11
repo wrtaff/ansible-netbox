@@ -1,0 +1,346 @@
+{
+  "name": "Agenda-Matic",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "3b4f8f7d-f434-4c46-952b-24a91942183e",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "executionMode": "continue",
+        "options": {
+          "dialog": {
+            "title": "Enter the date for the meeting",
+            "fields": [
+              {
+                "type": "string",
+                "id": "date",
+                "label": "Date (YYYYMMDD)",
+                "required": true
+              }
+            ]
+          }
+        }
+      },
+      "id": "e6f9828a-7233-4a1d-8b89-2a6907572ac7",
+      "name": "Ask for Date",
+      "type": "n8n-nodes-base.userInput",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "executionMode": "continue",
+        "options": {
+          "dialog": {
+            "title": "Select the type of agenda",
+            "fields": [
+              {
+                "type": "list",
+                "id": "agendaType",
+                "label": "Agenda Type",
+                "options": [
+                  {
+                    "name": "Board Meeting",
+                    "value": "boardMeeting"
+                  },
+                  {
+                    "name": "Healthcare Provider",
+                    "value": "healthcareProvider"
+                  },
+                  {
+                    "name": "Family",
+                    "value": "family"
+                  }
+                ],
+                "required": true
+              }
+            ]
+          }
+        }
+      },
+      "id": "a2b3c4d5-e6f7-8a9b-0c1d-2e3f4a5b6c7d",
+      "name": "Ask for Agenda Type",
+      "type": "n8n-nodes-base.userInput",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.agendaType }}",
+              "operation": "equal",
+              "value2": "boardMeeting"
+            }
+          ]
+        }
+      },
+      "id": "f9e8d7c6-b5a4-3d2e-1f0f-0e9d8c7b6a5",
+      "name": "IF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "folderName",
+              "value": "={{ $json.date.substring(0, 4) }}-{{ $json.date.substring(4, 6) }}-{{ $json.date.substring(6, 8) }}_EP_BOD_Meeting"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1b2a3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Set Folder Name",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "type": "folder",
+        "name": "={{ $json.folderName }}",
+        "parent": "1iSRwlpYt-PsRO9ZPXDRXJ--WFA4AXZpQ"
+      },
+      "id": "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
+      "name": "Create GDrive Folder",
+      "type": "n8n-nodes-google.drive",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        200
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "your-google-drive-credentials-id",
+          "name": "Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "executionMode": "continue",
+        "options": {
+          "dialog": {
+            "title": "Previous Meeting's Agenda",
+            "fields": [
+              {
+                "type": "string",
+                "id": "previousAgenda",
+                "label": "Paste the path to the previous meeting's agenda in Google Drive",
+                "required": true
+              }
+            ]
+          }
+        }
+      },
+      "id": "e1f2a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b",
+      "name": "Ask for Previous Agenda",
+      "type": "n8n-nodes-base.userInput",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "executionMode": "continue",
+        "options": {
+          "dialog": {
+            "title": "Appointment Description",
+            "fields": [
+              {
+                "type": "string",
+                "id": "appointmentDescription",
+                "label": "Please add a description of the appointment",
+                "required": true
+              }
+            ]
+          }
+        }
+      },
+      "id": "f1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c",
+      "name": "Ask for Appointment Description",
+      "type": "n8n-nodes-base.userInput",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "executionMode": "continue",
+        "options": {
+          "dialog": {
+            "title": "Attendees",
+            "fields": [
+              {
+                "type": "string",
+                "id": "attendees",
+                "label": "Please add a list of attendees",
+                "required": true
+              }
+            ]
+          }
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Ask for Attendees",
+      "type": "n8n-nodes-base.userInput",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "command": "echo 'All workflows are complete'"
+      },
+      "id": "b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Execute Command",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Ask for Date",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Ask for Date": {
+      "main": [
+        [
+          {
+            "node": "Ask for Agenda Type",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Ask for Agenda Type": {
+      "main": [
+        [
+          {
+            "node": "IF",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "IF": {
+      "main": [
+        [
+          {
+            "node": "Set Folder Name",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "node": "Ask for Appointment Description",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "node": "Ask for Attendees",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Set Folder Name": {
+      "main": [
+        [
+          {
+            "node": "Create GDrive Folder",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Create GDrive Folder": {
+      "main": [
+        [
+          {
+            "node": "Ask for Previous Agenda",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Ask for Previous Agenda": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Ask for Appointment Description": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Ask for Attendees": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "zL4qT2dE2aP9cI3f"
+}

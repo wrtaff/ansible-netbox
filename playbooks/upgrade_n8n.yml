@@ -1,0 +1,39 @@
+# playbook: playbooks/upgrade_n8n.yml
+# version: 1.0
+#
+# Description:
+#   This playbook upgrades an existing n8n installation on a Debian-based system.
+#
+# Pre-requisites:
+#   - Node.js and npm must be installed on the target host.
+#   - The 'n8n' service must be managed by systemd.
+#   - The user running the playbook must have sudo privileges.
+#
+---
+- name: Upgrade n8n Service
+  hosts: n8n
+  become: true
+
+  tasks:
+    - name: Stop n8n service
+      ansible.builtin.systemd:
+        name: n8n
+        state: stopped
+
+    - name: Upgrade n8n package
+      ansible.builtin.npm:
+        name: n8n
+        state: absent
+        global: yes
+
+    - name: Install n8n package
+      ansible.builtin.npm:
+        name: n8n
+        version: latest
+        global: yes
+
+    - name: Start n8n service
+      ansible.builtin.systemd:
+        name: n8n
+        state: started
+        enabled: yes

@@ -36,3 +36,4 @@ id_dsa.pub
 secrets.yml
 credentials.json
 files/github_rw_deploy_key
+vars/homeassistant_token.txt
