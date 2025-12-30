@@ -1,14 +1,25 @@
-# playbook: standard_debian_desktop_software_config.yml
-# description: This playbook installs standard desktop software (e.g., VLC, Screen) on Debian-based desktop hosts.
-# prerequisites: Hosts must be part of the 'desktops' Ansible group.
-# when_run: Run this playbook when setting up new Debian desktop machines or updating standard software.
-# version: 1.0.0
+# ------------------------------------------------------------------------------
+# Playbook: standard_debian_desktop_software_config.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/standard_debian_desktop_software_config.yml
+# Trac Ticket: #2888
+# Wiki Page: http://192.168.0.99/mediawiki/index.php/Playbooks/standard_debian_desktop_software_config.yml
+#
+# Purpose:
+#   This playbook installs standard desktop software (e.g., VLC, Screen, 
+#   python3.11-venv) on Debian-based desktop hosts.
+#
+# Prerequisites:
+#   - Hosts must be part of the 'desktops' Ansible group.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/standard_debian_desktop_software_config.yml
+# ------------------------------------------------------------------------------
 ---
 - name: Standard Debian Desktop Software Configuration
   hosts: desktops
   become: true
   tasks:
-    - name: Install vlc package
+    - name: Install standard desktop packages
       apt:
         name: "{{ packages }}"
         state: present
@@ -16,3 +27,4 @@
         packages:
           - vlc
           - screen
+          - python3.11-venv
