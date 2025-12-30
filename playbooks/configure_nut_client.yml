@@ -8,7 +8,7 @@
 
     # A new user for Home Assistant to monitor this server
     ha_monitor_user: "ha_mon"
-    ha_monitor_pass: "a_new_password"
+    ha_monitor_pass: "{{ lookup('env', 'NUT_MONITOR_PASS') | default('changeme', true) }}"
 
   tasks:
     - name: Ensure full NUT package is installed (Debian/Ubuntu)

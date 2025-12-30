@@ -1,5 +1,34 @@
+# ------------------------------------------------------------------------------
+# Playbook: rsyslog-Graylog-config.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/rsyslog-Graylog-config.yml
+# Trac Ticket: #2883
+# Wiki Page: http://192.168.0.99/mediawiki/index.php/Playbooks/rsyslog-Graylog-config.yml
+#
+# Purpose:
+#   Configures rsyslog to ship system logs to the central Graylog server.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/rsyslog-Graylog-config.yml --limit <host>
+# ------------------------------------------------------------------------------
+# ==============================================================================
+# Absolute Path: /opt/netbox/ansible-netbox/playbooks/rsyslog-Graylog-config.yml
+# Purpose:       This Ansible playbook configures rsyslog on target hosts to
+#                forward all logs to a central Graylog server and tags the
+#                host with 'graylog' in NetBox.
+# Version:       1.1.0 (Last Modified: 2025-12-12)
+# Prerequisites:
+#   - Ansible control node with Ansible installed.
+#   - SSH access and sudo/root privileges ('become: yes') on target hosts.
+#   - A running Graylog server accessible at the IP address specified in
+#     the 'graylog_server_ip' variable (default: 192.168.0.104).
+#   - Network connectivity from target hosts to the Graylog server on the
+#     specified port and protocol (default: UDP 1514).
+#   - Target systems must be Debian-based to use the 'ansible.builtin.apt' module.
+#   - NetBox environment variables (NETBOX_URL, NETBOX_TOKEN) must be set on the
+#     control node for NetBox integration.
+# ==============================================================================
 ---
-- name: Configure rsyslog to send logs to Graylog
+- name: Configure rsyslog and update NetBox
   hosts: all # You can change this to a specific group of hosts from your inventory
   become: yes # This tells Ansible to use sudo to run the tasks
 
@@ -10,6 +39,8 @@
     graylog_port: 1514
     # Use '@' for UDP (default, less reliable) or '@@' for TCP (more reliable)
     graylog_protocol: "@"
+    netbox_url: "http://netbox1.home.arpa"
+    netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
 
   # --- Tasks ---
   # The sequence of operations Ansible will perform on each host.
@@ -19,6 +50,12 @@
         name: rsyslog
         state: present
         update_cache: yes # Good practice to run 'apt update' before installing
+
+    - name: Ensure rsyslog service is enabled and started
+      ansible.builtin.service:
+        name: rsyslog
+        state: started
+        enabled: yes
 
     - name: Ensure the rsyslog.d directory exists
       ansible.builtin.file:
@@ -42,6 +79,17 @@
       notify:
         - Restart rsyslog
 
+    - name: Tag VM in NetBox with 'graylog'
+      netbox.netbox.netbox_virtual_machine:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          name: "{{ inventory_hostname }}"
+          tags:
+            - slug: graylog
+        state: present
+      delegate_to: localhost
+
   # --- Handlers ---
   # Handlers are special tasks that only run when notified by another task.
   # This is the best practice for restarting services.
@@ -53,4 +101,3 @@
       ansible.builtin.service:
         name: rsyslog
         state: restarted
-

@@ -1,0 +1,34 @@
+# This is a sample Vikunja configuration file.
+# You MUST change the jwt secret and configure a database for production use.
+
+service:
+  # The address and port Vikunja will listen on
+  listenaddr: "0.0.0.0:3456"
+  # The public URL where Vikunja is accessible
+  publicurl: "http://todo.gafla.us.com/"
+
+# Database configuration - using sqlite by default for simplicity.
+# Recommended to switch to postgres or mysql for production.
+database:
+  type: sqlite
+  path: {{ vikunja_data_dir }}/vikunja.db
+
+# You MUST change this to a long, random string!
+# Use `openssl rand -base64 32` to generate a new one.
+auth:
+  jwt:
+    secret: "!!CHANGE_ME_PLEASE!!"
+
+# Directory for storing files
+files:
+  basepath: "{{ vikunja_data_dir }}/files"
+
+cors:
+  enable: true
+  origins:
+    - http://todo.gafla.us.com
+    - http://vik-01.van-bee.ts.net
+    - https://todo.van-bee.ts.net
+    - http://todo.van-bee.ts.net
+    - http://todo.home.arpa
+    - https://todo.home.arpa

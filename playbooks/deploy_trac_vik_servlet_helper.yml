@@ -43,6 +43,7 @@
         src: ../files/local_vikunja_server.py # <-- UPDATED: Uses the root 'files' dir
         dest: "{{ app_dir }}/local_vikunja_server.py"
         mode: '0755'
+      notify: Reload and restart service
 
     - name: Create systemd service file
       ansible.builtin.template:

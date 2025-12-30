@@ -1,0 +1,26 @@
+---
+- name: Deploy SSH Key for Passwordless Access
+  hosts: all
+  gather_facts: false
+  vars:
+    # Path to the LOCAL public key on the controller
+    local_key_path: "~/.ssh/id_rsa.pub"
+
+  vars_prompt:
+    - name: ansible_password
+      prompt: "Enter SSH password for remote hosts"
+      private: yes
+
+  tasks:
+    - name: Read local public key
+      ansible.builtin.set_fact:
+        controller_pub_key: "{{ lookup('file', local_key_path) }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Add controller key to authorized_keys
+      ansible.builtin.authorized_key:
+        user: "{{ ansible_user | default('root') }}"
+        state: present
+        key: "{{ controller_pub_key }}"
+        exclusive: no # Append, don't replace

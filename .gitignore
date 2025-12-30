@@ -25,6 +25,7 @@ __pycache__/
 *.tmp
 *.swp
 .cache/
+/tmp
 
 # SSH keys (if applicable)
 id_rsa
@@ -37,3 +38,4 @@ secrets.yml
 credentials.json
 files/github_rw_deploy_key
 vars/homeassistant_token.txt
+.vault_pass.txt

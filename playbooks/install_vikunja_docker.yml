@@ -1,0 +1,63 @@
+---
+- name: Install Vikunja with Docker
+  hosts: vikunja_servers
+  become: yes
+  vars:
+    vikunja_version: "0.24.6"
+    vikunja_data_dir: "/var/lib/vikunja"
+
+  tasks:
+    - name: Install Docker prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/trusted.gpg.d/docker.asc
+        mode: '0644'
+        force: yes
+
+    - name: Add Docker repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Create Vikunja data directory
+      file:
+        path: "{{ vikunja_data_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Pull Vikunja Docker image
+      community.docker.docker_image:
+        name: "vikunja/vikunja"
+        tag: "{{ vikunja_version }}"
+        source: pull
+
+    - name: Create and run Vikunja container
+      community.docker.docker_container:
+        name: vikunja
+        image: "vikunja/vikunja:{{ vikunja_version }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "3456:3456"
+        volumes:
+          - "{{ vikunja_data_dir }}:/app/vikunja/files"

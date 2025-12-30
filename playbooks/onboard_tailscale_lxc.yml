@@ -1,0 +1,89 @@
+---
+- name: Configure Proxmox LXC for Tailscale (TUN Device)
+  hosts: proxmox
+  become: true
+  gather_facts: false
+  vars_prompt:
+    - name: target_vmid
+      prompt: "Enter Target LXC VMID (e.g., 107)"
+      private: no
+    - name: target_host
+      prompt: "Enter Target Inventory Hostname (e.g., vik-01)"
+      private: no
+    
+  tasks:
+    - name: Set global target facts
+      ansible.builtin.set_fact:
+        global_target_host: "{{ target_host }}"
+      delegate_to: localhost
+      delegate_facts: true
+
+    - name: Ensure TUN device access in LXC config
+      ansible.builtin.blockinfile:
+        path: "/etc/pve/lxc/{{ target_vmid }}.conf"
+        marker: "# {mark} ANSIBLE MANAGED: TAILSCALE TUN"
+        block: |
+          lxc.cgroup2.devices.allow: c 10:200 rwm
+          lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+      register: lxc_config_update
+
+    - name: Restart LXC Container to apply changes
+      ansible.builtin.command: "pct reboot {{ target_vmid }}"
+      when: lxc_config_update.changed
+      async: 60
+      poll: 5
+
+    - name: Wait for container to come back online
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['all'] | select('search', target_vmid) | first | default(target_vmid)].ansible_host | default(target_vmid) }}"
+        port: 22
+        delay: 5
+        timeout: 60
+      when: lxc_config_update.changed
+      delegate_to: localhost
+      ignore_errors: yes 
+
+- name: Generate Tailscale Auth Key
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: tailscale_api_key
+      prompt: "Enter Tailscale API Key (tskey-api-...)"
+      private: yes
+    - name: tailnet_name
+      prompt: "Enter Tailnet Name (e.g., example.com or user@gmail.com)"
+      private: no
+      
+  tasks:
+    - name: Generate Reusable Auth Key
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/tailnet/{{ tailnet_name }}/keys"
+        method: POST
+        user: "{{ tailscale_api_key }}"
+        password: "" # API key is the username
+        force_basic_auth: yes
+        body_format: json
+        body:
+          capabilities:
+            devices:
+              create:
+                reusable: true
+                ephemeral: false
+                tags: ["tag:server"] # Optional: Adjust tags as needed
+          expirySeconds: 3600 # 1 hour
+      register: tailscale_key_response
+      
+    - name: Set Auth Key Fact
+      ansible.builtin.set_fact:
+        tailscale_auth_key: "{{ tailscale_key_response.json.key }}"
+
+- name: Install and Configure Tailscale on Target
+  hosts: "{{ hostvars['localhost']['global_target_host'] }}"
+  become: true
+  vars:
+    # We expect 'tailscale_auth_key' to be passed from the previous play
+    tailscale_auth_key: "{{ hostvars['localhost']['tailscale_auth_key'] }}"
+  
+  roles:
+    - tailscale_node

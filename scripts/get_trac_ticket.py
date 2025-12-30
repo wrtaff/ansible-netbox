@@ -6,8 +6,19 @@ import xmlrpc.client
 import argparse
 import textwrap
 
+import os
+
 # --- Configuration ---
-TRAC_URL = "http://will:8675309@trac.home.arpa/login/xmlrpc"
+TRAC_USER = os.getenv("TRAC_USER", "will")
+TRAC_PASSWORD = os.getenv("TRAC_PASSWORD")
+TRAC_HOST = os.getenv("TRAC_HOST", "trac.home.arpa")
+TRAC_PATH = os.getenv("TRAC_PATH", "/login/xmlrpc")
+
+if not TRAC_PASSWORD:
+    print("Error: TRAC_PASSWORD environment variable must be set.")
+    exit(1)
+
+TRAC_URL = f"http://{TRAC_USER}:{TRAC_PASSWORD}@{TRAC_HOST}{TRAC_PATH}"
 
 def main():
     """Parses arguments and retrieves a Trac ticket."""
@@ -32,6 +43,20 @@ def main():
         print("-" * 20)
         print("Description:")
         print(attributes.get('description', ''))
+
+        print("\n" + "-" * 20)
+        print("Comments:")
+        changelog = server.ticket.changeLog(args.ticket_id)
+        for change in changelog:
+            # Change structure: [time, author, field, oldvalue, newvalue, permanent]
+            field = change[2]
+            if field == 'comment':
+                author = change[1]
+                timestamp = change[0]
+                comment_text = change[4]
+                if comment_text:
+                    print(f"\n--- {author} at {timestamp} ---")
+                    print(comment_text)
 
     except xmlrpc.client.Fault as err:
         print(f"\nError: XML-RPC Fault {err.faultCode}")

@@ -6,8 +6,8 @@ import shlex
 
 # --- CONFIGURATION ---
 PORT = 9090
-VIKUNJA_URL = "https://todo.gafla.us.com"
-API_TOKEN = "tk_5c253e3352e8402d8b9c8f7306564a3bec5a329a"
+VIKUNJA_URL = "http://todo.home.arpa"
+API_TOKEN = "tk_19174c6c76e7f5a809c952d410d3fba1db3c03d6"
 # ---------------------
 
 class MyHandler(http.server.SimpleHTTPRequestHandler):
@@ -37,12 +37,16 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                 project_id = shlex.quote(data['projectId'])
                 ticket_num = shlex.quote(data['ticketNum'])
                 summary = shlex.quote(data['summary'])
-                trac_url = shlex.quote(data['tracUrl'])
+                trac_url_raw = data['tracUrl']
+                
+                # Remove anchor from URL (e.g. #comment:1)
+                trac_url_clean = trac_url_raw.split('#')[0]
+                trac_url = shlex.quote(trac_url_clean)
 
                 # 3. Build the task details
                 # Note: shlex.quote adds single quotes, so we build the JSON string carefully.
                 task_title = f"#{data['ticketNum']}: {data['summary']}"
-                task_desc = f"Trac ticket [#{data['ticketNum']}: {data['summary']}]({data['tracUrl']})"
+                task_desc = f"Trac ticket [#{data['ticketNum']}: {data['summary']}]({trac_url_clean})"
 
                 json_payload = json.dumps({
                     "title": task_title,
@@ -51,8 +55,8 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                 })
 
                 # 4. Build the final curl command
-                curl_command = [
-                    "curl",
+                curl_command_list = [
+                    "/usr/bin/curl",
                     "-k",  # Bypass self-signed cert
                     "-X", "PUT",
                     f"{VIKUNJA_URL}/api/v1/projects/{project_id}/tasks",
@@ -61,33 +65,49 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                     "-d", json_payload
                 ]
                 
-                print("--- Executing Command ---")
-                print(" ".join(curl_command))
+                # Create a safe string representation for display/logging (redacting token if desired, but user asked for it)
+                # We will keep the token visible as requested for troubleshooting.
+                curl_command_str = " ".join(curl_command_list)
+
+                print("--- Executing Command ---", flush=True)
+                print(curl_command_str, flush=True)
 
                 # 5. Execute the command
-                result = subprocess.run(curl_command, capture_output=True, text=True)
+                result = subprocess.run(curl_command_list, capture_output=True, text=True)
+
+                response_data = {
+                    "curl_command": curl_command_str,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr
+                }
 
                 if result.returncode == 0:
-                    print("--- Success ---")
-                    print(result.stdout)
+                    print("--- Success ---", flush=True)
+                    print(result.stdout, flush=True)
                     self.send_response(200)
                     self._send_cors_headers()
                     self.end_headers()
-                    self.wfile.write(b'{"status": "success"}')
+                    response_data["status"] = "success"
+                    self.wfile.write(json.dumps(response_data).encode('utf-8'))
                 else:
-                    print("--- Error ---")
-                    print(result.stderr)
+                    print("--- Error ---", flush=True)
+                    print(result.stderr, flush=True)
                     self.send_response(500)
                     self._send_cors_headers()
                     self.end_headers()
-                    self.wfile.write(b'{"status": "error", "message": "Check server console"}')
+                    response_data["status"] = "error"
+                    response_data["message"] = "Command failed"
+                    self.wfile.write(json.dumps(response_data).encode('utf-8'))
             
             except Exception as e:
-                print(f"Server Error: {e}")
+                print(f"Server Error: {e}", flush=True)
                 self.send_response(500)
                 self._send_cors_headers()
                 self.end_headers()
-                self.wfile.write(b'{"status": "error", "message": "Check server console"}')
+                self.wfile.write(json.dumps({
+                    "status": "error", 
+                    "message": str(e)
+                }).encode('utf-8'))
         else:
             self.send_response(404)
             self.end_headers()

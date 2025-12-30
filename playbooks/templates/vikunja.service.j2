@@ -1,0 +1,18 @@
+[Unit]
+Description=Vikunja - A To-Do App
+After=network.target
+
+[Service]
+Type=simple
+User={{ vikunja_user }}
+Group={{ vikunja_group }}
+Environment=VIKUNJA_CONFIG_PATH=/etc/vikunja/config.yml
+ExecStart=/usr/local/bin/vikunja web
+WorkingDirectory={{ vikunja_data_dir }}
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

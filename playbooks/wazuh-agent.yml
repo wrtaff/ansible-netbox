@@ -1,18 +1,42 @@
-#This ansible playbook installs wazuh  agent. 
-# http://trac.home.arpa/ticket/2440
-# "Ansible playbook for Wazuh Deployment 'wazuh-agent.yml' needs action"
-# LATEST: 2025-08-30
-# I started with this from wzuh doc site
-# but then tuned with gemini
+# ------------------------------------------------------------------------------
+# Playbook: wazuh-agent.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/wazuh-agent.yml
+# Trac Ticket: #2884
+# Wiki Page: http://192.168.0.99/mediawiki/index.php/Playbooks/wazuh-agent.yml
 #
+# Purpose:
+#   Deploys and configures the Wazuh security agent.
 #
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/wazuh-agent.yml --limit <host>
+# ------------------------------------------------------------------------------
+# ==============================================================================
+# Absolute Path: /opt/netbox/ansible-netbox/playbooks/wazuh-agent.yml
+# Purpose:       This Ansible playbook installs and configures the Wazuh agent
+#                on target hosts and tags the host with 'wazuh-agent' in NetBox.
+# Version:       1.1.0 (Last Modified: 2025-12-12)
+# Prerequisites:
+#   - Ansible control node with Ansible installed.
+#   - Python 3 on the control node.
+#   - SSH access to target hosts in the 'wazuh_agents' group.
+#   - Sudo/root privileges on target hosts ('become: yes').
+#   - Network connectivity to the Wazuh manager at 192.168.0.11 on port 1514 (TCP).
+#   - The 'ansible-wazuh-agent' role must be available in the configured
+#     Ansible roles path (roles_path).
+#   - Target systems must be Debian-based (inferred from 'apt' repo config).
+#   - NetBox environment variables (NETBOX_URL, NETBOX_TOKEN) must be set on the
+#     control node for NetBox integration.
+#
+# References:
+#   - http://trac.home.arpa/ticket/2440 ("Ansible playbook for Wazuh Deployment
+#     'wazuh-agent.yml' needs action")
+# ==============================================================================
 - hosts: wazuh_agents
   become: yes
 
-
-  roles:
-    - ansible-wazuh-agent # Corrected role name
   vars:
+    netbox_url: "http://netbox1.home.arpa"
+    netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
     wazuh_agent_config:
       repo:
         apt: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
@@ -28,3 +52,18 @@
         retry_interval: 5
     wazuh_agent_authd:
       enable: true
+
+  roles:
+    - ansible-wazuh-agent # Corrected role name
+
+  post_tasks:
+    - name: Tag device in NetBox with 'wazuh-agent'
+      netbox.netbox.netbox_virtual_machine:
+        netbox_url: "http://netbox1.home.arpa"
+        netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+        data:
+          name: "{{ inventory_hostname }}"
+          tags:
+            - slug: wazuh-agent
+        state: present
+      delegate_to: localhost

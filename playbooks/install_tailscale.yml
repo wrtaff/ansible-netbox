@@ -1,0 +1,24 @@
+# Name: install_tailscale.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/install_tailscale.yml
+# Purpose: Automates the installation and configuration of Tailscale on Debian-based systems.
+# Prerequisites: 
+#   - Ansible installed on controller
+#   - Target host accessible via SSH
+#   - Valid Tailscale Auth Key (tskey-auth-...)
+# Usage: 
+#   ansible-playbook playbooks/install_tailscale.yml -l <target_host>
+#   ansible-playbook playbooks/install_tailscale.yml -l <target_host> -e "tailscale_auth_key=<key>"
+---
+- name: Install and Configure Tailscale
+  hosts: all
+  become: true
+  gather_facts: true
+  
+  vars_prompt:
+    - name: tailscale_auth_key
+      prompt: "Enter Tailscale Auth Key (Leave empty if already authenticated)"
+      private: yes
+      default: ""
+
+  roles:
+    - tailscale_node

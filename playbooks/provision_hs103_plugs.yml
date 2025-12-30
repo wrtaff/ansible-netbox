@@ -1,0 +1,42 @@
+---
+- name: Provision HS103 Smart Plugs
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create devices in NetBox
+      netbox.netbox.netbox_device:
+        netbox_url: http://netbox1.home.arpa
+        netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+        data:
+          name: "{{ item.name }}"
+          device_type: 87
+          device_role: 30
+          site: 1
+          status: planned
+      loop:
+        - { name: 'hs103-a3' }
+        - { name: 'hs103-a929' }
+        - { name: 'HS103' }
+        - { name: 'hs103-29' }
+        - { name: 'hs103-89' }
+        - { name: 'hs103-dc' }
+        - { name: 'hs1032d' }
+
+    - name: Assign IP addresses to devices
+      netbox.netbox.netbox_ip_address:
+        netbox_url: http://netbox1.home.arpa
+        netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+        data:
+          address: "{{ item.ip }}"
+          status: planned
+          assigned_object:
+            name: "{{ item.name }}"
+            device: "{{ item.name }}"
+      loop:
+        - { name: 'hs103-a3', ip: '192.168.0.121/24' }
+        - { name: 'hs103-a929', ip: '192.168.0.125/24' }
+        - { name: 'HS103', ip: '192.168.0.109/24' }
+        - { name: 'hs103-29', ip: '192.168.0.200/24' }
+        - { name: 'hs103-89', ip: '192.168.0.122/24' }
+        - { name: 'hs103-dc', ip: '192.168.0.169/24' }
+        - { name: 'hs1032d', ip: '192.168.0.110/24' }

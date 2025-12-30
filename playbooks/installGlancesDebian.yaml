@@ -26,4 +26,4 @@
 
   vars:
     your_username: "glances" 
-    your_password: "glances" 
+    your_password: "{{ lookup('env', 'GLANCES_PASSWORD') | default('glances', true) }}" 

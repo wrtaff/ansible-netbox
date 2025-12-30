@@ -1,0 +1,65 @@
+---
+- name: Check if Tailscale is installed
+  ansible.builtin.command: which tailscale
+  register: tailscale_check
+  failed_when: false
+  changed_when: false
+
+- name: Install Tailscale
+  ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
+  when: tailscale_check.rc != 0
+  args:
+    creates: /usr/bin/tailscale
+
+- name: Check Tailscale Status
+  ansible.builtin.command: tailscale status
+  register: tailscale_status
+  failed_when: false
+  changed_when: false
+
+- name: Bring up Tailscale
+  ansible.builtin.command: tailscale up --authkey={{ tailscale_auth_key }} --hostname={{ inventory_hostname }} --accept-routes
+  when: 
+    - tailscale_auth_key is defined
+    - tailscale_auth_key != ""
+    - "'Logged out' in tailscale_status.stdout or tailscale_status.rc != 0"
+
+- name: Get Tailscale IPv4 Address
+  ansible.builtin.command: tailscale ip -4
+  register: tailscale_ipv4
+  changed_when: false
+
+- name: Debug Tailscale IP
+  ansible.builtin.debug:
+    msg: "Tailscale IP: {{ tailscale_ipv4.stdout }}"
+
+- name: Ensure NetBox Interface 'tailscale0' exists
+  netbox.netbox.netbox_device_interface:
+    netbox_url: "{{ netbox_url }}"
+    netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+    data:
+      device: "{{ inventory_hostname }}"
+      name: tailscale0
+      type: virtual
+      enabled: true
+      mtu: 1280
+    state: present
+  delegate_to: localhost
+  become: false
+  ignore_errors: true # Ignore if device doesn't exist in NetBox yet
+
+- name: Ensure Tailscale IP is in NetBox
+  netbox.netbox.netbox_ip_address:
+    netbox_url: "{{ netbox_url }}"
+    netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+    data:
+      address: "{{ tailscale_ipv4.stdout }}/32"
+      status: active
+      assigned_object:
+        name: tailscale0
+        device: "{{ inventory_hostname }}"
+    state: present
+  delegate_to: localhost
+  become: false
+  when: tailscale_ipv4.stdout != ""
+  ignore_errors: true

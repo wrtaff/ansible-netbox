@@ -1,0 +1,161 @@
+---
+- name: Install Vikunja from Source
+  hosts: vikunja_servers
+  become: yes
+  vars:
+    vikunja_user: vikunja
+    vikunja_group: vikunja
+    vikunja_src_dir: "/opt/vikunja"
+    vikunja_data_dir: "/var/lib/vikunja"
+    vikunja_version: "v1.0.0-rc2" # Set to the desired version
+    vikunja_download_url: "https://github.com/go-vikunja/vikunja/archive/refs/tags/{{ vikunja_version }}.tar.gz"
+
+  tasks:
+    - name: Install build dependencies
+      apt:
+        name:
+          - git
+          - golang-go
+          - nodejs
+          - make
+        state: present
+        update_cache: yes
+      tags: build
+
+    - name: Install pnpm using npm
+      community.general.npm:
+        name: pnpm
+        global: yes
+        state: present
+      tags: build
+
+    - name: Create Vikunja group
+      group:
+        name: "{{ vikunja_group }}"
+        state: present
+      tags:
+        - build
+        - deploy
+
+    - name: Create Vikunja user
+      user:
+        name: "{{ vikunja_user }}"
+        group: "{{ vikunja_group }}"
+        home: "{{ vikunja_data_dir }}"
+        shell: /bin/false
+        system: yes
+        create_home: yes
+      tags:
+        - build
+        - deploy
+
+    - name: Create Vikunja source directory
+      file:
+        path: "{{ vikunja_src_dir }}"
+        state: directory
+        owner: "{{ vikunja_user }}"
+        group: "{{ vikunja_group }}"
+        mode: '0755'
+      tags: build
+
+    - name: Download and unarchive Vikunja source
+      ansible.builtin.unarchive:
+        src: "{{ vikunja_download_url }}"
+        dest: "{{ vikunja_src_dir }}"
+        remote_src: yes
+        creates: "{{ vikunja_src_dir }}/vikunja-{{ vikunja_version[1:] }}"
+      tags: build
+
+    - name: Install frontend dependencies
+      command: pnpm install
+      args:
+        chdir: "{{ vikunja_src_dir }}/vikunja-{{ vikunja_version[1:] }}/frontend"
+      environment:
+        CYPRESS_INSTALL_BINARY: "0"
+      async: 3600
+      poll: 10
+      tags: build
+
+    - name: Build frontend
+      command: pnpm run build
+      args:
+        chdir: "{{ vikunja_src_dir }}/vikunja-{{ vikunja_version[1:] }}/frontend"
+      environment:
+        NODE_OPTIONS: "--max_old_space_size=2048"
+      async: 3600
+      poll: 10
+      tags: build
+
+    - name: Build Vikunja API
+      shell: |
+        export GOROOT=/usr/local/go
+        export PATH=$GOROOT/bin:$PATH
+        go mod download
+        go build -v -o vikunja
+      args:
+        chdir: "{{ vikunja_src_dir }}/vikunja-{{ vikunja_version[1:] }}"
+      async: 3600
+      poll: 10
+      tags: build
+
+    - name: Wait for build to complete and CPU to idle
+      shell: top -b -n 1 | grep "Cpu(s)" | awk '{print $2 + $4}'
+      register: cpu_usage
+      until: cpu_usage.stdout | float < 15.0
+      retries: 30
+      delay: 10
+      changed_when: false
+      failed_when: false
+      tags: build
+
+    - name: Alert user that build is complete
+      pause:
+        prompt: "Vikunja build appears complete (CPU usage is low). Press Enter to continue with the installation."
+      tags: build
+
+    - name: Copy Vikunja binary to /usr/local/bin
+      copy:
+        src: "{{ vikunja_src_dir }}/vikunja-{{ vikunja_version[1:] }}/vikunja"
+        dest: "/usr/local/bin/vikunja"
+        remote_src: yes
+        owner: root
+        group: root
+        mode: '0755'
+      tags: deploy
+
+    - name: Create Vikunja config directory
+      file:
+        path: /etc/vikunja
+        state: directory
+        owner: root
+        group: "{{ vikunja_group }}"
+        mode: '0775'
+      tags: deploy
+
+    - name: Template Vikunja config file
+      template:
+        src: templates/vikunja_config.yml.j2
+        dest: /etc/vikunja/config.yml
+      notify: restart vikunja
+      tags: deploy
+
+    - name: Template Vikunja systemd service file
+      template:
+        src: templates/vikunja.service.j2
+        dest: /etc/systemd/system/vikunja.service
+      notify: restart vikunja
+      tags: deploy
+
+    - name: Enable and start Vikunja service
+      systemd:
+        name: vikunja
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: deploy
+
+  handlers:
+    - name: restart vikunja
+      systemd:
+        name: vikunja
+        state: restarted

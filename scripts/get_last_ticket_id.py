@@ -4,8 +4,19 @@ A helper script to retrieve the most recent Trac ticket ID.
 """
 import xmlrpc.client
 
+import os
+
 # --- Configuration ---
-TRAC_URL = "http://will:8675309@trac.home.arpa/login/xmlrpc"
+TRAC_USER = os.getenv("TRAC_USER", "will")
+TRAC_PASSWORD = os.getenv("TRAC_PASSWORD")
+TRAC_HOST = os.getenv("TRAC_HOST", "trac.home.arpa")
+TRAC_PATH = os.getenv("TRAC_PATH", "/login/xmlrpc")
+
+if not TRAC_PASSWORD:
+    print("Error: TRAC_PASSWORD environment variable must be set.")
+    exit(1)
+
+TRAC_URL = f"http://{TRAC_USER}:{TRAC_PASSWORD}@{TRAC_HOST}{TRAC_PATH}"
 
 def main():
     """Retrieves the most recent Trac ticket ID."""

@@ -1,3 +1,23 @@
+# ------------------------------------------------------------------------------
+# Playbook: bootstrap.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/bootstrap.yml
+# Trac Ticket: #2882
+# Wiki Page: http://192.168.0.99/mediawiki/index.php/Playbooks/bootstrap.yml
+#
+# Purpose:
+#   Bootstraps a fresh Debian installation by:
+#   1. Installing Python3 and sudo (via raw module as root)
+#   2. Creating the standard admin user ('will')
+#   3. Configuring passwordless sudo
+#   4. Deploying the admin SSH key
+#
+# Prerequisites:
+#   - Root access via SSH password or key
+#   - Target must be in 'debian' group (or specified inventory group)
+#
+# Usage:
+#   ansible-playbook -i inventory.ini bootstrap.yml --limit <host> --ask-pass
+# ------------------------------------------------------------------------------
 ---
 # Play 1: Bootstrap the node as the root user
 # This play connects as root to install sudo and Python, which are
