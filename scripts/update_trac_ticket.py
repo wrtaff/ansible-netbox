@@ -41,6 +41,8 @@ def main():
     parser.add_argument("-d", "--description", help="Update the ticket description. Use shell escapes for newlines (e.g., $\'some\\ntext\').")
     parser.add_argument("-a", "--action", help="The action to perform (e.g., 'resolve', 'reopen').")
     parser.add_argument("-r", "--resolve-as", help="If resolving, the resolution status (e.g., 'fixed', 'wontfix').")
+    parser.add_argument("-p", "--priority", help="Update the ticket priority (e.g., 'major', 'minor').")
+    parser.add_argument("-k", "--keywords", help="Update the ticket keywords (e.g., 'networking, dns').")
     parser.add_argument("--author", default="gemini", help="The author of the comment.")
 
     args = parser.parse_args()
@@ -52,6 +54,10 @@ def main():
         attributes['action'] = args.action
     if args.action == 'resolve' and args.resolve_as:
         attributes['action_resolve_resolve_as'] = args.resolve_as
+    if args.priority:
+        attributes['priority'] = args.priority
+    if args.keywords:
+        attributes['keywords'] = args.keywords
 
     try:
         print(f"Connecting to Trac server at {TRAC_URL.split('@')[1]}...")

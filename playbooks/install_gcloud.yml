@@ -1,0 +1,45 @@
+---
+# Playbook: Install Google Cloud SDK (gcloud)
+# Path: playbooks/install_gcloud.yml
+# Purpose: Installs the Google Cloud CLI for managing GCP resources.
+#          Required for verifying API keys and managing project infrastructure.
+# Pre-reqs: Debian-based system, Internet access.
+# Usage: ansible-playbook -i inventory.ini playbooks/install_gcloud.yml -l <target_hosts>
+# Trac Ticket: http://trac.home.arpa/ticket/2893
+
+- name: Install Google Cloud SDK
+  hosts: all
+  become: true
+  vars:
+    gcloud_apt_key_url: "https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+    gcloud_apt_repo: "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main"
+
+  tasks:
+    - name: Install prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Download Google Cloud public signing key
+      get_url:
+        url: "{{ gcloud_apt_key_url }}"
+        dest: /usr/share/keyrings/cloud.google.gpg
+        mode: '0644'
+        force: yes
+
+    - name: Add the Google Cloud SDK distribution URI as a package source
+      apt_repository:
+        repo: "{{ gcloud_apt_repo }}"
+        filename: google-cloud-sdk
+        state: present
+
+    - name: Update apt cache and install google-cloud-cli
+      apt:
+        name: google-cloud-cli
+        state: present
+        update_cache: yes
