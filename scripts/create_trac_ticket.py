@@ -45,7 +45,7 @@ def main():
 
     parser.add_argument("-s", "--summary", required=True, help="A brief, descriptive summary of the ticket.")
     parser.add_argument("-d", "--description", required=True, help="The full description of the ticket. Use '\\n' for newlines.")
-    parser.add_argument("-c", "--component", default=DEFAULT_COMPONENT, help=f"The component to assign the ticket to. (Default: {DEFAULT_COMPONENT})")
+    parser.add_argument("-c", "--component", default=DEFAULT_COMPONENT, help=f"The component to assign the ticket to. (Default: {DEFAULT_COMPONENT})\nREMINDER: NEVER create new components without explicit permission.")
     parser.add_argument("-k", "--keywords", default="", help="Comma-separated keywords for the ticket (e.g., 'PROV-P1, SCM').")
     parser.add_argument("-t", "--type", default=DEFAULT_TYPE, help=f"The type of the ticket. (Default: {DEFAULT_TYPE})")
     parser.add_argument("-p", "--priority", default=DEFAULT_PRIORITY, help=f"The priority of the ticket. (Default: {DEFAULT_PRIORITY})")
@@ -56,7 +56,7 @@ def main():
     args = parser.parse_args()
 
     # Replace literal '\n' with actual newline characters
-    processed_description = args.description.replace('\\n', '\n')
+    processed_description = args.description.replace('\\n', '\n').replace('&#10;', '\n')
 
     attributes = {
         'component': args.component,

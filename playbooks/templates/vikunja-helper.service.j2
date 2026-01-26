@@ -5,6 +5,7 @@ After=network.target
 [Service]
 ExecStart=/usr/bin/python3 -u /opt/vikunja-helper/local_vikunja_server.py
 WorkingDirectory={{ app_dir }}
+Environment="VIKUNJA_API_TOKEN={{ vault_vikunja_api_token }}"
 Restart=always
 # Running as root is simple for an internal LXC,
 # but you could create a dedicated 'vikunja-helper' user

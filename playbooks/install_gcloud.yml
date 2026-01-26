@@ -26,11 +26,9 @@
         update_cache: yes
 
     - name: Download Google Cloud public signing key
-      get_url:
-        url: "{{ gcloud_apt_key_url }}"
-        dest: /usr/share/keyrings/cloud.google.gpg
-        mode: '0644'
-        force: yes
+      shell: "curl {{ gcloud_apt_key_url }} | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg"
+      args:
+        creates: /usr/share/keyrings/cloud.google.gpg
 
     - name: Add the Google Cloud SDK distribution URI as a package source
       apt_repository:

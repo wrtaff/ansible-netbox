@@ -1,0 +1,81 @@
+---
+# roles/autofs_client/tasks/main.yml
+
+- name: Install autofs and dependencies
+  ansible.builtin.apt:
+    name:
+      - autofs
+      - nfs-common
+      - cifs-utils
+    state: present
+    update_cache: yes
+
+- name: Ensure mount directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /mnt/nfs
+    - /mnt/smb
+
+- name: Ensure SMB credentials directory exists
+  ansible.builtin.file:
+    path: "{{ item.creds_file | dirname }}"
+    state: directory
+    owner: will
+    group: will
+    mode: '0700'
+  loop: "{{ autofs_smb_shares }}"
+
+- name: Deploy SMB credentials
+  ansible.builtin.template:
+    src: smbcreds.j2
+    dest: "{{ item.creds_file }}"
+    owner: will
+    group: will
+    mode: '0600'
+  loop: "{{ autofs_smb_shares }}"
+  no_log: true
+
+- name: Configure auto.master
+  ansible.builtin.template:
+    src: auto.master.j2
+    dest: /etc/auto.master
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart autofs
+
+- name: Configure auto.nfs
+  ansible.builtin.template:
+    src: auto.nfs.j2
+    dest: /etc/auto.nfs
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart autofs
+
+- name: Configure auto.cifs
+  ansible.builtin.template:
+    src: auto.cifs.j2
+    dest: /etc/auto.cifs
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart autofs
+
+- name: Ensure autofs is started and enabled
+  ansible.builtin.service:
+    name: autofs
+    state: started
+    enabled: yes
+
+- name: Create Documents symlink for user will
+  ansible.builtin.file:
+    src: /mnt/smb/share/Documents
+    dest: /home/will/Documents
+    state: link
+    owner: will
+    group: will
+    force: yes

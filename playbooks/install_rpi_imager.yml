@@ -1,0 +1,15 @@
+---
+- name: Install Raspberry Pi Imager
+  hosts: venus
+  become: true
+  tasks:
+    - name: Download Raspberry Pi Imager .deb
+      ansible.builtin.get_url:
+        url: https://downloads.raspberrypi.org/imager/imager_latest_amd64.deb
+        dest: /tmp/rpi-imager_amd64.deb
+        mode: '0644'
+
+    - name: Install Raspberry Pi Imager from .deb
+      ansible.builtin.apt:
+        deb: /tmp/rpi-imager_amd64.deb
+        state: present

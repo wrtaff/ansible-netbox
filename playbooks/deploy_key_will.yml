@@ -1,0 +1,18 @@
+---
+- hosts: wazuh-siem
+  gather_facts: no
+  become: yes
+  remote_user: will
+
+  tasks:
+    - name: Create home directory for will
+      raw: mkdir -p /home/will && chown will:will /home/will && chmod 700 /home/will
+      changed_when: false
+
+    - name: Ensure .ssh directory exists
+      raw: mkdir -p /home/will/.ssh && chown will:will /home/will/.ssh && chmod 700 /home/will/.ssh
+      changed_when: false
+
+    - name: Deploy SSH key
+      raw: echo "{{ lookup('file', '~/.ssh/id_rsa.pub') }}" > /home/will/.ssh/authorized_keys && chown will:will /home/will/.ssh/authorized_keys && chmod 600 /home/will/.ssh/authorized_keys
+      changed_when: false

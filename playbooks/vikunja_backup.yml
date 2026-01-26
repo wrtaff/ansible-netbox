@@ -1,33 +1,36 @@
 ---
 # ==============================================================================
 # Playbook Name: vikunja_backup.yml
-# Description:   Automates the backup of the Vikunja application on Yunohost.
-#                1. Triggers 'yunohost backup' on ynh2.
-#                2. Compresses and Pulls the backup to the Ansible Controller.
-#                3. Pushes the backup via SCP to TrueNAS storage using a specific key.
-#                4. Cleans up local and remote temporary files.
+# Absolute Path: /opt/netbox/ansible-netbox/playbooks/vikunja_backup.yml
+# Purpose:       Automates the backup of the Vikunja application on vik-01.
+#                1. Stops the Vikunja service to ensure database consistency.
+#                2. Archives the data directory (/var/lib/vikunja).
+#                3. Starts the Vikunja service.
+#                4. Pulls the archive to the Ansible Controller.
+#                5. Pushes the backup via SCP to TrueNAS storage.
+#                6. Cleans up local and remote temporary files.
 #
-# Author:        Will Taff
-# Date Created:  2025-11-04
-# Last Modified: 2025-11-17
-# Version:       1.3 (Pull-Push with Explicit Key)
+# Prerequisites:
+#   - SSH Key (/root/.ssh/vikunja_backup_key) authorized on vik-01 and TrueNAS.
+#   - Vikunja installed using the binary method (service: vikunja).
+#   - 'community.general' collection.
 #
-# Dependencies:
-#   - SSH Key (/root/.ssh/vikunja_backup_key): Must be authorized on ynh2 and TrueNAS.
-#   - Python dependencies: community.general collection (for archive module).
+# Usage:
+#   ansible-playbook playbooks/vikunja_backup.yml -i inventory.ini --limit vik-01 --private-key /root/.ssh/vikunja_backup_key
 #
-# Cron Usage:
-#   5 3 * * * cd /opt/netbox/ansible-netbox && /opt/netbox/ansible-netbox/bin/ansible-playbook playbooks/vikunja_backup.yml -i inventory.ini --limit ynh2 --private-key /root/.ssh/vikunja_backup_key >> /var/log/ansible_vikunja_backup.log 2>&1
+# Trac Ticket:   http://trac.home.arpa/ticket/2781
 # ==============================================================================
 
-- name: Back up Vikunja on ynh2 and scp to TrueNAS
-  hosts: ynh2
-  gather_facts: no  # Disabling facts speeds up the run and avoids some connection issues
+- name: Back up Vikunja on vik-01 and scp to TrueNAS
+  hosts: vik-01
+  become: yes
+  gather_facts: no
 
-  # --- Define paths ---
   vars:
-    # Path on ynh2 where yunohost stores backups
-    remote_backup_path: "/home/yunohost.backup/archives"
+    # Source data directory on vik-01
+    backup_src_dir: "/var/lib/vikunja"
+    # Temporary directory for creating the archive
+    remote_temp_path: "/tmp"
     
     # Temporary path on the ansible controller (netbox1)
     controller_temp_path: "/tmp"
@@ -37,75 +40,69 @@
     scp_host: "truenas.home.arpa"
     scp_dest_path: "/mnt/tank22/smb-share/smb-home/Backups/Vikunja/"
     
-    # SSH Key to use for the SCP transfer (Must match the key used in Cron)
+    # SSH Key to use for the SCP transfer
     ssh_key_path: "/root/.ssh/vikunja_backup_key"
 
   tasks:
-    # --- Phase 1: Creation on ynh2 ---
-    - name: 1. Create Vikunja backup on ynh2
-      ansible.builtin.shell: "yunohost backup create --apps vikunja"
-      register: backup_result
-      changed_when: "'SUCCESS Backup created' in backup_result.stdout"
-
-    - name: 2. Extract backup name from command output
+    - name: 0. Generate timestamp
       ansible.builtin.set_fact:
-        vikunja_backup_name: "{{ backup_result.stdout | regex_search('SUCCESS Backup created: (\\S+)', '\\1') | first }}"
-      when: backup_result.changed
+        timestamp: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
 
-    - name: 3. Verify backup name was found
-      ansible.builtin.fail:
-        msg: "Could not parse backup name from command output."
-      when: vikunja_backup_name is not defined or vikunja_backup_name == ""
+    - name: 0b. Set backup filename
+      ansible.builtin.set_fact:
+        backup_filename: "vikunja-backup-{{ timestamp }}.tar.gz"
 
-    - name: 4. Compress the backup archive (.tar -> .tar.gz)
+    # --- Phase 1: Creation on vik-01 ---
+    - name: 1. Stop Vikunja service
+      ansible.builtin.systemd:
+        name: vikunja
+        state: stopped
+
+    - name: 2. Create backup archive of /var/lib/vikunja
       community.general.archive:
-        path: "{{ remote_backup_path }}/{{ vikunja_backup_name }}.tar"
-        dest: "{{ remote_backup_path }}/{{ vikunja_backup_name }}.tar.gz"
+        path: "{{ backup_src_dir }}"
+        dest: "{{ remote_temp_path }}/{{ backup_filename }}"
         format: gz
-        remove: yes # Deletes the original .tar file
-      when: vikunja_backup_name is defined
+        owner: root
+        group: root
+        mode: '0600'
+      register: archive_result
+
+    - name: 3. Start Vikunja service
+      ansible.builtin.systemd:
+        name: vikunja
+        state: started
 
     # --- Phase 2: Transfer to Controller (Pull) ---
-    - name: 5. Fetch backup files from ynh2 to controller
+    - name: 4. Fetch backup file from vik-01 to controller
       ansible.builtin.fetch:
-        src: "{{ remote_backup_path }}/{{ item }}"
+        src: "{{ remote_temp_path }}/{{ backup_filename }}"
         dest: "{{ controller_temp_path }}/"
-        flat: yes # Don't create a /host/path/ structure
-      loop:
-        - "{{ vikunja_backup_name }}.tar.gz"
-        - "{{ vikunja_backup_name }}.info.json"
-      when: vikunja_backup_name is defined
+        flat: yes
+      when: archive_result.changed
 
     # --- Phase 3: Transfer to TrueNAS (Push) ---
-    - name: 6. Push backup files from controller to TrueNAS
-      # This runs on your controller (netbox1)
+    - name: 5. Push backup file from controller to TrueNAS
       delegate_to: localhost
+      become: no
       ansible.builtin.shell: |
         scp -i "{{ ssh_key_path }}" \
-            "{{ controller_temp_path }}/{{ item }}" \
+            -o StrictHostKeyChecking=no \
+            "{{ controller_temp_path }}/{{ backup_filename }}" \
             "{{ scp_user }}@{{ scp_host }}:{{ scp_dest_path }}"
-      loop:
-        - "{{ vikunja_backup_name }}.tar.gz"
-        - "{{ vikunja_backup_name }}.info.json"
-      when: vikunja_backup_name is defined
+      when: archive_result.changed
       changed_when: true
 
     # --- Phase 4: Cleanup ---
-    - name: 7. Clean up local files from controller
+    - name: 6. Clean up local file from controller
       delegate_to: localhost
+      become: no
       ansible.builtin.file:
-        path: "{{ controller_temp_path }}/{{ item }}"
+        path: "{{ controller_temp_path }}/{{ backup_filename }}"
         state: absent
-      loop:
-        - "{{ vikunja_backup_name }}.tar.gz"
-        - "{{ vikunja_backup_name }}.info.json"
-      when: vikunja_backup_name is defined
 
-    - name: 8. Clean up remote backup files from ynh2
+    - name: 7. Clean up remote backup file from vik-01
       ansible.builtin.file:
-        path: "{{ remote_backup_path }}/{{ item }}"
+        path: "{{ remote_temp_path }}/{{ backup_filename }}"
         state: absent
-      loop:
-        - "{{ vikunja_backup_name }}.tar.gz"
-        - "{{ vikunja_backup_name }}.info.json"
-      when: vikunja_backup_name is defined
+

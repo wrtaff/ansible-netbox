@@ -1,0 +1,35 @@
+#!/bin/bash
+set -e
+
+# Configuration
+PBS_REPOSITORY="{{ pbs_client_user }}@{{ pbs_client_repository_host }}:{{ pbs_client_datastore }}"
+PBS_PASSWORD="{{ pbs_client_password }}"
+PBS_FINGERPRINT="{{ pbs_client_fingerprint }}"
+
+BACKUP_DIR="/tmp/pbs_backup_{{ ansible_hostname }}"
+mkdir -p $BACKUP_DIR/db
+
+{% if pbs_client_db_dump %}
+echo "Dumping database..."
+# Database dump command
+{{ pbs_client_db_dump_cmd }} > $BACKUP_DIR/db/dump.sql
+{% endif %}
+
+echo "Starting Proxmox Backup..."
+export PBS_PASSWORD
+export PBS_FINGERPRINT
+
+proxmox-backup-client backup \
+{% if pbs_client_db_dump %}
+    db.pxar:$BACKUP_DIR/db \
+{% endif %}
+{% for dir in pbs_client_backup_dirs %}
+    {{ dir.name }}.pxar:{{ dir.path }} \
+{% endfor %}
+    --repository $PBS_REPOSITORY
+
+echo "Cleaning up..."
+rm -rf $BACKUP_DIR
+
+echo "Backup completed successfully."
+

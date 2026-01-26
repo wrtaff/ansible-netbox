@@ -1,0 +1,28 @@
+- hosts: debian
+  gather_facts: yes
+  become: yes
+
+  vars:
+    admin_user: will
+
+  tasks:
+    - name: 1. Ensure sudo and python3 are installed
+      ansible.builtin.apt:
+        name: 
+          - sudo
+          - python3
+        state: present
+        update_cache: yes
+
+    - name: 2. Grant the admin user passwordless sudo privileges
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/{{ admin_user }}"
+        content: "{{ admin_user }} ALL=(ALL) NOPASSWD: ALL"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+
+    - name: 3. Deploy SSH key for the admin user
+      ansible.posix.authorized_key:
+        user: "{{ admin_user }}"
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"

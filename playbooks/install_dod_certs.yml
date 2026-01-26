@@ -1,0 +1,121 @@
+# Playbook: Install DoD Root CA Certificates
+# Absolute Path: /opt/netbox/ansible-netbox/playbooks/install_dod_certs.yml
+# Purpose: Deploys Department of Defense (DoD) Root CA certificates to the system trust store and injects them into Browser DBs.
+# Prerequisites: Debian/Ubuntu system, Internet access for download.
+# Usage: ansible-playbook playbooks/install_dod_certs.yml -i inventory.ini -l <target_group>
+# Trac Ticket: #2950
+# Use Case: Enables trust for DoD websites (e.g., .mil domains).
+# Installation Method: Downloads ZIP, extracts PKCS#7, converts to CRT, installs to system store, and uses certutil for browsers.
+# Configuration: Certificates in /usr/local/share/ca-certificates/dod-root-bundle.crt.
+# Removal Instructions: Manual removal from nssdb required using certutil -D.
+
+---
+- name: Install DoD Root CA Certificates
+  hosts: all
+  become: true
+  vars:
+    dod_zip_url: "https://dl.dod.cyber.mil/wp-content/uploads/pki-pke/zip/unclass-certificates_pkcs7_DoD.zip"
+    dod_temp_dir: "/tmp/dod_certs_install"
+    cert_path: "/usr/local/share/ca-certificates/dod-root-bundle.crt"
+    target_user: "will" # Hardcoded for workstation deployment per ticket context
+    
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - unzip
+          - openssl
+          - ca-certificates
+          - p11-kit
+          - libnss3-tools
+        state: present
+        update_cache: yes
+
+    - name: Create temporary directory
+      ansible.builtin.file:
+        path: "{{ dod_temp_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download DoD Certificate Bundle
+      ansible.builtin.get_url:
+        url: "{{ dod_zip_url }}"
+        dest: "{{ dod_temp_dir }}/dod_certs.zip"
+        mode: '0644'
+
+    - name: Unzip Certificate Bundle
+      ansible.builtin.unarchive:
+        src: "{{ dod_temp_dir }}/dod_certs.zip"
+        dest: "{{ dod_temp_dir }}"
+        remote_src: yes
+
+    - name: Find the PKCS#7 PEM bundle
+      ansible.builtin.find:
+        paths: "{{ dod_temp_dir }}"
+        recurse: yes
+        patterns: "*DoD.pem.p7b"
+      register: p7b_files
+
+    - name: Fail if no bundle found
+      ansible.builtin.fail:
+        msg: "Could not find the expected *DoD.pem.p7b file in the downloaded archive."
+      when: p7b_files.matched == 0
+
+    - name: Convert PKCS#7 bundle to PEM/CRT
+      ansible.builtin.shell: |
+        openssl pkcs7 -print_certs -in "{{ p7b_files.files[0].path }}" -out "{{ cert_path }}"
+      args:
+        creates: "{{ cert_path }}"
+
+    - name: Update CA Certificates store
+      ansible.builtin.command:
+        cmd: update-ca-certificates
+      register: update_ca_result
+      changed_when: "'0 added, 0 removed' not in update_ca_result.stdout"
+
+    # Browser Support Section (Firefox Policies)
+    - name: Create Firefox Policies directory
+      ansible.builtin.file:
+        path: /etc/firefox/policies
+        state: directory
+        mode: '0755'
+
+    - name: Enable Enterprise Roots for Firefox
+      ansible.builtin.copy:
+        dest: /etc/firefox/policies/policies.json
+        content: |
+          {
+            "policies": {
+              "Certificates": {
+                "ImportEnterpriseRoots": true
+              }
+            }
+          }
+
+    # Browser Support Section (Direct Injection)
+    - name: Add DoD Certs to Chrome/Chromium (NSSDB)
+      ansible.builtin.shell: |
+        certutil -d sql:/home/{{ target_user }}/.pki/nssdb -A -t "TC,C,T" -n "DoD Root CA Bundle" -i "{{ cert_path }}"
+      become_user: "{{ target_user }}"
+      ignore_errors: yes
+      changed_when: false # certutil is idempotent with -A but doesn't report change nicely
+
+    - name: Find Firefox Profiles
+      ansible.builtin.find:
+        paths: "/home/{{ target_user }}/.mozilla/firefox"
+        patterns: "*.default*"
+        file_type: directory
+      register: firefox_profiles
+
+    - name: Add DoD Certs to Firefox Profiles
+      ansible.builtin.shell: |
+        certutil -d sql:{{ item.path }} -A -t "TC,C,T" -n "DoD Root CA Bundle" -i "{{ cert_path }}"
+      with_items: "{{ firefox_profiles.files }}"
+      become_user: "{{ target_user }}"
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ dod_temp_dir }}"
+        state: absent

@@ -37,7 +37,11 @@ def main():
     )
 
     parser.add_argument("-i", "--ticket-id", required=True, type=int, help="The ID of the ticket to update.")
-    parser.add_argument("-c", "--comment", required=True, help="The comment to add to the ticket. Use shell escapes for newlines (e.g., $\'some\\ntext\').")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-c", "--comment", help="The comment to add to the ticket. Use shell escapes for newlines (e.g., $\'some\\ntext\').")
+    group.add_argument("-f", "--comment-file", help="Path to a file containing the comment text.")
+    
+    parser.add_argument("-s", "--summary", help="Update the ticket summary.")
     parser.add_argument("-d", "--description", help="Update the ticket description. Use shell escapes for newlines (e.g., $\'some\\ntext\').")
     parser.add_argument("-a", "--action", help="The action to perform (e.g., 'resolve', 'reopen').")
     parser.add_argument("-r", "--resolve-as", help="If resolving, the resolution status (e.g., 'fixed', 'wontfix').")
@@ -47,9 +51,22 @@ def main():
 
     args = parser.parse_args()
 
+    comment_text = ""
+    if args.comment_file:
+        try:
+            with open(args.comment_file, "r") as f:
+                comment_text = f.read()
+        except Exception as e:
+            print(f"Error reading comment file: {e}")
+            exit(1)
+    elif args.comment:
+        comment_text = args.comment.replace("\\n", "\n")
+
     attributes = {}
+    if args.summary:
+        attributes['summary'] = args.summary
     if args.description:
-        attributes['description'] = args.description
+        attributes['description'] = args.description.replace("\\n", "\n")
     if args.action:
         attributes['action'] = args.action
     if args.action == 'resolve' and args.resolve_as:
@@ -64,7 +81,7 @@ def main():
         server = xmlrpc.client.ServerProxy(TRAC_URL)
 
         # Method signature: ticket.update(id, comment, {attributes}, notify, author)
-        server.ticket.update(args.ticket_id, args.comment, attributes, NOTIFY, args.author)
+        server.ticket.update(args.ticket_id, comment_text, attributes, NOTIFY, args.author)
 
         print(f"\nSuccessfully updated ticket {args.ticket_id}!")
         print(f"  - URL: http://trac.home.arpa/ticket/{args.ticket_id}")

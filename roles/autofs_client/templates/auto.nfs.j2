@@ -1,0 +1,4 @@
+# /etc/auto.nfs (managed by Ansible)
+{% for share in autofs_nfs_shares %}
+{{ share.name }} {{ share.server }}:{{ share.path }}
+{% endfor %}

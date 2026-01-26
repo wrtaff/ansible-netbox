@@ -1,0 +1,19 @@
+---
+- hosts: wazuh-siem
+  gather_facts: no
+  become: no
+  remote_user: root
+
+  tasks:
+    - name: Create user will
+      raw: useradd -m -s /bin/bash will
+      ignore_errors: yes
+
+    - name: Add will to sudoers
+      raw: "echo 'will ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/will && chmod 0440 /etc/sudoers.d/will"
+
+    - name: Create .ssh directory
+      raw: mkdir -p /home/will/.ssh && chmod 700 /home/will/.ssh && chown will:will /home/will/.ssh
+
+    - name: Deploy SSH key
+      raw: echo "{{ lookup('file', '~/.ssh/id_rsa.pub') }}" > /home/will/.ssh/authorized_keys && chmod 600 /home/will/.ssh/authorized_keys && chown will:will /home/will/.ssh/authorized_keys

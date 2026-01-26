@@ -1,0 +1,6 @@
+---
+- name: Restart backup timer
+  systemd:
+    name: pbs-backup.timer
+    state: restarted
+    daemon_reload: yes

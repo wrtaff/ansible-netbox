@@ -1,0 +1,15 @@
+---
+# Playbook: install_pbs_client.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/install_pbs_client.yml
+# Purpose: Deploys and configures the Proxmox Backup Server (PBS) client and daily backup schedule.
+# Prerequisites: Debian-based system, SSH access, secrets configured in vault.yml.
+# Usage: ansible-playbook playbooks/install_pbs_client.yml -i inventory.ini -l <group_or_host>
+# Trac Ticket: http://trac.home.arpa/ticket/2666
+
+- name: Install Proxmox Backup Client
+  hosts: all
+  become: yes
+  vars_files:
+    - ../vault.yml
+  roles:
+    - pbs_client

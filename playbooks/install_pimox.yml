@@ -1,0 +1,36 @@
+---
+- hosts: proxmox
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: 1. Add PVE-Port GPG key
+      ansible.builtin.get_url:
+        url: https://global.mirrors.apqa.cn/proxmox/debian/pveport.gpg
+        dest: /etc/apt/trusted.gpg.d/pveport.gpg
+        mode: '0644'
+
+    - name: 2. Add PVE-Port repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=arm64] https://global.mirrors.apqa.cn/proxmox/debian/pve bookworm port"
+        state: present
+        filename: pveport
+
+    - name: 3. Install Proxmox-VE and dependencies
+      ansible.builtin.apt:
+        name:
+          - proxmox-ve
+          - postfix
+          - open-iscsi
+        state: present
+        update_cache: yes
+      async: 3600
+      poll: 30
+
+    - name: 4. Check PVE version
+      ansible.builtin.command: pveversion
+      register: pve_version
+      changed_when: false
+
+    - name: 5. Display PVE version
+      ansible.builtin.debug:
+        var: pve_version.stdout

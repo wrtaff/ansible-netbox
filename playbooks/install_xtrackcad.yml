@@ -1,0 +1,85 @@
+# ------------------------------------------------------------------------------
+# Playbook: install_xtrackcad.yml
+# Location: /opt/netbox/ansible-netbox/playbooks/install_xtrackcad.yml
+# Purpose: Installs and configures XTrackCAD on desktop systems.
+# Prerequisites: Debian-based system (apt).
+# Usage: ansible-playbook playbooks/install_xtrackcad.yml -i inventory.ini
+#
+# Trac Ticket: http://trac.home.arpa/ticket/2898
+#
+# Use Case:
+#   Provides CAD software for model railroad layout design on desktop workstations.
+#   Pre-configures user environment for 'will' with HO scale and default layout.
+#
+# Installation Method:
+#   Uses 'apt' to install the 'xtrkcad' package.
+#   Deploys custom .xtrkcad/xtrkcad.rc and desktop file.
+#
+# Configuration:
+#   Default User: will
+#   Default Scale: HO
+#   Default Layout: /mnt/smb/share/Projects/model_trains/media_cabinet_train.xtc
+#
+# Removal:
+#   ansible-playbook playbooks/install_xtrackcad.yml -e "package_state=absent"
+# ------------------------------------------------------------------------------
+---
+- name: Install and Configure XTrackCAD
+  hosts: desktops
+  become: yes
+  vars:
+    package_state: present
+    xtc_user: will
+    xtc_default_layout: "/mnt/smb/share/Projects/model_trains/media_cabinet_train.xtc"
+
+  tasks:
+    - name: Remove existing XTrackCAD packages (repo version)
+      ansible.builtin.apt:
+        name:
+          - xtrkcad
+          - xtrkcad-common
+        state: absent
+        purge: yes
+
+    - name: Copy XTrackCAD 5.3.1 package to target
+      ansible.builtin.copy:
+        src: ../files/xtrkcad-setup-5.3.1GA-1.x86_64.deb
+        dest: /tmp/xtrkcad-setup-5.3.1GA-1.x86_64.deb
+        mode: '0644'
+
+    - name: Install XTrackCAD 5.3.1 from local package
+      ansible.builtin.apt:
+        deb: /tmp/xtrkcad-setup-5.3.1GA-1.x86_64.deb
+        state: present
+
+    - name: Ensure XTrackCAD config directory exists
+      ansible.builtin.file:
+        path: "/home/{{ xtc_user }}/.xtrkcad"
+        state: directory
+        owner: "{{ xtc_user }}"
+        group: "{{ xtc_user }}"
+        mode: '0755'
+
+    - name: Deploy XTrackCAD configuration
+      ansible.builtin.template:
+        src: templates/xtrkcad.rc.j2
+        dest: "/home/{{ xtc_user }}/.xtrkcad/xtrkcad.rc"
+        owner: "{{ xtc_user }}"
+        group: "{{ xtc_user }}"
+        mode: '0644'
+
+    - name: Deploy XTrackCAD car inventory
+      ansible.builtin.copy:
+        src: ../files/xtrkcad.cus
+        dest: "/home/{{ xtc_user }}/.xtrkcad/xtrkcad.cus"
+        owner: "{{ xtc_user }}"
+        group: "{{ xtc_user }}"
+        mode: '0644'
+
+    - name: Deploy XTrackCAD desktop file with Icon
+      ansible.builtin.template:
+        src: templates/xtrkcad.desktop.j2
+        dest: /usr/share/applications/xtrkcad.desktop
+        owner: root
+        group: root
+        mode: '0644'

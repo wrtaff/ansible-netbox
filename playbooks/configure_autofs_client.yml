@@ -1,0 +1,25 @@
+# ------------------------------------------------------------------------------
+# Playbook: configure_autofs_client.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/configure_autofs_client.yml
+# Trac Ticket: #2833, #2834
+# Wiki Page: http://192.168.0.99/mediawiki/index.php/Playbooks/configure_autofs_client.yml
+#
+# Purpose:
+#   Deploys the autofs_client role to manage network shares (NFS and SMB) 
+#   on desktop hosts.
+#
+# Prerequisites:
+#   - Hosts must be part of the 'desktops' Ansible group.
+#   - SMB credentials must be present in the vault.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/configure_autofs_client.yml --ask-vault-pass
+# ------------------------------------------------------------------------------
+---
+- name: Configure Autofs Client for Network Shares
+  hosts: desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  roles:
+    - autofs_client

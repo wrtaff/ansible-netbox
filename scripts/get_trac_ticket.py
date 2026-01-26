@@ -39,6 +39,7 @@ def main():
         print(f"Ticket: #{ticket[0]}")
         print(f"Summary: {attributes.get('summary', 'N/A')}")
         print(f"Status: {attributes.get('status', 'N/A')}")
+        print(f"Priority: {attributes.get('priority', 'N/A')}")
         print(f"Keywords: {attributes.get('keywords', 'N/A')}")
         print("-" * 20)
         print("Description:")

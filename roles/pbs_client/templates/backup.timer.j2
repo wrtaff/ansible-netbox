@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Proxmox Backup Client Daily
+
+[Timer]
+OnCalendar={{ pbs_client_schedule }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

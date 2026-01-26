@@ -1,0 +1,194 @@
+---
+- name: Provision OwnTracks Recorder LXC
+  hosts: pve2
+  become: true
+  vars_files:
+    - ../vault.yml
+  vars:
+    vmid: 109
+    hostname: ot-recorder
+    ip_address: 192.168.0.191
+    gateway: 192.168.0.1
+    template: local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst
+    storage: local-lvm
+    password: "{{ vault_lxc_default_password }}" # Temporary, will be changed by user or keys used
+
+  tasks:
+    - name: Check if LXC exists
+      command: pct status {{ vmid }}
+      register: pct_status
+      ignore_errors: true
+      changed_when: false
+
+    - name: Create LXC Container
+      command: >
+        pct create {{ vmid }} {{ template }}
+        --hostname {{ hostname }}
+        --net0 name=eth0,bridge=vmbr0,ip={{ ip_address }}/24,gw={{ gateway }}
+        --nameserver 192.168.0.89
+        --storage {{ storage }}
+        --password {{ password }}
+        --ssh-public-keys /root/.ssh/authorized_keys
+        --features nesting=1
+        --start 1
+      when: pct_status.rc != 0
+
+    - name: Wait for LXC to be ready
+      wait_for:
+        host: "{{ ip_address }}"
+        port: 22
+        delay: 5
+        timeout: 60
+      when: pct_status.rc != 0
+
+- name: Configure OwnTracks Recorder
+  hosts: ot-recorder
+  become: true
+  gather_facts: false
+  vars:
+    mqtt_host: 192.168.0.186
+    mqtt_port: 1883
+  
+  pre_tasks:
+    - name: Install Python and Sudo (Bootstrap)
+      raw: apt-get update && apt-get install -y python3 sudo
+      changed_when: false
+      become: false
+
+  tasks:
+    - name: Gathering Facts
+      setup:
+
+    - name: Install Dependencies
+      apt:
+        name:
+          - curl
+          - gnupg
+          - mosquitto-clients
+        state: present
+        update_cache: yes
+
+    - name: Install ot-recorder
+      apt:
+        name: ot-recorder
+        state: present
+        update_cache: yes
+
+    - name: Configure ot-recorder defaults
+      lineinfile:
+        path: /etc/default/ot-recorder
+        regexp: '^OTR_HOST='
+        line: 'OTR_HOST="{{ mqtt_host }}"'
+        create: yes
+    
+    - name: Configure ot-recorder port
+      lineinfile:
+        path: /etc/default/ot-recorder
+        regexp: '^OTR_PORT='
+        line: 'OTR_PORT={{ mqtt_port }}'
+        create: yes
+
+    - name: Configure ot-recorder topics
+      lineinfile:
+        path: /etc/default/ot-recorder
+        regexp: '^OTR_TOPICS='
+        line: 'OTR_TOPICS="owntracks/#"'
+        create: yes
+
+    - name: Ensure service is running
+      service:
+        name: ot-recorder
+        state: restarted
+        enabled: yes
+
+- name: Install OwnTracks Frontend
+  hosts: ot-recorder
+  become: true
+  vars:
+    frontend_version: "v2.15.3"
+    frontend_url: "https://github.com/owntracks/frontend/releases/download/{{ frontend_version }}/{{ frontend_version }}-dist.zip"
+  
+  tasks:
+    - name: Install Nginx and Unzip
+      apt:
+        name:
+          - nginx
+          - unzip
+        state: present
+
+    - name: Create web directory
+      file:
+        path: /var/www/html/owntracks
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Download Frontend
+      get_url:
+        url: "{{ frontend_url }}"
+        dest: /tmp/frontend.zip
+
+    - name: Unzip Frontend
+      unarchive:
+        src: /tmp/frontend.zip
+        dest: /var/www/html/owntracks
+        remote_src: yes
+        creates: /var/www/html/owntracks/index.html
+
+    - name: Configure Frontend (config.js)
+      copy:
+        dest: /var/www/html/owntracks/config.js
+        content: |
+          window.owntracks = window.owntracks || {};
+          window.owntracks.config = {
+            api: {
+              baseUrl: "/api" 
+            }
+          };
+
+    - name: Configure Nginx Site
+      copy:
+        dest: /etc/nginx/sites-available/owntracks
+        content: |
+          server {
+              listen 80;
+              server_name _;
+              root /var/www/html/owntracks;
+              index index.html;
+
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+
+              location /api/ {
+                  proxy_pass http://127.0.0.1:8083/api/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+              }
+              
+              # Proxy WebSocket for live updates if supported
+              location /ws/ {
+                  proxy_pass http://127.0.0.1:8083/ws/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "Upgrade";
+              }
+          }
+
+    - name: Enable Nginx Site
+      file:
+        src: /etc/nginx/sites-available/owntracks
+        dest: /etc/nginx/sites-enabled/owntracks
+        state: link
+
+    - name: Disable Default Nginx Site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes

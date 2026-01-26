@@ -1,0 +1,15 @@
+---
+# Configuration for NetBox backup using pbs_client role
+# Secrets are managed in vault.yml
+
+pbs_client_user: "{{ netbox_pbs_token }}"
+pbs_client_password: "{{ netbox_pbs_password }}"
+pbs_client_fingerprint: "{{ netbox_pbs_fingerprint }}"
+
+pbs_client_backup_dirs:
+  - { name: "etc", path: "/etc" }
+  - { name: "opt_netbox", path: "/opt/netbox" }
+  - { name: "home_will", path: "/home/will" }
+
+pbs_client_db_dump: true
+pbs_client_db_dump_cmd: "export PGPASSWORD='{{ netbox_db_password }}' && pg_dump -h localhost -U netbox netbox"

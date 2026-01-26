@@ -1,0 +1,122 @@
+---
+- name: Provision Caddy Proxy LXC
+  hosts: pve2
+  become: true
+  vars_files:
+    - ../vault.yml
+  vars:
+    vmid: 110
+    hostname: caddy01
+    ip_address: 192.168.0.128
+    gateway: 192.168.0.1
+    template: local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst
+    storage: local-lvm
+    password: "{{ vault_lxc_default_password }}" 
+
+  tasks:
+    - name: Check if LXC exists
+      command: pct status {{ vmid }}
+      register: pct_status
+      ignore_errors: true
+      changed_when: false
+
+    - name: Create LXC Container
+      command: >
+        pct create {{ vmid }} {{ template }}
+        --hostname {{ hostname }}
+        --net0 name=eth0,bridge=vmbr0,ip={{ ip_address }}/24,gw={{ gateway }}
+        --nameserver 192.168.0.89
+        --storage {{ storage }}
+        --password {{ password }}
+        --ssh-public-keys /root/.ssh/authorized_keys
+        --features nesting=1
+        --start 1
+      when: pct_status.rc != 0
+
+    - name: Ensure TUN device access in LXC config (for Tailscale)
+      ansible.builtin.blockinfile:
+        path: "/etc/pve/lxc/{{ vmid }}.conf"
+        marker: "# {mark} ANSIBLE MANAGED: TAILSCALE TUN"
+        block: |
+          lxc.cgroup2.devices.allow: c 10:200 rwm
+          lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+      register: lxc_config_update
+
+    - name: Restart LXC Container to apply changes
+      ansible.builtin.command: "pct reboot {{ vmid }}"
+      when: lxc_config_update.changed
+      async: 60
+      poll: 5
+
+    - name: Wait for LXC to be ready
+      wait_for:
+        host: "{{ ip_address }}"
+        port: 22
+        delay: 5
+        timeout: 60
+      when: pct_status.rc != 0 or lxc_config_update.changed
+
+- name: Configure Caddy and Tailscale
+  hosts: caddy01
+  become: true
+  gather_facts: false
+  
+  pre_tasks:
+    - name: Remove broken Caddy repo file if it exists
+      raw: rm -f /etc/apt/sources.list.d/caddy-stable.list
+      changed_when: false
+    - name: Install Python and Sudo (Bootstrap)
+      raw: apt-get update && apt-get install -y python3 sudo
+      changed_when: false
+      become: false
+
+  tasks:
+    - name: Gathering Facts
+      setup:
+
+    - name: Install Dependencies
+      apt:
+        name:
+          - curl
+          - gnupg
+          - debian-keyring
+          - debian-archive-keyring
+          - apt-transport-https
+        state: present
+        update_cache: yes
+
+    - name: Download Caddy GPG key
+      get_url:
+        url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+        dest: /tmp/caddy.gpg.key
+        mode: '0644'
+
+    - name: Dearmor Caddy GPG key
+      shell: cat /tmp/caddy.gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+      args:
+        creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+    - name: Add Caddy repository
+      copy:
+        content: "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+        dest: /etc/apt/sources.list.d/caddy-stable.list
+        mode: '0644'
+
+    - name: Install Caddy
+      apt:
+        name: caddy
+        state: present
+        update_cache: yes
+      notify: Restart Caddy
+
+    - name: Install Tailscale
+      shell: curl -fsSL https://tailscale.com/install.sh | sh
+      args:
+        creates: /usr/bin/tailscale
+
+  handlers:
+    - name: Restart Caddy
+      service:
+        name: caddy
+        state: restarted
+        enabled: yes

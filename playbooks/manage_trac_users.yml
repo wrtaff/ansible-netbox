@@ -1,0 +1,28 @@
+# Playbook: Manage Trac Users
+# Path: /opt/netbox/ansible-netbox/playbooks/manage_trac_users.yml
+# Purpose: Manages users and passwords in the Trac .htpasswd file using Ansible Vault.
+# Prerequisites: 
+#   - Trac server (trac-lxc) must be reachable via SSH.
+#   - community.general collection installed.
+#   - Plaintext passwords stored in vault.yml as 'vault_trac_user_password_<username>'.
+# Usage: ansible-playbook playbooks/manage_trac_users.yml -i inventory.ini --ask-vault-pass
+# Trac Ticket: http://trac.home.arpa/ticket/2945
+
+- name: Manage Trac Users
+  hosts: trac-lxc
+  vars_files:
+    - ../vault.yml
+  tasks:
+    - name: Ensure python3-passlib is installed
+      apt:
+        name: python3-passlib
+        state: present
+
+    - name: Ensure jen's password is set in .htpasswd
+      community.general.htpasswd:
+        path: /etc/apache2/.htpasswd
+        name: jen
+        password: "{{ vault_trac_user_password_jen }}"
+        owner: root
+        group: www-data
+        mode: 0640

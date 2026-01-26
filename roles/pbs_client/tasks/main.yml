@@ -1,0 +1,51 @@
+---
+- name: Install dependencies
+  apt:
+    name:
+      - wget
+      - gnupg
+    state: present
+    update_cache: yes
+
+- name: Add Proxmox Backup Client repository key
+  shell: wget -qO - https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg | tee /etc/apt/trusted.gpg.d/proxmox-release-bookworm.gpg > /dev/null
+  args:
+    creates: /etc/apt/trusted.gpg.d/proxmox-release-bookworm.gpg
+
+- name: Add Proxmox Backup Client repository
+  apt_repository:
+    repo: "deb http://download.proxmox.com/debian/pbs-client bookworm main"
+    state: present
+    filename: pbs-client
+
+- name: Install Proxmox Backup Client
+  apt:
+    name: proxmox-backup-client
+    state: present
+    update_cache: yes
+
+- name: Create backup script
+  template:
+    src: backup.sh.j2
+    dest: "{{ pbs_client_script_path }}"
+    mode: '0700'
+  notify: Restart backup timer
+
+- name: Create Systemd service
+  template:
+    src: backup.service.j2
+    dest: /etc/systemd/system/pbs-backup.service
+  notify: Restart backup timer
+
+- name: Create Systemd timer
+  template:
+    src: backup.timer.j2
+    dest: /etc/systemd/system/pbs-backup.timer
+  notify: Restart backup timer
+
+- name: Enable and start backup timer
+  systemd:
+    name: pbs-backup.timer
+    state: started
+    enabled: yes
+    daemon_reload: yes

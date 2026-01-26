@@ -1,0 +1,69 @@
+---
+# Playbook: Install and Configure Pi-hole
+# Absolute Path: /opt/netbox/ansible-netbox/playbooks/install_pihole.yml
+# Purpose: Installs Pi-hole on a target host in unattended mode.
+# Trac Ticket: #2910
+#
+# Use Case: Provides network-wide ad blocking and local DNS/DHCP services.
+# Installation Method: Official automated installer (curl | bash) with unattended configuration.
+# Prerequisites: Debian-based system, static IP configured (or DHCP reservation), root access.
+# Configuration: /etc/pihole/setupVars.conf
+# Usage: ansible-playbook -i inventory.ini playbooks/install_pihole.yml -l rpi4-pve
+# Removal Instructions: pihole uninstall
+# Links: http://trac.home.arpa/ticket/2910
+
+- name: Install and Configure Pi-hole
+  hosts: rpi4-pve
+  become: yes
+  vars_files:
+    - ../vault.yml
+  vars:
+    pihole_interface: "eth0"
+    pihole_dns1: "1.1.1.1"
+    pihole_dns2: "8.8.8.8"
+    pihole_webpassword: "{{ vault_pihole_webpassword | default('admin') }}" 
+
+  tasks:
+    - name: Gather facts
+      setup:
+
+    - name: Ensure /etc/pihole directory exists
+      file:
+        path: /etc/pihole
+        state: directory
+        mode: '0755'
+
+    - name: Configure setupVars.conf for unattended installation
+      copy:
+        dest: /etc/pihole/setupVars.conf
+        content: |
+          PIHOLE_INTERFACE={{ pihole_interface }}
+          PIHOLE_DNS_1={{ pihole_dns1 }}
+          PIHOLE_DNS_2={{ pihole_dns2 }}
+          QUERY_LOGGING=true
+          INSTALL_WEB_SERVER=true
+          INSTALL_WEB_INTERFACE=true
+          LIGHTTPD_ENABLED=true
+          IPV4_ADDRESS={{ ansible_default_ipv4.address }}/24
+          IPV6_ADDRESS={{ ansible_default_ipv6.address | default('') }}
+          WEBPASSWORD={{ pihole_webpassword }}
+
+    - name: Download Pi-hole installer
+      get_url:
+        url: https://install.pi-hole.net
+        dest: /tmp/basic-install.sh
+        mode: '0755'
+
+    - name: Run Pi-hole installer (unattended)
+      shell: /tmp/basic-install.sh --unattended
+      args:
+        creates: /usr/local/bin/pihole
+
+    - name: Verify Pi-hole status
+      command: pihole status
+      register: pihole_status
+      changed_when: false
+
+    - name: Show Pi-hole status
+      debug:
+        var: pihole_status.stdout_lines

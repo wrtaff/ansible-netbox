@@ -1,0 +1,44 @@
+'''Playbooks/configure_autofs_client.yml''' sets up <code>autofs</code> on desktop hosts to automatically mount NFS and SMB shares from TrueNAS.
+
+== Use Case ==
+This playbook ensures that all desktop hosts have a consistent view of the network filesystem, allowing users to access their home directories and shared family folders seamlessly without manual mounting or hardcoded <code>/etc/fstab</code> entries.
+
+== Installation Method ==
+Installed via Ansible using the <code>autofs_client</code> role. It uses <code>apt</code> to install <code>autofs</code>, <code>nfs-common</code>, and <code>cifs-utils</code>.
+
+== Prerequisites ==
+* Hosts must be in the <code>[desktops]</code> Ansible group.
+* SSH access for user <code>will</code> with sudo privileges.
+* SMB credentials for TrueNAS stored in <code>vault.yml</code>.
+
+== Configuration ==
+=== Master Map ===
+The master map (<code>/etc/auto.master</code>) defines two main mount points:
+* <code>/mnt/nfs</code>: Managed by <code>/etc/auto.nfs</code>
+* <code>/mnt/smb</code>: Managed by <code>/etc/auto.cifs</code> (with <code>--timeout=60 --ghost</code>)
+
+=== NFS Shares ===
+Configured in <code>/etc/auto.nfs</code>. Currently includes:
+* User home directories: <code>will</code>, <code>jen</code>, <code>henry</code>, <code>walter</code>, <code>family</code>
+* Service directories: <code>srv</code>
+* Backups: <code>backupTRUENAS</code>
+
+=== SMB Shares ===
+Configured in <code>/etc/auto.cifs</code>. Currently includes:
+* <code>share</code>: Points to <code>//truenas.home.arpa/family-garage</code>
+
+=== Credentials ===
+SMB credentials are deployed to <code>/home/will/.smbcreds/truenas.home.arpa</code> with restricted permissions (0600).
+
+== Usage ==
+Run the playbook from the <code>ansible-netbox</code> directory:
+<code>ansible-playbook -i inventory.ini playbooks/configure_autofs_client.yml --ask-vault-pass</code>
+
+== Removal Instructions ==
+To decommission <code>autofs</code>, the <code>autofs</code> package can be purged and the mount point directories removed. This is not currently automated via a playbook.
+
+== Links ==
+* Trac Ticket: [http://trac.home.arpa/ticket/2833 #2833], [http://trac.home.arpa/ticket/2834 #2834]
+* NetBox Site: [http://netbox1.home.arpa NetBox]
+
+[[Category: Ansible playbooks]]

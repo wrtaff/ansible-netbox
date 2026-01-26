@@ -1,0 +1,4 @@
+# /etc/auto.cifs (managed by Ansible)
+{% for share in autofs_smb_shares %}
+{{ share.name }} -fstype=cifs,uid={{ share.uid }},gid={{ share.gid }},dir_mode={{ share.dir_mode }},file_mode={{ share.file_mode }},credentials={{ share.creds_file }} ://{{ share.server }}/{{ share.share_name }}
+{% endfor %}

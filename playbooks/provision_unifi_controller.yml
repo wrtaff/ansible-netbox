@@ -1,0 +1,27 @@
+---
+- name: Provision UniFi Controller
+  hosts: unifi
+  become: true
+  vars_files:
+    - ../vault.yml
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+
+    - name: Install common packages
+      apt:
+        name:
+          - curl
+          - wget
+          - vim
+          - git
+          - htop
+          - net-tools
+        state: present

@@ -104,15 +104,9 @@ USERNAME = "will"
 PASSWORD = os.getenv("WWOS_PASSWORD")
 
 
-def create_wwos_page(page_name, categories, summary="Page created by script", content_body=None):
+def get_authenticated_session():
     """
-    Creates or updates a page on the WWOS MediaWiki instance.
-    
-    Args:
-        page_name: The title of the page to create/update
-        categories: Comma-separated string of categories to assign
-        summary: Edit summary for the change
-        content_body: Optional body content for the page
+    Returns an authenticated requests.Session for the WWOS MediaWiki.
     """
     session = requests.Session()
 
@@ -139,6 +133,71 @@ def create_wwos_page(page_name, categories, summary="Page created by script", co
     login_result = login_response.json()
     if login_result.get("login", {}).get("result") != "Success":
         raise Exception(f"Login failed: {login_result}")
+        
+    return session
+
+def page_exists(page_name, session=None):
+    """
+    Checks if a page exists on the WWOS MediaWiki.
+    """
+    if session is None:
+        session = get_authenticated_session()
+        
+    response = session.get(API_URL, params={
+        "action": "query",
+        "titles": page_name,
+        "format": "json"
+    })
+    response.raise_for_status()
+    data = response.json()
+    
+    pages = data.get("query", {}).get("pages", {})
+    # If the page ID is "-1", it does not exist
+    for page_id in pages:
+        if page_id == "-1":
+            return False
+        return True
+    return False
+
+def get_page_content(page_name, session=None):
+    """
+    Retrieves the current content of a page.
+    Returns None if page does not exist.
+    """
+    if session is None:
+        session = get_authenticated_session()
+
+    response = session.get(API_URL, params={
+        "action": "query",
+        "titles": page_name,
+        "prop": "revisions",
+        "rvprop": "content",
+        "format": "json"
+    })
+    response.raise_for_status()
+    data = response.json()
+    
+    pages = data.get("query", {}).get("pages", {})
+    for page_id in pages:
+        if page_id == "-1":
+            return None
+        # Return the content of the first revision
+        revisions = pages[page_id].get("revisions", [])
+        if revisions:
+            return revisions[0].get("*", "")
+    return None
+
+def create_wwos_page(page_name, categories, summary="Page created by script", content_body=None):
+    """
+    Creates or updates a page on the WWOS MediaWiki instance.
+    
+    Args:
+        page_name: The title of the page to create/update
+        categories: Comma-separated string of categories to assign
+        summary: Edit summary for the change
+        content_body: Optional body content for the page
+    """
+    session = get_authenticated_session()
 
     # 3. Get CSRF token for editing
     csrf_token_response = session.get(API_URL, params={
@@ -150,15 +209,21 @@ def create_wwos_page(page_name, categories, summary="Page created by script", co
     csrf_token = csrf_token_response.json()["query"]["tokens"]["csrftoken"]
 
     # 4. Construct page content
-    content = f"'''{page_name}'''\n\n"
-    if content_body:
-        content += content_body + "\n\n"
-    content += "{{bop}}\n\n"
-    
-    # Parse and add multiple categories
-    category_list = [cat.strip() for cat in categories.split(",") if cat.strip()]
-    for cat in category_list:
-        content += f"[[Category:{cat}]]\n"
+    if content_body and content_body.strip().upper().startswith("#REDIRECT"):
+        content = content_body.strip()
+    else:
+        content = f"'''{page_name}'''\n\n"
+        if content_body:
+            content += content_body + "\n\n"
+        
+        # Only add {{bop}} if it's not a Category page
+        if not page_name.startswith("Category:"):
+            content += "{{bop}}\n\n"
+        
+        # Parse and add multiple categories
+        category_list = [cat.strip() for cat in categories.split(",") if cat.strip()]
+        for cat in category_list:
+            content += f"[[Category:{cat}]]\n"
 
     # 5. Create or update the page
     edit_data = {

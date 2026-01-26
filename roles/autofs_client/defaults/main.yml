@@ -1,0 +1,40 @@
+---
+# roles/autofs_client/defaults/main.yml
+
+autofs_nfs_shares:
+  - name: will
+    server: truenas.home.arpa
+    path: /mnt/tank22/nfs-share/home/will
+  - name: jen
+    server: truenas.home.arpa
+    path: /mnt/tank22/nfs-share/home/jen
+  - name: henry
+    server: truenas.home.arpa
+    path: /mnt/tank22/nfs-share/home/henry
+  - name: walter
+    server: truenas.home.arpa
+    path: /mnt/tank22/nfs-share/home/walter
+  - name: family
+    server: truenas.home.arpa
+    path: /mnt/tank22/nfs-share/home/family
+  - name: srv
+    server: truenas.home.arpa
+    path: /mnt/tank22/nfs-share/srv
+  - name: backupTRUENAS
+    server: truenas.home.arpa
+    path: /mnt/tank22/nfs-share/backup
+
+autofs_smb_shares:
+  - name: share
+    server: truenas.home.arpa
+    share_name: family-garage
+    uid: 1000
+    gid: 1000
+    dir_mode: "0770"
+    file_mode: "0770"
+    creds_file: /home/will/.smbcreds/truenas.home.arpa
+
+# These should be defined in a vault
+autofs_smb_user: "{{ truenas_smb_user }}"
+autofs_smb_password: "{{ truenas_smb_pass }}"
+# autofs_smb_domain: "domain"

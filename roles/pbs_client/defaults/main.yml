@@ -1,0 +1,12 @@
+---
+pbs_client_repository_host: "pbs01.home.arpa"
+pbs_client_datastore: "main-backups"
+pbs_client_user: "root@pam"
+pbs_client_password: ""
+pbs_client_fingerprint: ""
+pbs_client_backup_dirs:
+  - { name: "etc", path: "/etc" }
+pbs_client_db_dump: false
+# pbs_client_db_dump_cmd: "pg_dump -h localhost -U netbox netbox"
+pbs_client_schedule: "daily"
+pbs_client_script_path: "/usr/local/bin/pbs-backup.sh"
