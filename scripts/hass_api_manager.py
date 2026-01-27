@@ -1,4 +1,22 @@
 #!/usr/bin/env python3
+"""
+================================================================================
+Filename:       hass_api_manager.py
+Version:        1.0
+Author:         Gemini CLI
+Last Modified:  2026-01-26
+Context:        http://trac.home.arpa/ticket/2965
+
+Purpose:
+    A helper script to interact with the Home Assistant API.
+    Handles authentication via env var or vault, and provides simple
+    wrappers for common API actions.
+
+Usage:
+    ./hass_api_manager.py status
+    ./hass_api_manager.py state <entity_id>
+    ./hass_api_manager.py call <domain> <service> <json_data>
+"""
 import os
 import requests
 import json

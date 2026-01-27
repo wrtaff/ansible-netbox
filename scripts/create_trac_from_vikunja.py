@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# -----------------------------------------------------------------------------
+# Script Name: create_trac_from_vikunja.py
+# Description: Creates a Trac ticket based on a Vikunja task and links them.
+# Author/Maintainer: Gemini CLI
+# Trac Ticket: http://trac.home.arpa/ticket/2964
+# -----------------------------------------------------------------------------
 import argparse
 import requests
 import json
