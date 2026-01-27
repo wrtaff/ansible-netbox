@@ -1,0 +1,29 @@
+'''Playbooks/deploy_scripts_mirror.yml''' mirrors the local <code>scripts/</code> directory to a remote host (limbo-bd).
+
+== Use Case ==
+Provides read-only access to the project's utility and automation scripts on secondary development/maintenance hosts like <code>limbo-bd</code>. This allows for consistent execution of maintenance scripts without manual copying.
+
+== Installation Method ==
+Uses the <code>ansible.posix.synchronize</code> module which wraps <code>rsync</code>.
+
+== Prerequisites ==
+* <code>rsync</code> must be installed on both the controller and the target host.
+* Target host (limbo-bd) must be defined in the inventory.
+* SSH access for user <code>will</code>.
+
+== Configuration ==
+* Local Source: <code>./scripts/</code>
+* Remote Dest: <code>/home/will/gemini_projects/scripts/</code>
+
+== Usage ==
+Run the playbook from the <code>ansible-netbox</code> directory:
+<code>ansible-playbook -i inventory.ini playbooks/deploy_scripts_mirror.yml</code>
+
+== Removal Instructions ==
+Manual deletion of the <code>/home/will/gemini_projects/scripts</code> directory on the remote host.
+
+== Links ==
+* Trac Ticket: [http://trac.home.arpa/ticket/2887 #2887]
+* NetBox Entry: [http://netbox1.home.arpa/dcim/devices/?name=limbo-bd limbo-bd]
+
+[[Category: Ansible playbooks]]

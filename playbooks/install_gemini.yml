@@ -1,7 +1,19 @@
+# ==============================================================================
+# Filename:       install_gemini.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-01-26
+# Context:        http://trac.gafla.us.com/ticket/2802
 #
-# FILENAME:    install_gemini.yml
-# PURPOSE:     Provisions desktops with the Gemini CLI using the 'gemini_cli' role.
+# Purpose:
+#   Provisions desktops with the Gemini CLI using the 'gemini_cli' role.
+#   Configures Node.js/NPM, installs the CLI package, and sets the API key
+#   via a persistent environment variable (bashrc).
 #
+# Dependencies:
+#   - role: gemini_cli
+#   - vault.yml (for gemini_api_key)
+# ==============================================================================
 
 - name: Install Google Gemini CLI
   hosts: desktops        # Targets your newly renamed [desktops] group
