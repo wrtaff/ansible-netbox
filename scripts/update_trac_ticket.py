@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 """
-A helper script to update Trac tickets via the XML-RPC API.
+================================================================================
+Filename:       update_trac_ticket.py
+Version:        1.1
+Author:         Gemini CLI
+Last Modified:  2026-01-26
+Context:        http://trac.home.arpa/ticket/2965
+
+Purpose:
+    A helper script to update Trac tickets via the XML-RPC API.
+
+    Update 1.1:
+    - Enforced space-separated keywords by automatically replacing commas.
+
+Usage:
+    ./update_trac_ticket.py --help
 """
 import xmlrpc.client
 import argparse
@@ -46,7 +60,7 @@ def main():
     parser.add_argument("-a", "--action", help="The action to perform (e.g., 'resolve', 'reopen').")
     parser.add_argument("-r", "--resolve-as", help="If resolving, the resolution status (e.g., 'fixed', 'wontfix').")
     parser.add_argument("-p", "--priority", help="Update the ticket priority (e.g., 'major', 'minor').")
-    parser.add_argument("-k", "--keywords", help="Update the ticket keywords (e.g., 'networking, dns').")
+    parser.add_argument("-k", "--keywords", help="Update the ticket keywords (e.g., 'networking dns'). Commas will be automatically replaced with spaces.")
     parser.add_argument("--author", default="gemini", help="The author of the comment.")
 
     args = parser.parse_args()
@@ -74,7 +88,7 @@ def main():
     if args.priority:
         attributes['priority'] = args.priority
     if args.keywords:
-        attributes['keywords'] = args.keywords
+        attributes['keywords'] = args.keywords.replace(',', ' ')
 
     try:
         print(f"Connecting to Trac server at {TRAC_URL.split('@')[1]}...")

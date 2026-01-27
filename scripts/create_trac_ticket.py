@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 """
-A helper script to create Trac tickets via the XML-RPC API.
+================================================================================
+Filename:       create_trac_ticket.py
+Version:        1.1
+Author:         Gemini CLI
+Last Modified:  2026-01-26
+Context:        http://trac.home.arpa/ticket/2965
+
+Purpose:
+    A helper script to create Trac tickets via the XML-RPC API.
+    
+    Update 1.1:
+    - Enforced space-separated keywords by automatically replacing commas.
+
+Usage:
+    ./create_trac_ticket.py --help
 """
 import xmlrpc.client
 import argparse
@@ -46,7 +60,7 @@ def main():
     parser.add_argument("-s", "--summary", required=True, help="A brief, descriptive summary of the ticket.")
     parser.add_argument("-d", "--description", required=True, help="The full description of the ticket. Use '\\n' for newlines.")
     parser.add_argument("-c", "--component", default=DEFAULT_COMPONENT, help=f"The component to assign the ticket to. (Default: {DEFAULT_COMPONENT})\nREMINDER: NEVER create new components without explicit permission.")
-    parser.add_argument("-k", "--keywords", default="", help="Comma-separated keywords for the ticket (e.g., 'PROV-P1, SCM').")
+    parser.add_argument("-k", "--keywords", default="", help="Space-separated keywords for the ticket (e.g., 'PROV-P1 SCM'). Commas will be automatically replaced with spaces.")
     parser.add_argument("-t", "--type", default=DEFAULT_TYPE, help=f"The type of the ticket. (Default: {DEFAULT_TYPE})")
     parser.add_argument("-p", "--priority", default=DEFAULT_PRIORITY, help=f"The priority of the ticket. (Default: {DEFAULT_PRIORITY})")
     parser.add_argument("-m", "--milestone", default="", help="The milestone to assign the ticket to.")
@@ -57,10 +71,13 @@ def main():
 
     # Replace literal '\n' with actual newline characters
     processed_description = args.description.replace('\\n', '\n').replace('&#10;', '\n')
+    
+    # Ensure keywords are space-separated
+    processed_keywords = args.keywords.replace(',', ' ')
 
     attributes = {
         'component': args.component,
-        'keywords': args.keywords,
+        'keywords': processed_keywords,
         'type': args.type,
         'priority': args.priority,
         'milestone': args.milestone,
