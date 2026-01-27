@@ -1,29 +1,23 @@
 # ==============================================================================
-# PLAYBOOK:     playbooks/deploy_scripts_mirror.yml
-# PURPOSE:      Mirrors the local scripts/ directory to a remote host.
-# TRAC TICKET:  http://trac.home.arpa/ticket/2887
-# NETBOX ENTRY: http://netbox1.home.arpa/dcim/devices/?name=limbo-bd
+# Filename:       playbooks/deploy_scripts_mirror.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-01-26
+# Context:        http://trac.home.arpa/ticket/2887
 #
-# USE CASE:
-#   Provides read-only access to the project's utility and automation scripts
-#   on secondary development/maintenance hosts (like limbo-bd).
+# Purpose:
+#    Mirrors the local scripts/ directory to a remote host (limbo-bd).
+#    Provides read-only access to the project's utility and automation scripts.
 #
-# INSTALLATION METHOD:
-#   Uses the 'ansible.posix.synchronize' module which wraps 'rsync'.
+#    Configuration:
+#      - Local Source:  ./scripts/
+#      - Remote Dest:   /home/will/gemini_projects/scripts/
 #
-# PREREQUISITES:
-#   - 'rsync' must be installed on both the controller and the target host.
-#   - The target host must be defined in the inventory.
+#    Prerequisites:
+#      - 'rsync' must be installed on both the controller and the target host.
 #
-# CONFIGURATION:
-#   - Local Source:  ./scripts/
-#   - Remote Dest:    /home/will/gemini_projects/scripts/
-#
-# USAGE:
-#   ansible-playbook -i inventory.ini playbooks/deploy_scripts_mirror.yml
-#
-# REMOVAL:
-#   Manual deletion of the /home/will/gemini_projects/scripts directory.
+#    Usage:
+#      ansible-playbook -i inventory.ini playbooks/deploy_scripts_mirror.yml
 # ==============================================================================
 
 - name: Mirror Scripts to Remote Hosts
