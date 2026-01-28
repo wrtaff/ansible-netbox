@@ -8,12 +8,13 @@ Uses the <code>ansible.posix.synchronize</code> module which wraps <code>rsync</
 
 == Prerequisites ==
 * <code>rsync</code> must be installed on both the controller and the target host.
+* <code>vault.yml</code> must be present in the root directory for encrypted variables.
 * Target host (limbo-bd) must be defined in the inventory.
 * SSH access for user <code>will</code>.
 
 == Configuration ==
-* Local Source: <code>./scripts/</code>
-* Remote Dest: <code>/home/will/gemini_projects/scripts/</code>
+* Local Source: <code>./scripts/</code> -> Remote Dest: <code>/home/will/gemini_projects/scripts/</code>
+* Local Source: <code>./vault.yml</code> -> Remote Dest: <code>/home/will/gemini_projects/vault.yml</code>
 
 == Usage ==
 Run the playbook from the <code>ansible-netbox</code> directory:

@@ -1,6 +1,17 @@
 ---
-# FILENAME:    tasks/main.yml
-# PURPOSE:     Installation logic for Gemini CLI
+# ==============================================================================
+# Filename:       tasks/main.yml
+# Version:        1.2
+# Author:         Gemini CLI
+# Last Modified:  2026-01-26
+# Context:        http://trac.gafla.us.com/ticket/2802
+#
+# Purpose:
+#   Installation logic for Gemini CLI.
+#
+#   Update 1.2:
+#   - Implemented 'gemini_package_state' variable to allow updates.
+# ==============================================================================
 
 - name: "PREREQUISITE: Install Node.js (v20+) and NPM"
   ansible.builtin.include_tasks: install_nodejs.yml
@@ -10,7 +21,7 @@
   ansible.builtin.npm:
     name: "{{ gemini_cli_npm_package | default('@google/gemini-cli') }}"
     global: true
-    state: present
+    state: "{{ gemini_package_state }}"
   tags: install
 
 - name: 2. Configure Gemini API Key (Persistent Env Var)

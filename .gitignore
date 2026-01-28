@@ -36,6 +36,8 @@ id_dsa.pub
 # Any other sensitive files
 secrets.yml
 credentials.json
+token.pickle
+scripts/token.pickle
 files/github_rw_deploy_key
 vars/homeassistant_token.txt
 .vault_pass.txt

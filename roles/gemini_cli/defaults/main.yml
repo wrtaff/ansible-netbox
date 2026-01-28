@@ -1,6 +1,17 @@
 ---
-# FILENAME:    defaults/main.yml
-# PURPOSE:     Default variables for the Gemini CLI role
+# ==============================================================================
+# Filename:       defaults/main.yml
+# Version:        1.2
+# Author:         Gemini CLI
+# Last Modified:  2026-01-26
+# Context:        http://trac.gafla.us.com/ticket/2802
+#
+# Purpose:
+#   Default variables for the Gemini CLI role.
+#
+#   Update 1.2:
+#   - Added 'gemini_package_state' to control update behavior (present/latest).
+# ==============================================================================
 
 # The user under which the CLI configuration will be stored.
 gemini_cli_config_user: 'will'
@@ -10,6 +21,9 @@ gemini_cli_install_nodejs: true
 
 # NPM package name
 gemini_cli_npm_package: '@google/gemini-cli'
+
+# Package state: 'present' (install only) or 'latest' (update)
+gemini_package_state: 'present'
 
 # API Key Default (Static string to prevent recursion error)
 # This will be overridden by your Vault.

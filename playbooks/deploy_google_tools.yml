@@ -1,0 +1,95 @@
+---
+# ==============================================================================
+# Filename:       /opt/netbox/ansible-netbox/playbooks/deploy_google_tools.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-01-27
+# Context:        http://trac.home.arpa/ticket/2978
+#
+# Use Case:
+#   Enables the Gemini CLI (agent) to interact with Google Calendar and Google Tasks.
+#   Solves the need for automated scheduling and task management from the command line.
+#
+# Installation Method:
+#   Ansible playbook utilizing 'apt' for pip and 'pip' for Python libraries.
+#   Manual OAuth setup on the controller generates a token which is then deployed.
+#
+# Purpose:
+#   Deploys Google Calendar/Tasks tools and authentication to remote agents.
+#
+# Prerequisites:
+#   - python3-pip must be installable via apt.
+#   - scripts/token.pickle must exist on controller (run 'python3 scripts/manage_calendar.py setup' first).
+#   - Target hosts must have user 'will' and directory '/home/will/gemini_projects/scripts'.
+#
+# Configuration:
+#   - OAuth token: scripts/token.pickle
+#   - Script location: scripts/manage_calendar.py
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/deploy_google_tools.yml
+#
+# Removal Instructions:
+#   Manual removal of /home/will/gemini_projects/scripts/manage_calendar.py 
+#   and /home/will/gemini_projects/scripts/token.pickle.
+#   Uninstall python3-pip if no longer needed.
+#
+# Links:
+#   Trac Ticket: http://trac.home.arpa/ticket/2978
+# ==============================================================================
+
+- name: Deploy Google Tools to Agents
+  hosts: gmailctl-ansible,limbo-bd
+  become: true
+  vars:
+    # Target User/Group for scripts (must exist on target)
+    script_owner: "will"
+    script_group: "will"
+    
+    # Target directory for scripts
+    target_dir: "/home/{{ script_owner }}/gemini_projects/scripts"
+    
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install python3-pip
+      ansible.builtin.apt:
+        name: python3-pip
+        state: present
+
+    - name: Install Google Python Client Libraries
+      ansible.builtin.pip:
+        name:
+          - google-api-python-client
+          - google-auth-oauthlib
+          - google-auth-httplib2
+        state: present
+        executable: pip3
+
+    - name: Ensure target directory exists
+      ansible.builtin.file:
+        path: "{{ target_dir }}"
+        state: directory
+        owner: "{{ script_owner }}"
+        group: "{{ script_group }}"
+        mode: '0755'
+
+    - name: Copy manage_calendar.py
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/manage_calendar.py"
+        dest: "{{ target_dir }}/manage_calendar.py"
+        owner: "{{ script_owner }}"
+        group: "{{ script_group }}"
+        mode: '0755'
+
+    - name: Copy OAuth Token (token.pickle)
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/token.pickle"
+        dest: "{{ target_dir }}/token.pickle"
+        owner: "{{ script_owner }}"
+        group: "{{ script_group }}"
+        mode: '0600'
+      ignore_errors: yes

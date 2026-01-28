@@ -1,0 +1,27 @@
+# ==============================================================================
+# Filename:       update_gemini.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-01-26
+# Context:        http://trac.gafla.us.com/ticket/2802
+#
+# Purpose:
+#   Updates the Gemini CLI to the latest version on desktops.
+#   Forces the npm package state to 'latest'.
+#
+# Dependencies:
+#   - role: gemini_cli
+#   - vault.yml (for gemini_api_key)
+# ==============================================================================
+
+- name: Update Google Gemini CLI
+  hosts: desktops
+  gather_facts: true
+  become: "{{ ansible_user | default('will') != 'root' }}"
+  vars_files: [../vault.yml]
+  vars:
+    gemini_package_state: 'latest'
+    gemini_cli_install_nodejs: false
+
+  roles:
+    - role: gemini_cli
