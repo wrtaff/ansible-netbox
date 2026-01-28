@@ -51,7 +51,7 @@ def get_creds(port=8080):
                 print(f"Error: {CREDENTIALS_FILE} not found. Please place your OAuth 2.0 Client credentials in this file.")
                 sys.exit(1)
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=port, prompt='consent', authorization_prompt_message='Please visit this URL to authorize this application: {url}', open_browser=False)
+            creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', authorization_prompt_message='Please visit this URL to authorize this application: {url}', open_browser=False)
         with open(TOKEN_FILE, 'wb') as token:
             pickle.dump(creds, token)
     return creds
