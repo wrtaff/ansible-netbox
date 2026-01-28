@@ -38,7 +38,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CREDENTIALS_FILE = os.path.join(SCRIPT_DIR, 'credentials.json')
 TOKEN_FILE = os.path.join(SCRIPT_DIR, 'token.pickle')
 
-def get_creds():
+def get_creds(port=8080):
     creds = None
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, 'rb') as token:
@@ -51,7 +51,7 @@ def get_creds():
                 print(f"Error: {CREDENTIALS_FILE} not found. Please place your OAuth 2.0 Client credentials in this file.")
                 sys.exit(1)
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_console()
+            creds = flow.run_local_server(port=port, prompt='consent', authorization_prompt_message='Please visit this URL to authorize this application: {url}', open_browser=False)
         with open(TOKEN_FILE, 'wb') as token:
             pickle.dump(creds, token)
     return creds
@@ -127,6 +127,7 @@ if __name__ == '__main__':
 
     # Setup
     parser_setup = subparsers.add_parser('setup', help='Perform initial authentication')
+    parser_setup.add_argument('--port', type=int, default=8080, help='Port for local server auth (default: 8080)')
 
     # List Events
     parser_list = subparsers.add_parser('list', help='List upcoming events')
@@ -147,7 +148,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.command == 'setup':
-        get_creds()
+        get_creds(port=args.port)
         print("Authentication successful.")
     elif args.command == 'list':
         list_events(args.max)
