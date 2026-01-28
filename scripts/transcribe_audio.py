@@ -1,31 +1,35 @@
 #!/usr/bin/env python3
 """
 ================================================================================
-Filename:       transcribe_audio.py
-Version:        1.2
-Author:         Gemini CLI
-Last Modified:  2026-01-28
-Context:        http://trac.home.arpa/ticket/2979
+Filename:	transcribe_audio.py
+Version:	1.4
+Author:		Gemini CLI
+Last Modified:	2026-01-28
+Context:	http://trac.home.arpa/ticket/2987
 
 Purpose:
-    Transcribes an audio file using the Gemini 2.0 Flash API.
-    Outputs the transcript to a .txt file in the same directory.
-    Supports providing context to improve transcription accuracy.
+	Transcribes an audio file using the Gemini 2.0 Flash API.
+	Outputs the transcript to a .txt file in the same directory.
+	Supports providing context to improve transcription accuracy.
+	Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.4:
+	- Added automatic audio chunking for files longer than 20 minutes using ffmpeg.
+	- Concatenates transcripts from multiple chunks.
+
+Changes in 1.3:
+	- Added filename sanitization: Replaces spaces with underscores in input file.
+	- Updated output filename format: Appends "_transcription.txt".
 
 Changes in 1.2:
-    - Centralized script in ansible-netbox repository.
-
-Changes in 1.1:
-    - Added interactive prompt for Gemini API key if not found in env/file.
-    - Added progress spinner using threading and itertools.
-    - Added 10-minute timeout for API requests.
-    - Added explicit messaging for API key source.
+	- Centralized script in ansible-netbox repository.
 
 Usage:
-    ./transcribe_audio.py <audio_file_path> [--context "Context text"] [--model "model-name"]
+	./transcribe_audio.py <audio_file_path> [--context "Context text"] [--model "model-name"]
 
 Dependencies:
-    - requests (pip install requests)
+	- requests (pip install requests)
+	- ffmpeg (apt install ffmpeg)
 ================================================================================
 """
 import os
@@ -38,10 +42,15 @@ import argparse
 import getpass
 import threading
 import itertools
+import shutil
+import subprocess
+import glob
 
 # --- Configuration ---
 DEFAULT_MODEL = "gemini-2.0-flash"
 API_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "gemini_key.txt")
+CHUNK_THRESHOLD_SECONDS = 1200 # 20 minutes
+CHUNK_SEGMENT_TIME = 1200      # 20 minutes
 
 def get_api_key():
     """Retrieves the Gemini API key from environment or file."""
@@ -65,6 +74,53 @@ def get_api_key():
 
     print("Error: No API key provided.")
     sys.exit(1)
+
+def get_audio_duration(file_path):
+    """Returns the duration of the audio file in seconds using ffprobe."""
+    try:
+        cmd = [
+            'ffprobe', 
+            '-v', 'error', 
+            '-show_entries', 'format=duration', 
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            file_path
+        ]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        return float(result.stdout.strip())
+    except Exception as e:
+        print(f"Warning: Could not determine audio duration: {e}")
+        return 0
+
+def split_audio(file_path, segment_time=CHUNK_SEGMENT_TIME):
+    """Splits audio into segments using ffmpeg."""
+    dir_name = os.path.dirname(file_path)
+    base_name = os.path.splitext(os.path.basename(file_path))[0]
+    # Create a pattern for segments: original_name_part000.ext
+    extension = os.path.splitext(file_path)[1]
+    output_pattern = os.path.join(dir_name, f"{base_name}_part%03d{extension}")
+    
+    print(f"Splitting audio into {segment_time}s chunks...")
+    try:
+        cmd = [
+            'ffmpeg',
+            '-i', file_path,
+            '-f', 'segment',
+            '-segment_time', str(segment_time),
+            '-c', 'copy',
+            '-reset_timestamps', '1',
+            output_pattern
+        ]
+        # Run quietly
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+        
+        # Find generated files
+        search_pattern = os.path.join(dir_name, f"{base_name}_part*{extension}")
+        chunks = sorted(glob.glob(search_pattern))
+        print(f"Created {len(chunks)} chunks.")
+        return chunks
+    except subprocess.CalledProcessError as e:
+        print(f"Error splitting audio: {e.stderr.decode()}")
+        sys.exit(1)
 
 def upload_file(file_path, api_key):
     """Uploads the file to Gemini Media API."""
@@ -138,48 +194,29 @@ def wait_for_file(file_name_api, api_key):
         print(".", end="", flush=True)
         time.sleep(2)
 
-def transcribe(file_uri, api_key, model=DEFAULT_MODEL, context=None):
-
-    """Sends the transcription request to Gemini."""
-
+def transcribe_chunk(file_uri, api_key, model=DEFAULT_MODEL, context=None, chunk_index=0):
+    """Sends the transcription request to Gemini for a specific chunk."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
-    
-
     prompt_text = "Please provide a verbatim transcript of this audio file. Include speaker labels if possible and clear timestamps for major transitions."
+    
+    if chunk_index > 0:
+        prompt_text += " Note: This is part of a larger recording, so context may be continuing from a previous segment."
 
     if context:
-
         prompt_text += f"\n\nContext for the conversation:\n{context}"
 
-
-
     payload = {
-
         "contents": [{
-
             "parts": [
-
                 {"text": prompt_text},
-
                 {"file_data": {"mime_type": "audio/mp4", "file_uri": file_uri}}
-
             ]
-
         }],
-
         "generationConfig": {
-
             "temperature": 0.0,
-
         }
-
     }
-
-
-    
-    # Note: mime_type in file_data should ideally match the uploaded type, 
-    # but audio/mp4 works for m4a.
     
     print(f"Requesting transcription from {model} (this may take a while)...")
     
@@ -198,15 +235,20 @@ def transcribe(file_uri, api_key, model=DEFAULT_MODEL, context=None):
     spinner_thread.start()
 
     try:
-        # Increased timeout to 600 seconds (10 minutes) for large files
+        # Increased timeout to 600 seconds (10 minutes) per chunk
         response = requests.post(url, json=payload, timeout=600)
         done = True
         spinner_thread.join()
         response.raise_for_status()
         
         result = response.json()
-        transcript = result['candidates'][0]['content']['parts'][0]['text']
-        return transcript
+        try:
+            transcript = result['candidates'][0]['content']['parts'][0]['text']
+            return transcript
+        except KeyError:
+            print("\nWarning: No transcript text found in response.")
+            return "[No transcript generated for this segment]"
+            
     except requests.exceptions.Timeout:
         done = True
         spinner_thread.join()
@@ -223,6 +265,12 @@ def transcribe(file_uri, api_key, model=DEFAULT_MODEL, context=None):
             pass
         sys.exit(1)
 
+def process_file_or_chunk(file_path, api_key, model, context, chunk_index=0):
+    """Orchestrates upload, wait, and transcribe for a single file/chunk."""
+    file_uri, file_name_api = upload_file(file_path, api_key)
+    wait_for_file(file_name_api, api_key)
+    return transcribe_chunk(file_uri, api_key, model, context, chunk_index)
+
 def main():
     parser = argparse.ArgumentParser(description="Transcribe audio using Gemini.")
     parser.add_argument("file_path", help="Path to the audio file.")
@@ -234,17 +282,43 @@ def main():
     if not os.path.exists(args.file_path):
         print(f"Error: File not found: {args.file_path}")
         sys.exit(1)
+
+    # Sanitize filename if it contains spaces
+    if " " in os.path.basename(args.file_path):
+        dir_name = os.path.dirname(args.file_path)
+        base_name = os.path.basename(args.file_path)
+        new_base_name = base_name.replace(" ", "_")
+        new_file_path = os.path.join(dir_name, new_base_name)
+        
+        print(f"Renaming '{args.file_path}' to '{new_file_path}'...")
+        shutil.move(args.file_path, new_file_path)
+        args.file_path = new_file_path
         
     api_key = get_api_key()
     
-    file_uri, file_name_api = upload_file(args.file_path, api_key)
-    wait_for_file(file_name_api, api_key)
+    # Check duration
+    duration = get_audio_duration(args.file_path)
+    full_transcript = ""
     
-    transcript = transcribe(file_uri, api_key, args.model, args.context)
+    if duration > CHUNK_THRESHOLD_SECONDS:
+        print(f"File duration ({duration:.2f}s) exceeds threshold ({CHUNK_THRESHOLD_SECONDS}s). Splitting...")
+        chunks = split_audio(args.file_path)
+        
+        for i, chunk_path in enumerate(chunks):
+            print(f"\n--- Processing Chunk {i+1}/{len(chunks)}: {os.path.basename(chunk_path)} ---")
+            chunk_transcript = process_file_or_chunk(chunk_path, api_key, args.model, args.context, chunk_index=i)
+            full_transcript += f"\n\n--- Segment {i+1} ---\n{chunk_transcript}"
+            
+            # Cleanup chunk
+            os.remove(chunk_path)
+            
+        print("\nAll chunks processed.")
+    else:
+        full_transcript = process_file_or_chunk(args.file_path, api_key, args.model, args.context)
     
-    output_path = os.path.splitext(args.file_path)[0] + ".txt"
+    output_path = os.path.splitext(args.file_path)[0] + "_transcription.txt"
     with open(output_path, 'w') as f:
-        f.write(transcript)
+        f.write(full_transcript)
         
     print(f"\nTranscription complete! Saved to: {output_path}")
 
