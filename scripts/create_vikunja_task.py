@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       create_vikunja_task.py
-Version:        1.2
+Version:        1.3
 Author:         Gemini CLI
 Last Modified:  2026-01-30
 
@@ -12,9 +12,9 @@ Purpose:
     supports setting the task title, description, project ID, "favorite" 
     status, and labels.
 
-    Update 1.2:
-    - Robust label handling: resolving existing labels by ID (case-insensitive) 
-      and creating new ones on the fly if they don't exist.
+    Update 1.3:
+    - Fixed label attachment logic: Labels are now added via a separate API call
+      after task creation, as per Vikunja API requirements.
 
 Usage:
     # Set the API token in your environment:
@@ -46,10 +46,11 @@ Arguments:
     --token          The Vikunja API token (Overrides VIKUNJA_API_TOKEN env var).
 
 Version History:
+    v1.3 (2026-01-30) - Fixed label attachment:
+        - Labels are now attached via /api/v1/tasks/{id}/labels endpoint.
     v1.2 (2026-01-30) - Enhanced label support:
         - Now fetches existing labels to resolve IDs (case-insensitive).
         - Automatically creates new labels if they don't exist.
-        - Fixes issue where labels were not being attached correctly.
     v1.1 (2026-01-30) - Added label parsing:
         - Words in the title starting with '*' are now extracted as labels.
     v1.0 (2026-01-30) - Initial version:
@@ -109,6 +110,22 @@ def create_label(host, token, title):
         print(f"Warning: Could not create label '{title}': {e}")
     return None
 
+def add_label_to_task(host, token, task_id, label_id):
+    url = f"{host}/api/v1/tasks/{task_id}/labels"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = json.dumps({"label_id": label_id}).encode('utf-8')
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers, method="PUT")
+        with urllib.request.urlopen(req, context=get_ssl_context()) as response:
+            if response.status in (200, 201):
+                return True
+    except Exception as e:
+        print(f"Warning: Could not attach label ID {label_id} to task {task_id}: {e}")
+    return False
+
 def create_task(title, description="", project_id=1, is_favorite=True, host="http://todo.home.arpa", token=None, labels=None):
     if not token:
         token = os.getenv("VIKUNJA_API_TOKEN")
@@ -128,12 +145,12 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
         for label_name in labels:
             existing = label_map.get(label_name.lower())
             if existing:
-                resolved_labels.append({"id": existing['id']})
+                resolved_labels.append({"id": existing['id'], "title": existing['title']})
             else:
                 print(f"(Creating new label '{label_name}')...", end=" ", flush=True)
                 new_label = create_label(host, token, label_name)
                 if new_label:
-                    resolved_labels.append({"id": new_label['id']})
+                    resolved_labels.append({"id": new_label['id'], "title": new_label['title']})
         print("Done.")
 
     url = f"{host}/api/v1/projects/{project_id}/tasks"
@@ -149,8 +166,7 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
         "is_favorite": is_favorite
     }
     
-    if resolved_labels:
-        payload["labels"] = resolved_labels
+    # NOTE: Labels are NOT added here in the create payload anymore.
     
     json_payload = json.dumps(payload).encode('utf-8')
     
@@ -159,11 +175,19 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
         with urllib.request.urlopen(req, context=get_ssl_context()) as response:
             if response.status in (200, 201):
                 result = json.loads(response.read().decode('utf-8'))
-                print(f"Success: Task created with ID {result.get('id')}")
+                task_id = result.get('id')
+                print(f"Success: Task created with ID {task_id}")
                 print(f"Title: {result.get('title')}")
+                print(f"Link: {host}/tasks/{task_id}")
+                
+                # Attach Labels
                 if resolved_labels:
-                    print(f"Labels Attached: {len(resolved_labels)}")
-                print(f"Link: {host}/tasks/{result.get('id')}")
+                    print("Attaching labels...", end=" ", flush=True)
+                    count = 0
+                    for label in resolved_labels:
+                        if add_label_to_task(host, token, task_id, label['id']):
+                            count += 1
+                    print(f"Attached {count}/{len(resolved_labels)} labels.")
             else:
                 print(f"Error: Unexpected status code {response.status}")
                 print(response.read().decode('utf-8'))
@@ -205,10 +229,6 @@ def main():
         token=args.token,
         labels=labels
     )
-
-if __name__ == "__main__":
-    main()
-
 
 if __name__ == "__main__":
     main()
