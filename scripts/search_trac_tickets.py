@@ -1,5 +1,6 @@
 import xmlrpc.client
 import os
+import sys
 
 TRAC_URL = "http://will:8675309@trac-lxc.home.arpa/login/xmlrpc"
 
@@ -21,10 +22,12 @@ def search_tickets(query_string):
         return [f"Error: {e}"]
 
 if __name__ == "__main__":
-    print("Searching for 'audio'...")
-    for r in search_tickets("summary~=audio"):
-        print(r)
-    print("\nSearching for 'transcriber'...")
-    for r in search_tickets("summary~=transcriber"):
-        print(r)
+    if len(sys.argv) < 2:
+        print("Usage: python3 search_trac_tickets.py <search_term>")
+        sys.exit(1)
 
+    search_term = sys.argv[1]
+    query = f"summary~={search_term}"
+    print(f"Searching for '{search_term}'...")
+    for r in search_tickets(query):
+        print(r)

@@ -1,35 +1,39 @@
 #!/usr/bin/env python3
 """
 ================================================================================
-Filename:	transcribe_audio.py
-Version:	1.4
-Author:		Gemini CLI
-Last Modified:	2026-01-28
-Context:	http://trac.home.arpa/ticket/2987
+Filename:       transcribe_audio.py
+Version:        1.5
+Author:         Gemini CLI
+Last Modified:  2026-01-28
+Context:        http://trac.home.arpa/ticket/2988
 
 Purpose:
-	Transcribes an audio file using the Gemini 2.0 Flash API.
-	Outputs the transcript to a .txt file in the same directory.
-	Supports providing context to improve transcription accuracy.
-	Automatically chunks large files (>20m) to prevent timeouts.
+    Transcribes an audio file using the Gemini 2.0 Flash API.
+    Outputs the transcript to a .txt file in the same directory.
+    Supports providing context to improve transcription accuracy.
+    Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.5:
+    - Added 60s overlap to audio chunks to prevent data loss at boundaries.
+    - Switched from 'segment' muxer to manual splitting loop.
 
 Changes in 1.4:
-	- Added automatic audio chunking for files longer than 20 minutes using ffmpeg.
-	- Concatenates transcripts from multiple chunks.
+    - Added automatic audio chunking for files longer than 20 minutes using ffmpeg.
+    - Concatenates transcripts from multiple chunks.
 
 Changes in 1.3:
-	- Added filename sanitization: Replaces spaces with underscores in input file.
-	- Updated output filename format: Appends "_transcription.txt".
+    - Added filename sanitization: Replaces spaces with underscores in input file.
+    - Updated output filename format: Appends "_transcription.txt".
 
 Changes in 1.2:
-	- Centralized script in ansible-netbox repository.
+    - Centralized script in ansible-netbox repository.
 
 Usage:
-	./transcribe_audio.py <audio_file_path> [--context "Context text"] [--model "model-name"]
+    ./transcribe_audio.py <audio_file_path> [--context "Context text"] [--model "model-name"]
 
 Dependencies:
-	- requests (pip install requests)
-	- ffmpeg (apt install ffmpeg)
+    - requests (pip install requests)
+    - ffmpeg (apt install ffmpeg)
 ================================================================================
 """
 import os
@@ -45,12 +49,14 @@ import itertools
 import shutil
 import subprocess
 import glob
+import math
 
 # --- Configuration ---
 DEFAULT_MODEL = "gemini-2.0-flash"
 API_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "gemini_key.txt")
 CHUNK_THRESHOLD_SECONDS = 1200 # 20 minutes
 CHUNK_SEGMENT_TIME = 1200      # 20 minutes
+CHUNK_OVERLAP = 60             # 60 seconds overlap
 
 def get_api_key():
     """Retrieves the Gemini API key from environment or file."""
@@ -82,7 +88,7 @@ def get_audio_duration(file_path):
             'ffprobe', 
             '-v', 'error', 
             '-show_entries', 'format=duration', 
-            '-of', 'default=noprint_wrappers=1:nokey=1',
+            '-of', 'default=noprint_wrappers=1:nokey=1', 
             file_path
         ]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
@@ -91,36 +97,63 @@ def get_audio_duration(file_path):
         print(f"Warning: Could not determine audio duration: {e}")
         return 0
 
-def split_audio(file_path, segment_time=CHUNK_SEGMENT_TIME):
-    """Splits audio into segments using ffmpeg."""
+def split_audio(file_path, segment_time=CHUNK_SEGMENT_TIME, overlap=CHUNK_OVERLAP):
+    """Splits audio into segments with overlap using ffmpeg."""
     dir_name = os.path.dirname(file_path)
     base_name = os.path.splitext(os.path.basename(file_path))[0]
-    # Create a pattern for segments: original_name_part000.ext
     extension = os.path.splitext(file_path)[1]
-    output_pattern = os.path.join(dir_name, f"{base_name}_part%03d{extension}")
     
-    print(f"Splitting audio into {segment_time}s chunks...")
-    try:
+    duration = get_audio_duration(file_path)
+    if duration == 0:
+        print("Error: Cannot split file with 0 duration.")
+        sys.exit(1)
+
+    print(f"Splitting audio (Duration: {duration:.2f}s) into {segment_time}s chunks with {overlap}s overlap...")
+    
+    chunks = []
+    start_time = 0
+    part_num = 0
+    
+    # Stride is the amount we move forward each time
+    stride = segment_time - overlap
+    
+    while start_time < duration:
+        output_filename = f"{base_name}_part{part_num:03d}{extension}"
+        output_path = os.path.join(dir_name, output_filename)
+        
+        # Ensure we don't go past the end, though ffmpeg handles duration gracefully usually
+        # But we want strict segments if possible.
+        
         cmd = [
             'ffmpeg',
+            '-y',               # Overwrite if exists
+            '-ss', str(start_time),
+            '-t', str(segment_time),
             '-i', file_path,
-            '-f', 'segment',
-            '-segment_time', str(segment_time),
-            '-c', 'copy',
-            '-reset_timestamps', '1',
-            output_pattern
+            '-c', 'copy',       # Try to copy stream (fast)
+            '-avoid_negative_ts', 'make_zero',
+            output_path
         ]
-        # Run quietly
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
         
-        # Find generated files
-        search_pattern = os.path.join(dir_name, f"{base_name}_part*{extension}")
-        chunks = sorted(glob.glob(search_pattern))
-        print(f"Created {len(chunks)} chunks.")
-        return chunks
-    except subprocess.CalledProcessError as e:
-        print(f"Error splitting audio: {e.stderr.decode()}")
-        sys.exit(1)
+        # If we are near the end, the duration might be shorter than segment_time, which is fine.
+        
+        try:
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+            chunks.append(output_path)
+            print(f"  Created chunk {part_num}: {output_filename} (Start: {start_time}s)")
+        except subprocess.CalledProcessError as e:
+            print(f"Error splitting audio chunk {part_num}: {e.stderr.decode()}")
+            sys.exit(1)
+            
+        start_time += stride
+        part_num += 1
+        
+        # Safety break if we aren't moving (shouldn't happen with positive stride)
+        if stride <= 0: 
+            break
+
+    print(f"Created {len(chunks)} chunks.")
+    return chunks
 
 def upload_file(file_path, api_key):
     """Uploads the file to Gemini Media API."""
