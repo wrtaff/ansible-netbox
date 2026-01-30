@@ -2,15 +2,15 @@
 """
 ================================================================================
 Filename:       create_vikunja_task.py
-Version:        1.0
+Version:        1.1
 Author:         Gemini CLI
 Last Modified:  2026-01-30
 
 Purpose:
     Creates a new task in a Vikunja instance. This script is designed to be 
     portable and can be used locally or on remote hosts with Gemini CLI. It 
-    supports setting the task title, description, project ID, and "favorite" 
-    status (starred).
+    supports setting the task title, description, project ID, "favorite" 
+    status, and labels.
 
 Usage:
     # Set the API token in your environment:
@@ -18,6 +18,10 @@ Usage:
 
     # Create a simple task in the default project (Inbox):
     ./create_vikunja_task.py --title "My New Task"
+
+    # Create a task with labels (prefixed with *):
+    ./create_vikunja_task.py --title "Buy milk *grocery *urgent"
+    # Result: Title "Buy milk", Labels ["grocery", "urgent"]
 
     # Create a task in a specific project with a description:
     ./create_vikunja_task.py --title "Task Name" --description "Detailed notes here" --project-id 5
@@ -29,7 +33,8 @@ Usage:
     ./create_vikunja_task.py --title "External Task" --host "https://vikunja.example.com" --token "tk_..."
 
 Arguments:
-    --title          (Required) The summary/title of the task.
+    --title          (Required) The summary/title of the task. Words starting
+                     with '*' are extracted as labels.
     --description    The detailed description of the task (Markdown supported).
     --project-id     The ID of the project to add the task to (Default: 1 - Inbox).
     --no-favorite    If set, the task will not be marked as a favorite/starred.
@@ -37,6 +42,9 @@ Arguments:
     --token          The Vikunja API token (Overrides VIKUNJA_API_TOKEN env var).
 
 Version History:
+    v1.1 (2026-01-30) - Added label parsing:
+        - Words in the title starting with '*' are now extracted as labels.
+        - Labels are passed to the API and removed from the final task title.
     v1.0 (2026-01-30) - Initial version:
         - Portable Python implementation using urllib.
         - Supports title, description, project-id, and favorite status.
@@ -59,7 +67,7 @@ import urllib.error
 import ssl
 import sys
 
-def create_task(title, description="", project_id=1, is_favorite=True, host="http://todo.home.arpa", token=None):
+def create_task(title, description="", project_id=1, is_favorite=True, host="http://todo.home.arpa", token=None, labels=None):
     if not token:
         token = os.getenv("VIKUNJA_API_TOKEN")
     
@@ -80,6 +88,9 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
         "is_favorite": is_favorite
     }
     
+    if labels:
+        payload["labels"] = [{"title": label} for label in labels]
+    
     json_payload = json.dumps(payload).encode('utf-8')
     
     # Create SSL context (unverified, same as curl -k)
@@ -94,6 +105,8 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
                 result = json.loads(response.read().decode('utf-8'))
                 print(f"Success: Task created with ID {result.get('id')}")
                 print(f"Title: {result.get('title')}")
+                if labels:
+                    print(f"Labels: {', '.join(labels)}")
                 print(f"Link: {host}/tasks/{result.get('id')}")
             else:
                 print(f"Error: Unexpected status code {response.status}")
@@ -122,13 +135,19 @@ def main():
     
     args = parser.parse_args()
     
+    # Parse labels from title
+    words = args.title.split()
+    labels = [w[1:] for w in words if w.startswith('*')]
+    clean_title = ' '.join([w for w in words if not w.startswith('*')])
+    
     create_task(
-        title=args.title,
+        title=clean_title,
         description=args.description,
         project_id=args.project_id,
         is_favorite=not args.no_favorite,
         host=args.host.rstrip('/'),
-        token=args.token
+        token=args.token,
+        labels=labels
     )
 
 if __name__ == "__main__":
