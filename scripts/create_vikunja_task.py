@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       create_vikunja_task.py
-Version:        1.1
+Version:        1.2
 Author:         Gemini CLI
 Last Modified:  2026-01-30
 
@@ -11,6 +11,10 @@ Purpose:
     portable and can be used locally or on remote hosts with Gemini CLI. It 
     supports setting the task title, description, project ID, "favorite" 
     status, and labels.
+
+    Update 1.2:
+    - Robust label handling: resolving existing labels by ID (case-insensitive) 
+      and creating new ones on the fly if they don't exist.
 
 Usage:
     # Set the API token in your environment:
@@ -42,13 +46,14 @@ Arguments:
     --token          The Vikunja API token (Overrides VIKUNJA_API_TOKEN env var).
 
 Version History:
+    v1.2 (2026-01-30) - Enhanced label support:
+        - Now fetches existing labels to resolve IDs (case-insensitive).
+        - Automatically creates new labels if they don't exist.
+        - Fixes issue where labels were not being attached correctly.
     v1.1 (2026-01-30) - Added label parsing:
         - Words in the title starting with '*' are now extracted as labels.
-        - Labels are passed to the API and removed from the final task title.
     v1.0 (2026-01-30) - Initial version:
         - Portable Python implementation using urllib.
-        - Supports title, description, project-id, and favorite status.
-        - Environment variable and command-line token support.
 
 Dependencies:
     - Standard Python 3 libraries (urllib, json, ssl, argparse).
@@ -67,6 +72,43 @@ import urllib.error
 import ssl
 import sys
 
+def get_ssl_context():
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+def get_all_labels(host, token):
+    url = f"{host}/api/v1/labels"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, context=get_ssl_context()) as response:
+            if response.status == 200:
+                return json.loads(response.read().decode('utf-8'))
+    except Exception as e:
+        print(f"Warning: Could not fetch labels: {e}")
+    return []
+
+def create_label(host, token, title):
+    url = f"{host}/api/v1/labels"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = json.dumps({"title": title}).encode('utf-8')
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers, method="PUT")
+        with urllib.request.urlopen(req, context=get_ssl_context()) as response:
+            if response.status in (200, 201):
+                return json.loads(response.read().decode('utf-8'))
+    except Exception as e:
+        print(f"Warning: Could not create label '{title}': {e}")
+    return None
+
 def create_task(title, description="", project_id=1, is_favorite=True, host="http://todo.home.arpa", token=None, labels=None):
     if not token:
         token = os.getenv("VIKUNJA_API_TOKEN")
@@ -74,6 +116,25 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
     if not token:
         print("Error: VIKUNJA_API_TOKEN environment variable not set and --token not provided.")
         sys.exit(1)
+
+    # Resolve Labels
+    resolved_labels = []
+    if labels:
+        print("Resolving labels...", end=" ", flush=True)
+        existing_labels = get_all_labels(host, token)
+        # Create a mapping for case-insensitive lookup
+        label_map = {l['title'].lower(): l for l in existing_labels}
+        
+        for label_name in labels:
+            existing = label_map.get(label_name.lower())
+            if existing:
+                resolved_labels.append({"id": existing['id']})
+            else:
+                print(f"(Creating new label '{label_name}')...", end=" ", flush=True)
+                new_label = create_label(host, token, label_name)
+                if new_label:
+                    resolved_labels.append({"id": new_label['id']})
+        print("Done.")
 
     url = f"{host}/api/v1/projects/{project_id}/tasks"
     
@@ -88,25 +149,20 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
         "is_favorite": is_favorite
     }
     
-    if labels:
-        payload["labels"] = [{"title": label} for label in labels]
+    if resolved_labels:
+        payload["labels"] = resolved_labels
     
     json_payload = json.dumps(payload).encode('utf-8')
     
-    # Create SSL context (unverified, same as curl -k)
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
     try:
         req = urllib.request.Request(url, data=json_payload, headers=headers, method="PUT")
-        with urllib.request.urlopen(req, context=ctx) as response:
+        with urllib.request.urlopen(req, context=get_ssl_context()) as response:
             if response.status in (200, 201):
                 result = json.loads(response.read().decode('utf-8'))
                 print(f"Success: Task created with ID {result.get('id')}")
                 print(f"Title: {result.get('title')}")
-                if labels:
-                    print(f"Labels: {', '.join(labels)}")
+                if resolved_labels:
+                    print(f"Labels Attached: {len(resolved_labels)}")
                 print(f"Link: {host}/tasks/{result.get('id')}")
             else:
                 print(f"Error: Unexpected status code {response.status}")
@@ -149,6 +205,10 @@ def main():
         token=args.token,
         labels=labels
     )
+
+if __name__ == "__main__":
+    main()
+
 
 if __name__ == "__main__":
     main()
