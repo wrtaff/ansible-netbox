@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       manage_nextcloud_contacts.py
-Version:        1.0
+Version:        1.1
 Author:         Gemini CLI
 Last Modified:  2026-01-30
 Context:        Nextcloud Contact Management Interface
@@ -86,7 +86,7 @@ class NextcloudContactManager:
                 results.append(contact)
         return results
 
-    def create_contact(self, fn, email=None, tel=None):
+    def create_contact(self, fn, email=None, tel=None, categories=None):
         """Creates a new contact using a VCard 3.0 template."""
         uid = str(uuid.uuid4())
         vcard = [
@@ -100,6 +100,8 @@ class NextcloudContactManager:
             vcard.append(f"EMAIL;TYPE=WORK:{email}")
         if tel:
             vcard.append(f"TEL;TYPE=CELL:{tel}")
+        if categories:
+            vcard.append(f"CATEGORIES:{categories}")
         vcard.append("END:VCARD")
         
         vcard_str = "\r\n".join(vcard)
@@ -116,7 +118,7 @@ class NextcloudContactManager:
             print(f"Error creating contact: {response.status_code} - {response.text}", file=sys.stderr)
             return False
 
-    def update_contact(self, uid, fn=None, email=None, tel=None):
+    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None):
         """
         Updates an existing contact. Fetches current VCard first to preserve existing fields.
         """
@@ -142,6 +144,7 @@ class NextcloudContactManager:
         new_fn = fn if fn else vcard_data.get("FN", "Unknown")
         new_email = email if email else vcard_data.get("EMAIL", "")
         new_tel = tel if tel else vcard_data.get("TEL", "")
+        new_categories = categories if categories else vcard_data.get("CATEGORIES", "")
         
         # 3. Construct new VCard (preserving structure simply)
         new_vcard = "BEGIN:VCARD\nVERSION:3.0\n"
@@ -150,9 +153,11 @@ class NextcloudContactManager:
             new_vcard += f"EMAIL;TYPE=INTERNET:{new_email}\n"
         if new_tel:
             new_vcard += f"TEL;TYPE=HOME:{new_tel}\n"
+        if new_categories:
+            new_vcard += f"CATEGORIES:{new_categories}\n"
         
         # Preserve other fields if we really wanted to, but CardDAV update usually overwrites the resource.
-        # For simplicity in this script, we'll just handle FN, EMAIL, TEL for now.
+        # For simplicity in this script, we'll just handle FN, EMAIL, TEL, CATEGORIES for now.
         # But let's at least keep the UID.
         new_vcard += f"UID:{uid}\nEND:VCARD"
 
@@ -201,6 +206,7 @@ class NextcloudContactManager:
                             fn = self._extract_field(vcard_text, 'FN')
                             email = self._extract_field(vcard_text, 'EMAIL')
                             tel = self._extract_field(vcard_text, 'TEL')
+                            categories = self._extract_field(vcard_text, 'CATEGORIES')
                             uid = self._extract_field(vcard_text, 'UID')
                             
                             contacts.append({
@@ -208,6 +214,7 @@ class NextcloudContactManager:
                                 'fn': fn,
                                 'email': email,
                                 'tel': tel,
+                                'categories': categories,
                                 'uid': uid,
                                 'vcard': vcard_text
                             })
@@ -242,6 +249,7 @@ def main():
     create_parser.add_argument("--fn", required=True, help="Full Name")
     create_parser.add_argument("--email", help="Email Address")
     create_parser.add_argument("--tel", help="Telephone Number")
+    create_parser.add_argument("--categories", help="Comma-separated categories/labels")
 
     # Update Command
     update_parser = subparsers.add_parser("update", help="Update an existing contact")
@@ -249,6 +257,7 @@ def main():
     update_parser.add_argument("--fn", help="Full Name")
     update_parser.add_argument("--email", help="Email address")
     update_parser.add_argument("--tel", help="Telephone number")
+    update_parser.add_argument("--categories", help="Comma-separated categories/labels")
 
     # Delete Command
     delete_parser = subparsers.add_parser("delete", help="Delete a contact")
@@ -282,20 +291,22 @@ def main():
         print(f"Found {len(contacts)} contacts:")
         for c in contacts:
             if c['fn']: # Filter out the addressbook root itself which sometimes appears
-                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}] [UID: {c['uid']}]")
+                cats = f" [Cats: {c['categories']}]" if c['categories'] else ""
+                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats} [UID: {c['uid']}]")
 
     elif args.command == "search":
         results = manager.search_contacts(args.query)
         print(f"Found {len(results)} matches:")
         for c in results:
              if c['fn']:
-                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}] [UID: {c['uid']}]")
+                cats = f" [Cats: {c['categories']}]" if c['categories'] else ""
+                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats} [UID: {c['uid']}]")
 
     elif args.command == "create":
-        manager.create_contact(args.fn, args.email, args.tel)
+        manager.create_contact(args.fn, args.email, args.tel, args.categories)
 
     elif args.command == "update":
-        if manager.update_contact(args.uid, args.fn, args.email, args.tel):
+        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories):
             print(f"Successfully updated contact: {args.uid}")
 
     elif args.command == "delete":
