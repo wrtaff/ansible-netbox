@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       manage_nextcloud_contacts.py
-Version:        1.2
+Version:        1.3
 Author:         Gemini CLI
 Last Modified:  2026-01-30
 Context:        Nextcloud Contact Management Interface
@@ -19,10 +19,10 @@ Usage:
     ./manage_nextcloud_contacts.py search "John Doe"
 
     # Create a new contact
-    ./manage_nextcloud_contacts.py create --fn "Jane Doe" --email "jane@example.com" --tel "555-0199" --address "123 Main St"
+    ./manage_nextcloud_contacts.py create --fn "Jane Doe" --email "jane@example.com" --tel "555-0199" --address "123 Main St" --url "https://jane.com"
 
     # Update a contact (uid required)
-    ./manage_nextcloud_contacts.py update <UID> --email "new@example.com" --tel "555-0200" --address "456 Oak Ave"
+    ./manage_nextcloud_contacts.py update <UID> --email "new@example.com" --url "https://newsite.com"
 
     # Delete a contact
     ./manage_nextcloud_contacts.py delete <UID>
@@ -86,7 +86,7 @@ class NextcloudContactManager:
                 results.append(contact)
         return results
 
-    def create_contact(self, fn, email=None, tel=None, categories=None, address=None):
+    def create_contact(self, fn, email=None, tel=None, categories=None, address=None, url=None):
         """Creates a new contact using a VCard 3.0 template."""
         uid = str(uuid.uuid4())
         vcard = [
@@ -106,6 +106,8 @@ class NextcloudContactManager:
             # ADR format: ;;Street;City;Region;PostalCode;Country
             # We'll put the whole string in 'Street' for simplicity unless we want more parsing.
             vcard.append(f"ADR;TYPE=HOME:;;{address};;;;")
+        if url:
+            vcard.append(f"URL:{url}")
         vcard.append("END:VCARD")
         
         vcard_str = "\r\n".join(vcard)
@@ -122,11 +124,37 @@ class NextcloudContactManager:
             print(f"Error creating contact: {response.status_code} - {response.text}", file=sys.stderr)
             return False
 
-    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None, address=None):
+    def get_contact_href_by_uid(self, uid):
+        """Finds the HREF for a contact given its UID."""
+        # This is inefficient for large addressbooks but necessary if filenames don't match UIDs.
+        contacts = self.list_contacts()
+        for contact in contacts:
+            if contact['uid'] == uid:
+                return contact['href']
+        return None
+
+    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None, address=None, url=None):
         """
         Updates an existing contact. Fetches current VCard first to preserve existing fields.
         """
-        vcf_url = f"{self.dav_url}{uid}.vcf"
+        # Find the correct resource URL
+        href = self.get_contact_href_by_uid(uid)
+        if not href:
+            print(f"Error: Contact with UID {uid} not found.")
+            return False
+            
+        # href typically comes back as /nextcloud/remote.php/..., we need to construct the full URL.
+        # self.base_url is https://host
+        # href is /nextcloud/...
+        # We need to be careful about joining.
+        
+        # If base_url has path components, it might be tricky.
+        # Let's assume href is absolute path from root.
+        
+        # Parse base_url to get scheme and netloc
+        from urllib.parse import urlparse
+        parsed_base = urlparse(self.base_url)
+        vcf_url = f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
         
         # 1. Fetch existing VCard
         response = self.session.get(vcf_url)
@@ -153,6 +181,7 @@ class NextcloudContactManager:
         # Remove prefix if present in fetched data (e.g. ;;Street;;;)
         if new_address.startswith(";;"):
              new_address = new_address.split(";")[2] # Extract Street
+        new_url = url if url else vcard_data.get("URL", "")
 
         # 3. Construct new VCard (preserving structure simply)
         new_vcard = "BEGIN:VCARD\nVERSION:3.0\n"
@@ -165,9 +194,11 @@ class NextcloudContactManager:
             new_vcard += f"CATEGORIES:{new_categories}\n"
         if new_address:
             new_vcard += f"ADR;TYPE=HOME:;;{new_address};;;;\n"
+        if new_url:
+            new_vcard += f"URL:{new_url}\n"
         
         # Preserve other fields if we really wanted to, but CardDAV update usually overwrites the resource.
-        # For simplicity in this script, we'll just handle FN, EMAIL, TEL, CATEGORIES, ADR for now.
+        # For simplicity in this script, we'll just handle FN, EMAIL, TEL, CATEGORIES, ADR, URL for now.
         # But let's at least keep the UID.
         new_vcard += f"UID:{uid}\nEND:VCARD"
 
@@ -179,16 +210,18 @@ class NextcloudContactManager:
         else:
             print(f"Error updating contact: {response.status_code} - {response.text}")
             return False
-        
-        if response.status_code in [200, 201, 204]:
-            return True
-        else:
-            print(f"Error updating contact: {response.status_code} - {response.text}")
-            return False
 
     def delete_contact(self, uid):
         """Deletes a contact by UID."""
-        vcf_url = f"{self.dav_url}{uid}.vcf"
+        href = self.get_contact_href_by_uid(uid)
+        if not href:
+            print(f"Error: Contact with UID {uid} not found.")
+            return False
+
+        from urllib.parse import urlparse
+        parsed_base = urlparse(self.base_url)
+        vcf_url = f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
+
         response = self.session.delete(vcf_url)
         
         if response.status_code in [200, 204]:
@@ -230,6 +263,7 @@ class NextcloudContactManager:
                                 if len(parts) > 2:
                                     address = parts[2]
                             
+                            url = self._extract_field(vcard_text, 'URL')
                             uid = self._extract_field(vcard_text, 'UID')
                             
                             contacts.append({
@@ -239,6 +273,7 @@ class NextcloudContactManager:
                                 'tel': tel,
                                 'categories': categories,
                                 'address': address,
+                                'url': url,
                                 'uid': uid,
                                 'vcard': vcard_text
                             })
@@ -275,6 +310,7 @@ def main():
     create_parser.add_argument("--tel", help="Telephone Number")
     create_parser.add_argument("--categories", help="Comma-separated categories/labels")
     create_parser.add_argument("--address", help="Home Street Address")
+    create_parser.add_argument("--url", help="Website URL")
 
     # Update Command
     update_parser = subparsers.add_parser("update", help="Update an existing contact")
@@ -284,6 +320,7 @@ def main():
     update_parser.add_argument("--tel", help="Telephone number")
     update_parser.add_argument("--categories", help="Comma-separated categories/labels")
     update_parser.add_argument("--address", help="Home Street Address")
+    update_parser.add_argument("--url", help="Website URL")
 
     # Delete Command
     delete_parser = subparsers.add_parser("delete", help="Delete a contact")
@@ -319,7 +356,10 @@ def main():
             if c['fn']: # Filter out the addressbook root itself which sometimes appears
                 cats = f" [Cats: {c['categories']}]" if c['categories'] else ""
                 addr = f" [Addr: {c['address']}]" if c['address'] else ""
-                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats}{addr} [UID: {c['uid']}]")
+                url_str = f" [URL: {c['url']}]" if c['url'] else ""
+                # print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats}{addr}{url_str} [UID: {c['uid']}]")
+                # Debugging: show href
+                print(f"- {c['fn']} ({c['email']}) [UID: {c['uid']}] [HREF: {c['href']}]")
 
     elif args.command == "search":
         results = manager.search_contacts(args.query)
@@ -328,13 +368,14 @@ def main():
              if c['fn']:
                 cats = f" [Cats: {c['categories']}]" if c['categories'] else ""
                 addr = f" [Addr: {c['address']}]" if c['address'] else ""
-                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats}{addr} [UID: {c['uid']}]")
+                url_str = f" [URL: {c['url']}]" if c['url'] else ""
+                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats}{addr}{url_str} [UID: {c['uid']}] [HREF: {c['href']}]")
 
     elif args.command == "create":
-        manager.create_contact(args.fn, args.email, args.tel, args.categories, args.address)
+        manager.create_contact(args.fn, args.email, args.tel, args.categories, args.address, args.url)
 
     elif args.command == "update":
-        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories, args.address):
+        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories, args.address, args.url):
             print(f"Successfully updated contact: {args.uid}")
 
     elif args.command == "delete":
