@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       manage_nextcloud_contacts.py
-Version:        1.1
+Version:        1.2
 Author:         Gemini CLI
 Last Modified:  2026-01-30
 Context:        Nextcloud Contact Management Interface
@@ -19,10 +19,10 @@ Usage:
     ./manage_nextcloud_contacts.py search "John Doe"
 
     # Create a new contact
-    ./manage_nextcloud_contacts.py create --fn "Jane Doe" --email "jane@example.com" --tel "555-0199"
+    ./manage_nextcloud_contacts.py create --fn "Jane Doe" --email "jane@example.com" --tel "555-0199" --address "123 Main St"
 
     # Update a contact (uid required)
-    ./manage_nextcloud_contacts.py update <UID> --email "new@example.com" --tel "555-0200"
+    ./manage_nextcloud_contacts.py update <UID> --email "new@example.com" --tel "555-0200" --address "456 Oak Ave"
 
     # Delete a contact
     ./manage_nextcloud_contacts.py delete <UID>
@@ -86,7 +86,7 @@ class NextcloudContactManager:
                 results.append(contact)
         return results
 
-    def create_contact(self, fn, email=None, tel=None, categories=None):
+    def create_contact(self, fn, email=None, tel=None, categories=None, address=None):
         """Creates a new contact using a VCard 3.0 template."""
         uid = str(uuid.uuid4())
         vcard = [
@@ -102,6 +102,10 @@ class NextcloudContactManager:
             vcard.append(f"TEL;TYPE=CELL:{tel}")
         if categories:
             vcard.append(f"CATEGORIES:{categories}")
+        if address:
+            # ADR format: ;;Street;City;Region;PostalCode;Country
+            # We'll put the whole string in 'Street' for simplicity unless we want more parsing.
+            vcard.append(f"ADR;TYPE=HOME:;;{address};;;;")
         vcard.append("END:VCARD")
         
         vcard_str = "\r\n".join(vcard)
@@ -118,7 +122,7 @@ class NextcloudContactManager:
             print(f"Error creating contact: {response.status_code} - {response.text}", file=sys.stderr)
             return False
 
-    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None):
+    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None, address=None):
         """
         Updates an existing contact. Fetches current VCard first to preserve existing fields.
         """
@@ -145,7 +149,11 @@ class NextcloudContactManager:
         new_email = email if email else vcard_data.get("EMAIL", "")
         new_tel = tel if tel else vcard_data.get("TEL", "")
         new_categories = categories if categories else vcard_data.get("CATEGORIES", "")
-        
+        new_address = address if address else vcard_data.get("ADR", "")
+        # Remove prefix if present in fetched data (e.g. ;;Street;;;)
+        if new_address.startswith(";;"):
+             new_address = new_address.split(";")[2] # Extract Street
+
         # 3. Construct new VCard (preserving structure simply)
         new_vcard = "BEGIN:VCARD\nVERSION:3.0\n"
         new_vcard += f"FN:{new_fn}\n"
@@ -155,14 +163,22 @@ class NextcloudContactManager:
             new_vcard += f"TEL;TYPE=HOME:{new_tel}\n"
         if new_categories:
             new_vcard += f"CATEGORIES:{new_categories}\n"
+        if new_address:
+            new_vcard += f"ADR;TYPE=HOME:;;{new_address};;;;\n"
         
         # Preserve other fields if we really wanted to, but CardDAV update usually overwrites the resource.
-        # For simplicity in this script, we'll just handle FN, EMAIL, TEL, CATEGORIES for now.
+        # For simplicity in this script, we'll just handle FN, EMAIL, TEL, CATEGORIES, ADR for now.
         # But let's at least keep the UID.
         new_vcard += f"UID:{uid}\nEND:VCARD"
 
         # 4. Upload updated VCard
         response = self.session.put(vcf_url, data=new_vcard.encode('utf-8'))
+        
+        if response.status_code in [200, 201, 204]:
+            return True
+        else:
+            print(f"Error updating contact: {response.status_code} - {response.text}")
+            return False
         
         if response.status_code in [200, 201, 204]:
             return True
@@ -207,6 +223,13 @@ class NextcloudContactManager:
                             email = self._extract_field(vcard_text, 'EMAIL')
                             tel = self._extract_field(vcard_text, 'TEL')
                             categories = self._extract_field(vcard_text, 'CATEGORIES')
+                            address = self._extract_field(vcard_text, 'ADR')
+                            # Clean up address if it's the raw ADR string
+                            if address.startswith(";;"):
+                                parts = address.split(";")
+                                if len(parts) > 2:
+                                    address = parts[2]
+                            
                             uid = self._extract_field(vcard_text, 'UID')
                             
                             contacts.append({
@@ -215,6 +238,7 @@ class NextcloudContactManager:
                                 'email': email,
                                 'tel': tel,
                                 'categories': categories,
+                                'address': address,
                                 'uid': uid,
                                 'vcard': vcard_text
                             })
@@ -250,6 +274,7 @@ def main():
     create_parser.add_argument("--email", help="Email Address")
     create_parser.add_argument("--tel", help="Telephone Number")
     create_parser.add_argument("--categories", help="Comma-separated categories/labels")
+    create_parser.add_argument("--address", help="Home Street Address")
 
     # Update Command
     update_parser = subparsers.add_parser("update", help="Update an existing contact")
@@ -258,6 +283,7 @@ def main():
     update_parser.add_argument("--email", help="Email address")
     update_parser.add_argument("--tel", help="Telephone number")
     update_parser.add_argument("--categories", help="Comma-separated categories/labels")
+    update_parser.add_argument("--address", help="Home Street Address")
 
     # Delete Command
     delete_parser = subparsers.add_parser("delete", help="Delete a contact")
@@ -292,7 +318,8 @@ def main():
         for c in contacts:
             if c['fn']: # Filter out the addressbook root itself which sometimes appears
                 cats = f" [Cats: {c['categories']}]" if c['categories'] else ""
-                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats} [UID: {c['uid']}]")
+                addr = f" [Addr: {c['address']}]" if c['address'] else ""
+                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats}{addr} [UID: {c['uid']}]")
 
     elif args.command == "search":
         results = manager.search_contacts(args.query)
@@ -300,13 +327,14 @@ def main():
         for c in results:
              if c['fn']:
                 cats = f" [Cats: {c['categories']}]" if c['categories'] else ""
-                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats} [UID: {c['uid']}]")
+                addr = f" [Addr: {c['address']}]" if c['address'] else ""
+                print(f"- {c['fn']} ({c['email']}) [Tel: {c['tel']}]{cats}{addr} [UID: {c['uid']}]")
 
     elif args.command == "create":
-        manager.create_contact(args.fn, args.email, args.tel, args.categories)
+        manager.create_contact(args.fn, args.email, args.tel, args.categories, args.address)
 
     elif args.command == "update":
-        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories):
+        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories, args.address):
             print(f"Successfully updated contact: {args.uid}")
 
     elif args.command == "delete":
