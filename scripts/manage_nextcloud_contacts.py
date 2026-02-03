@@ -2,15 +2,16 @@
 """
 ================================================================================
 Filename:       manage_nextcloud_contacts.py
-Version:        1.4
+Version:        1.5
 Author:         Gemini CLI
-Last Modified:  2026-01-30
+Last Modified:  2026-02-03
 Context:        Nextcloud Contact Management Interface
 
 Purpose:
     A CLI tool to interact with Nextcloud Contacts via CardDAV.
     Allows creating, retrieving, and updating contacts for the user.
     Version 1.4 supports appending values to multi-value fields (EMAIL, TEL, URL, ADR, CATEGORIES).
+    Version 1.5 adds the ability to update a contact from a raw VCard file.
 
 Usage:
     # List all contacts
@@ -24,6 +25,9 @@ Usage:
 
     # Update a contact (uid required) - Appends new values
     ./manage_nextcloud_contacts.py update <UID> --email "new@example.com" --url "https://newsite.com"
+
+    # Update a contact from a VCard file
+    ./manage_nextcloud_contacts.py update <UID> --vcard-file /path/to/contact.vcf
 
     # Delete a contact
     ./manage_nextcloud_contacts.py delete <UID>
@@ -55,7 +59,7 @@ class NextcloudContactManager:
         self.dav_url = f"{self.base_url}/remote.php/dav/addressbooks/users/{self.username}/{self.addressbook}/"
         self.session = requests.Session()
         self.session.auth = (self.username, self.password)
-        self.session.headers.update({"Content-Type": "application/xml", "User-Agent": "GeminiCLI/1.4"})
+        self.session.headers.update({"Content-Type": "application/xml", "User-Agent": "GeminiCLI/1.5"})
         self.session.verify = self.verify
 
     def list_contacts(self):
@@ -123,9 +127,10 @@ class NextcloudContactManager:
                 return contact['href']
         return None
 
-    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None, address=None, url=None, note=None):
+    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None, address=None, url=None, note=None, vcard_file=None):
         """
-        Updates an existing contact. Fetches current VCard, parses to list, appends new values.
+        Updates an existing contact. Fetches current VCard, parses to list, appends new values,
+        or updates from a raw VCard file.
         """
         href = self.get_contact_href_by_uid(uid)
         if not href:
@@ -135,42 +140,51 @@ class NextcloudContactManager:
         from urllib.parse import urlparse
         parsed_base = urlparse(self.base_url)
         vcf_url = f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
-        
-        # 1. Fetch existing VCard
-        response = self.session.get(vcf_url)
-        if response.status_code != 200:
-            print(f"Error fetching existing contact {uid}: {response.status_code}")
-            return False
+
+        if vcard_file:
+            try:
+                with open(vcard_file, 'r') as f:
+                    vcard_str = f.read()
+                response = self.session.put(vcf_url, data=vcard_str.encode('utf-8'), headers={'Content-Type': 'text/vcard; charset=utf-8'})
+            except IOError as e:
+                print(f"Error reading VCard file: {e}", file=sys.stderr)
+                return False
+        else:
+            # 1. Fetch existing VCard
+            response = self.session.get(vcf_url)
+            if response.status_code != 200:
+                print(f"Error fetching existing contact {uid}: {response.status_code}")
+                return False
+                
+            # 2. Parse into Multi-Value Dict
+            vcard_data = self._parse_vcard_lines(response.text)
+
+            # 3. Update fields (Append if not exists, replace if single-value like FN)
+            if fn: 
+                vcard_data['FN'] = [fn] # Replace Name
+                # Optional: Update N field smarter? Keeping it simple.
+
+            if email: self._append_if_missing(vcard_data, 'EMAIL;TYPE=INTERNET', email)
+            if tel: self._append_if_missing(vcard_data, 'TEL;TYPE=HOME', tel)
+            if categories: self._append_if_missing(vcard_data, 'CATEGORIES', categories)
+            if url: self._append_if_missing(vcard_data, 'URL', url)
+            if note: self._append_if_missing(vcard_data, 'NOTE', note)
             
-        # 2. Parse into Multi-Value Dict
-        vcard_data = self._parse_vcard_lines(response.text)
+            if address:
+                # Check if this address string is already in any ADR field
+                # ADR format in vcard_data list is full string (e.g. ";;Street;;;;")
+                # We want to match loosely on the street part
+                exists = False
+                for adr_line in vcard_data.get('ADR;TYPE=HOME', []) + vcard_data.get('ADR', []):
+                    if address in adr_line:
+                        exists = True
+                        break
+                if not exists:
+                    vcard_data['ADR;TYPE=HOME'].append(f";;{address};;;;")
 
-        # 3. Update fields (Append if not exists, replace if single-value like FN)
-        if fn: 
-            vcard_data['FN'] = [fn] # Replace Name
-            # Optional: Update N field smarter? Keeping it simple.
-
-        if email: self._append_if_missing(vcard_data, 'EMAIL;TYPE=INTERNET', email)
-        if tel: self._append_if_missing(vcard_data, 'TEL;TYPE=HOME', tel)
-        if categories: self._append_if_missing(vcard_data, 'CATEGORIES', categories)
-        if url: self._append_if_missing(vcard_data, 'URL', url)
-        if note: self._append_if_missing(vcard_data, 'NOTE', note)
-        
-        if address:
-            # Check if this address string is already in any ADR field
-            # ADR format in vcard_data list is full string (e.g. ";;Street;;;;")
-            # We want to match loosely on the street part
-            exists = False
-            for adr_line in vcard_data.get('ADR;TYPE=HOME', []) + vcard_data.get('ADR', []):
-                if address in adr_line:
-                    exists = True
-                    break
-            if not exists:
-                vcard_data['ADR;TYPE=HOME'].append(f";;{address};;;;")
-
-        # 4. Construct and Upload
-        vcard_str = self._construct_vcard(vcard_data)
-        response = self.session.put(vcf_url, data=vcard_str.encode('utf-8'))
+            # 4. Construct and Upload
+            vcard_str = self._construct_vcard(vcard_data)
+            response = self.session.put(vcf_url, data=vcard_str.encode('utf-8'))
         
         if response.status_code in [200, 201, 204]:
             return True
@@ -336,6 +350,7 @@ def main():
     update_parser.add_argument("--address", help="Home Street Address")
     update_parser.add_argument("--url", help="Website URL")
     update_parser.add_argument("--note", help="Notes")
+    update_parser.add_argument("--vcard-file", help="Path to a VCard file for updating")
 
     # Delete Command
     delete_parser = subparsers.add_parser("delete", help="Delete a contact")
@@ -397,7 +412,7 @@ def main():
         manager.create_contact(args.fn, args.email, args.tel, args.categories, args.address, args.url, args.note)
 
     elif args.command == "update":
-        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories, args.address, args.url, args.note):
+        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories, args.address, args.url, args.note, args.vcard_file):
             print(f"Successfully updated contact: {args.uid}")
 
     elif args.command == "delete":
