@@ -1,0 +1,14 @@
+---
+proxmox_backup_mgmt_enabled: true
+proxmox_backup_jobs:
+  - id: "haos-daily-pbs"
+    name: "Home Assistant Daily"
+    node: "proxmox1"
+    schedule: "daily"
+    storage: "pbs01"
+    mode: "snapshot"
+    vmid: "107"
+    notes_template: "{{guestname}}"
+    enabled: true
+    mailto: "root@home.arpa"
+    mailnotification: "failure"

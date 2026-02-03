@@ -1,0 +1,47 @@
+# ==============================================================================
+# Filename:       roles/backup_manager/defaults/main.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-02-02
+# Context:        http://trac.home.arpa/ticket/3008
+#
+# Purpose:
+#    Default variables for the backup_manager Ansible role.
+# ==============================================================================
+---
+# Global Backup Enable/Disable
+backups_enabled: true
+
+# --- Proxmox (PBS) Configuration ---
+# Managed file: /etc/pve/jobs.cfg
+proxmox_backup_mgmt_enabled: false
+proxmox_backup_jobs: []
+# Example Structure:
+# proxmox_backup_jobs:
+#   - id: "daily-2am"  # Descriptive ID (will be hashed or used as is if UUID)
+#     schedule: "02:00"
+#     storage: "pbs01"
+#     mode: "snapshot"
+#     node: "proxmox1" # Optional: Filter which host this runs on
+#     vmid: "100,101"  # Or "all"
+#     enabled: true
+#     notes_template: "{{guestname}}"
+#     mailnotification: "always"
+#     mailto: "root@home.arpa"
+
+# --- Restic Configuration ---
+restic_mgmt_enabled: false
+restic_version: "0.16.0"
+restic_backups: []
+# Example Structure:
+# restic_backups:
+#   - name: "system-configs"
+#     repo: "s3:https://s3.amazonaws.com/my-bucket"
+#     password_var: "restic_s3_password" # Key to look up in vault
+#     paths:
+#       - "/etc"
+#       - "/opt/scripts"
+#     schedule: "daily"
+#     retention:
+#       keep_daily: 7
+#       keep_weekly: 4

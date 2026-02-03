@@ -1,0 +1,21 @@
+# ==============================================================================
+# Filename:       roles/backup_manager/tasks/main.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-02-02
+# Context:        http://trac.home.arpa/ticket/3008
+#
+# Purpose:
+#    Main task entry point for backup_manager role. Dispatcher for specific subsystems.
+# ==============================================================================
+---
+- name: "Include Proxmox Backup Management"
+  include_tasks: proxmox.yml
+  when: 
+    - proxmox_backup_mgmt_enabled
+    - "'proxmox' in group_names or 'pve' in ansible_kernel"
+
+- name: "Include Restic Backup Management"
+  include_tasks: restic.yml
+  when:
+    - restic_mgmt_enabled

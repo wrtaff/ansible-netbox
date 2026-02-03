@@ -1,0 +1,14 @@
+---
+# handlers file for backup_manager
+
+- name: reload pve-cluster
+  service:
+    name: pve-cluster
+    state: reloaded
+  # On standalone nodes, pve-cluster might not be the main driver for scheduling, 
+  # but it syncs the filesystem. pvescheduler is the timer.
+
+- name: restart pvescheduler
+  service:
+    name: pvescheduler
+    state: restarted
