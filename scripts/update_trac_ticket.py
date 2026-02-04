@@ -1,11 +1,14 @@
 # Filename:       update_trac_ticket.py
-# Version:        1.2
+# Version:        1.3
 # Author:         Gemini CLI
 # Last Modified:  2026-02-04
 # Context:        http://trac.home.arpa/ticket/3028
 #
 # Purpose:
 #     A helper script to update Trac tickets via the XML-RPC API.
+#
+#     Update 1.3:
+#     - Fixed bug causing duplicate ticket updates due to redundant code blocks.
 #
 #     Update 1.2:
 #     - Improved newline handling for CLI-passed comments.
@@ -78,30 +81,6 @@ def main():
     if args.description:
         # Handle both literal newlines and escaped newlines
         attributes['description'] = args.description.replace("\\n", "\n").replace("&#10;", "\n")
-    if args.action:
-        attributes['action'] = args.action
-    if args.action == 'resolve' and args.resolve_as:
-        attributes['action_resolve_resolve_as'] = args.resolve_as
-    if args.priority:
-        attributes['priority'] = args.priority
-    if args.keywords:
-        attributes['keywords'] = args.keywords.replace(',', ' ')
-
-    try:
-        print(f"Connecting to Trac server at {TRAC_URL.split('@')[1]}...")
-        server = xmlrpc.client.ServerProxy(TRAC_URL)
-
-        # Method signature: ticket.update(id, comment, {attributes}, notify, author)
-        server.ticket.update(args.ticket_id, comment_text, attributes, NOTIFY, args.author)
-
-        print(f"\nSuccessfully updated ticket {args.ticket_id}!")
-        print(f"  - URL: http://trac.home.arpa/ticket/{args.ticket_id}")
-
-    except xmlrpc.client.Fault as err:
-        print(f"\nError: XML-RPC Fault {err.faultCode}")
-        print(f"Reason: {err.faultString}")
-    except Exception as e:
-        print(f"\nAn unexpected error occurred: {e}")
     if args.action:
         attributes['action'] = args.action
     if args.action == 'resolve' and args.resolve_as:
