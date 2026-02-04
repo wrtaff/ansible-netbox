@@ -1,21 +1,16 @@
-#!/usr/bin/env python3
-"""
-================================================================================
-Filename:       update_trac_ticket.py
-Version:        1.1
-Author:         Gemini CLI
-Last Modified:  2026-01-26
-Context:        http://trac.home.arpa/ticket/2965
-
-Purpose:
-    A helper script to update Trac tickets via the XML-RPC API.
-
-    Update 1.1:
-    - Enforced space-separated keywords by automatically replacing commas.
-
-Usage:
-    ./update_trac_ticket.py --help
-"""
+# Filename:       update_trac_ticket.py
+# Version:        1.2
+# Author:         Gemini CLI
+# Last Modified:  2026-02-04
+# Context:        http://trac.home.arpa/ticket/3028
+#
+# Purpose:
+#     A helper script to update Trac tickets via the XML-RPC API.
+#
+#     Update 1.2:
+#     - Improved newline handling for CLI-passed comments.
+#     - Updated documentation and version.
+# ==============================================================================
 import xmlrpc.client
 import argparse
 import textwrap
@@ -42,21 +37,21 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=textwrap.dedent('''
             Example Usage:
-            ./update_trac_ticket.py \
-                --ticket-id 2853 \
-                --comment "This is my update comment." \
-                --action resolve \
+            ./update_trac_ticket.py \\
+                --ticket-id 2853 \\
+                --comment "This is my update comment.\\nThis is a new line." \\
+                --action resolve \\
                 --resolve-as fixed
         ''')
     )
 
     parser.add_argument("-i", "--ticket-id", required=True, type=int, help="The ID of the ticket to update.")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-c", "--comment", help="The comment to add to the ticket. Use shell escapes for newlines (e.g., $\'some\\ntext\').")
+    group.add_argument("-c", "--comment", help="The comment to add to the ticket. Use '\\n' for newlines.")
     group.add_argument("-f", "--comment-file", help="Path to a file containing the comment text.")
     
     parser.add_argument("-s", "--summary", help="Update the ticket summary.")
-    parser.add_argument("-d", "--description", help="Update the ticket description. Use shell escapes for newlines (e.g., $\'some\\ntext\').")
+    parser.add_argument("-d", "--description", help="Update the ticket description. Use '\\n' for newlines.")
     parser.add_argument("-a", "--action", help="The action to perform (e.g., 'resolve', 'reopen').")
     parser.add_argument("-r", "--resolve-as", help="If resolving, the resolution status (e.g., 'fixed', 'wontfix').")
     parser.add_argument("-p", "--priority", help="Update the ticket priority (e.g., 'major', 'minor').")
@@ -74,13 +69,39 @@ def main():
             print(f"Error reading comment file: {e}")
             exit(1)
     elif args.comment:
-        comment_text = args.comment.replace("\\n", "\n")
+        # Handle both literal newlines and escaped newlines
+        comment_text = args.comment.replace("\\n", "\n").replace("&#10;", "\n")
 
     attributes = {}
     if args.summary:
         attributes['summary'] = args.summary
     if args.description:
-        attributes['description'] = args.description.replace("\\n", "\n")
+        # Handle both literal newlines and escaped newlines
+        attributes['description'] = args.description.replace("\\n", "\n").replace("&#10;", "\n")
+    if args.action:
+        attributes['action'] = args.action
+    if args.action == 'resolve' and args.resolve_as:
+        attributes['action_resolve_resolve_as'] = args.resolve_as
+    if args.priority:
+        attributes['priority'] = args.priority
+    if args.keywords:
+        attributes['keywords'] = args.keywords.replace(',', ' ')
+
+    try:
+        print(f"Connecting to Trac server at {TRAC_URL.split('@')[1]}...")
+        server = xmlrpc.client.ServerProxy(TRAC_URL)
+
+        # Method signature: ticket.update(id, comment, {attributes}, notify, author)
+        server.ticket.update(args.ticket_id, comment_text, attributes, NOTIFY, args.author)
+
+        print(f"\nSuccessfully updated ticket {args.ticket_id}!")
+        print(f"  - URL: http://trac.home.arpa/ticket/{args.ticket_id}")
+
+    except xmlrpc.client.Fault as err:
+        print(f"\nError: XML-RPC Fault {err.faultCode}")
+        print(f"Reason: {err.faultString}")
+    except Exception as e:
+        print(f"\nAn unexpected error occurred: {e}")
     if args.action:
         attributes['action'] = args.action
     if args.action == 'resolve' and args.resolve_as:
