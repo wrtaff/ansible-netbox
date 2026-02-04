@@ -17,7 +17,10 @@
 
 - name: Add NodeSource repository for Node.js 20.x
   ansible.builtin.apt_repository:
-    repo: "deb https://deb.nodesource.com/node_20.x {{ ansible_distribution_release }} main"
+    #repo: "deb https://deb.nodesource.com/node_20.x {{ ansible_distribution_release }} main"
+    #CHANGED THE BELOW for trac ticket http://trac.gafla.us.com/ticket/3027 --- see comment 6 -wrt
+    ## Use 'nodistro' because NodeSource removed the 'bookworm' specific path
+    repo: "deb https://deb.nodesource.com/node_20.x nodistro main" 
     state: present
     update_cache: true
   become: true

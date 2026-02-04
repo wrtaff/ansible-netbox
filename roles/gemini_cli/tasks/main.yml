@@ -41,3 +41,12 @@
   register: gemini_version_output
   changed_when: false
   tags: verify
+
+- name: 4. Ensure gemini binary is symlinked into venv
+  ansible.builtin.file:
+    src: /usr/bin/gemini
+    dest: "/opt/netbox/ansible-netbox/bin/gemini"
+    state: link
+    force: yes
+  become: true
+  tags: install
