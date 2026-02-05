@@ -1,3 +1,19 @@
+# ==============================================================================
+# Filename:       playbooks/update_tailscale_cert_YNH.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-05
+# Context:        http://trac.home.arpa/ticket/3033
+#
+# Purpose:
+#     Updates Tailscale TLS certificates for YunoHost servers and notifies relay.
+#
+# Revision History:
+#     1.1 - Added success notification to central mail relay and delegated to localhost.
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+# ==============================================================================
 ---
 - name: Update Tailscale TLS Certificate for YunoHost
   hosts: yunohost_servers
@@ -48,6 +64,15 @@
         - crt.pem
         - key.pem
       notify: Reload Nginx
+
+    - name: Flush handlers to ensure Nginx is reloaded before notification
+      ansible.builtin.meta: flush_handlers
+
+    - name: Notify central mail relay of success
+      ansible.builtin.shell: |
+        echo "Tailscale TLS certificate for {{ domain_name }} has been successfully updated on {{ inventory_hostname }}. Nginx has been reloaded." | mail -s "Tailscale Cert Update Success: {{ domain_name }}" root
+      delegate_to: localhost
+      when: cert_generation.changed
 
   handlers:
     - name: Reload Nginx
