@@ -16,3 +16,12 @@
         owner: will
         group: will
         mode: '0600'
+
+    - name: Add mutt alias to .bashrc
+      lineinfile:
+        path: /home/will/.bashrc
+        regexp: "^alias mutt="
+        line: "alias mutt='neomutt -F ~/.muttrc.mailrepo'"
+        owner: will
+        group: will
+        mode: '0644'
