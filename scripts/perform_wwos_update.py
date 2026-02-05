@@ -1,8 +1,15 @@
 import subprocess
 import sys
+import argparse
 
-page_name = "OwnTracks"
-new_section = ""
+parser = argparse.ArgumentParser(description="Update a WWOS page by prepending content.")
+parser.add_argument("page_name", help="The name of the page to update.")
+parser.add_argument("-f", "--file", required=True, help="File containing the new content to prepend.")
+args = parser.parse_args()
+
+page_name = args.page_name
+with open(args.file, 'r') as f:
+    new_section = f.read()
 
 # Fetch existing content
 cmd_get = ["python3", "scripts/get_wwos_page.py", page_name]
