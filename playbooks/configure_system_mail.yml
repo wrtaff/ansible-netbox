@@ -1,0 +1,6 @@
+---
+- name: Configure System Mail Forwarding
+  hosts: "{{ target_hosts | default('netbox') }}"
+  become: yes
+  roles:
+    - system_mail_client

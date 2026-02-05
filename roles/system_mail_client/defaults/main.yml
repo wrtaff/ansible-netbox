@@ -1,0 +1,3 @@
+---
+system_mail_relay_host: "192.168.0.25"
+system_mail_root_alias: "root@home.arpa"

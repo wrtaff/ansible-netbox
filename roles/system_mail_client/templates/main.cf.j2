@@ -1,0 +1,25 @@
+# Postfix Null-Client configuration
+# This host sends all mail to a central relay
+
+smtpd_banner = $myhostname ESMTP $mail_name (Debian/GNU)
+biff = no
+append_dot_mydomain = no
+
+myhostname = {{ inventory_hostname }}.home.arpa
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+myorigin = $myhostname
+
+# Empty mydestination means ALL mail is considered non-local
+mydestination = 
+
+# The central relay host
+relayhost = [{{ system_mail_relay_host }}]
+
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+mailbox_size_limit = 0
+recipient_delimiter = +
+
+# Only listen on the loopback interface
+inet_interfaces = loopback-only
+inet_protocols = all

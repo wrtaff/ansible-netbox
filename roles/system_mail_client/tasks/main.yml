@@ -1,0 +1,33 @@
+---
+- name: Install Postfix (satellite mode)
+  apt:
+    name:
+      - postfix
+      - mailutils
+    state: present
+    update_cache: yes
+
+- name: Configure Postfix as Null Client
+  template:
+    src: main.cf.j2
+    dest: /etc/postfix/main.cf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart postfix
+
+- name: Configure root alias
+  lineinfile:
+    path: /etc/aliases
+    regexp: '^root:'
+    line: "root: {{ system_mail_root_alias }}"
+  notify: update aliases
+
+- name: Ensure Postfix is started and enabled
+  service:
+    name: postfix
+    state: started
+    enabled: yes
+
+- name: Flush handlers to apply configuration
+  meta: flush_handlers
