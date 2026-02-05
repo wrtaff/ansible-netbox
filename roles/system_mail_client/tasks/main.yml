@@ -1,7 +1,7 @@
 ---
 # ==============================================================================
 # Filename:       roles/system_mail_client/tasks/main.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
 # Last Modified:  2026-02-05
 # Context:        http://trac.home.arpa/ticket/3036
@@ -41,3 +41,25 @@
 
 - name: Flush handlers to apply configuration
   meta: flush_handlers
+
+- name: Verify mail delivery to central relay
+  block:
+    - name: Generate unique test token
+      set_fact:
+        mail_test_token: "ansible-test-{{ 1000000 | random }}"
+
+    - name: Send test email from root
+      shell: "echo 'Test delivery {{ mail_test_token }}' | mail -s 'Relay Test {{ inventory_hostname }}' root"
+
+    - name: Wait for mail delivery
+      pause:
+        seconds: 5
+
+    - name: Verify email reached catchall Maildir on relay host
+      shell: "grep -r '{{ mail_test_token }}' /home/catchall/Maildir/new/"
+      delegate_to: "{{ system_mail_relay_host }}"
+      register: mail_check
+      failed_when: mail_check.rc != 0
+      changed_when: false
+      # Use become to ensure we can read the catchall home dir
+      become: yes
