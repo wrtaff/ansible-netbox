@@ -1,4 +1,14 @@
 ---
+# ==============================================================================
+# Filename:       roles/system_mail_client/tasks/main.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-05
+# Context:        http://trac.home.arpa/ticket/3036
+#
+# Purpose:
+#     Tasks for configuring Postfix as a null-client satellite relay.
+# ==============================================================================
 - name: Install Postfix (satellite mode)
   apt:
     name:

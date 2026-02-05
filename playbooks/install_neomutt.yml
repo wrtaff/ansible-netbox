@@ -1,4 +1,15 @@
 ---
+# ==============================================================================
+# Filename:       install_neomutt.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-05
+# Context:        http://trac.home.arpa/ticket/3035
+#
+# Purpose:
+#     Installs NeoMutt MUA and configures it for the local Mail Repository.
+#     Includes a bash alias for 'mutt'.
+# ==============================================================================
 - name: Install and Configure NeoMutt on Zeus
   hosts: zeus
   become: yes

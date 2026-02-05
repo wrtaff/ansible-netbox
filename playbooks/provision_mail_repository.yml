@@ -1,4 +1,14 @@
 ---
+# ==============================================================================
+# Filename:       provision_mail_repository.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-05
+# Context:        http://trac.home.arpa/ticket/3034
+#
+# Purpose:
+#     Provisions the central Mail Repository (Postfix/Dovecot) on gmailctl-ansible.
+# ==============================================================================
 - name: Provision Centralized Mail Repository
   hosts: gmailctl-ansible
   become: yes

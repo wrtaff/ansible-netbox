@@ -1,4 +1,14 @@
 ---
+# ==============================================================================
+# Filename:       configure_system_mail.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-05
+# Context:        http://trac.home.arpa/ticket/3036
+#
+# Purpose:
+#     Configures fleet-wide null-client mail forwarding to the central relay.
+# ==============================================================================
 - name: Configure System Mail Forwarding
   hosts: "{{ target_hosts | default('netbox') }}"
   become: yes

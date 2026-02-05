@@ -1,4 +1,14 @@
 ---
+# ==============================================================================
+# Filename:       roles/mail_repository/tasks/main.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-05
+# Context:        http://trac.home.arpa/ticket/3034
+#
+# Purpose:
+#     Tasks for installing and configuring Postfix/Dovecot Mail Repository.
+# ==============================================================================
 - name: Install Postfix and Dovecot
   apt:
     name:

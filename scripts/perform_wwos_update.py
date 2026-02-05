@@ -1,3 +1,18 @@
+"""
+================================================================================
+Filename:       perform_wwos_update.py
+Version:        1.1
+Author:         Gemini CLI
+Last Modified:  2026-02-05
+Context:        http://trac.home.arpa/ticket/3035
+
+Purpose:
+    A helper script to update WWOS pages by prepending new content.
+    
+    Update 1.1:
+    - Refactored to accept page_name and content file as arguments.
+================================================================================
+"""
 import subprocess
 import sys
 import argparse
