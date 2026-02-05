@@ -13,4 +13,4 @@
   hosts: "{{ target_hosts | default('netbox') }}"
   become: yes
   roles:
-    - system_mail_client
+    - { role: system_mail_client, when: "inventory_hostname != 'gmailctl-ansible' and ansible_host != '192.168.0.25'" }

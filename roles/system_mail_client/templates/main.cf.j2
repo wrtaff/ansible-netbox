@@ -11,31 +11,15 @@ alias_database = hash:/etc/aliases
 myorigin = $myhostname
 
 # Empty mydestination means ALL mail is considered non-local
-# unless we are the relay
-{% if inventory_hostname == 'gmailctl-ansible' or ansible_host == system_mail_relay_host %}
-mydestination = $myhostname, localhost.home.arpa, localhost, {{ mail_repository_domain | default('home.arpa') }}
-virtual_alias_domains =
-virtual_alias_maps = static:catchall
-mailbox_transport = lmtp:unix:private/dovecot-lmtp
-{% else %}
 mydestination = 
-{% endif %}
 
 # The central relay host
-{% if inventory_hostname != 'gmailctl-ansible' and ansible_host != system_mail_relay_host %}
 relayhost = [{{ system_mail_relay_host }}]
-{% else %}
-relayhost = 
-{% endif %}
 
 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
 mailbox_size_limit = 0
 recipient_delimiter = +
 
-# Only listen on the loopback interface unless we are the relay
-{% if inventory_hostname == 'gmailctl-ansible' or ansible_host == system_mail_relay_host %}
-inet_interfaces = all
-{% else %}
+# Only listen on the loopback interface
 inet_interfaces = loopback-only
-{% endif %}
 inet_protocols = all
