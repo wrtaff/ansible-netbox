@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       manage_nextcloud_contacts.py
-Version:        1.5
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-02-03
+Last Modified:  2026-02-05
 Context:        Nextcloud Contact Management Interface
 
 Purpose:
@@ -12,6 +12,7 @@ Purpose:
     Allows creating, retrieving, and updating contacts for the user.
     Version 1.4 supports appending values to multi-value fields (EMAIL, TEL, URL, ADR, CATEGORIES).
     Version 1.5 adds the ability to update a contact from a raw VCard file.
+    Version 1.6 adds password caching to avoid repeated vault prompts.
 
 Usage:
     # List all contacts
@@ -42,6 +43,7 @@ import argparse
 import requests
 import uuid
 import xml.etree.ElementTree as ET
+import subprocess
 from collections import defaultdict
 
 # Configuration Defaults
@@ -318,9 +320,72 @@ class NextcloudContactManager:
                     values.append(parts[1])
         return values
 
+def get_password_from_tmp():
+    """Attempts to retrieve the nextcloud_user_will_pass from a temporary file."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    tmp_pass_file = os.path.join(script_dir, "..", "tmp", "nextcloud_pass.txt")
+    
+    if os.path.exists(tmp_pass_file):
+        try:
+            with open(tmp_pass_file, 'r') as f:
+                return f.read().strip()
+        except Exception:
+            pass
+    return None
+
+def get_password_from_vault(ask_vault_pass=False):
+    """Attempts to retrieve the nextcloud_user_will_pass from vault.yml using ansible-vault."""
+    # Check cache first
+    cached_pass = get_password_from_tmp()
+    if cached_pass:
+        return cached_pass
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    vault_file = os.path.join(script_dir, "..", "vault.yml")
+    
+    if not os.path.exists(vault_file):
+        print(f"DEBUG: Vault file not found at {vault_file}", file=sys.stderr)
+        return None
+    
+    cmd = ["ansible-vault", "view", vault_file]
+    if ask_vault_pass:
+        cmd.append("--ask-vault-pass")
+        
+    try:
+        # If ask_vault_pass is True, this will prompt the user in the terminal
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        for line in result.stdout.splitlines():
+            if "nextcloud_user_will_pass:" in line:
+                # Extract value after the colon and strip quotes
+                token = line.split(":", 1)[1].strip().strip("'").strip('"')
+                
+                # Cache it
+                if token:
+                    tmp_pass_file = os.path.join(script_dir, "..", "tmp", "nextcloud_pass.txt")
+                    try:
+                        os.makedirs(os.path.dirname(tmp_pass_file), exist_ok=True)
+                        with open(tmp_pass_file, 'w') as f:
+                            f.write(token)
+                        os.chmod(tmp_pass_file, 0o600)
+                    except Exception as e:
+                        print(f"DEBUG: Could not save temp password: {e}", file=sys.stderr)
+                
+                return token
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        # If we failed but didn't ask for pass, maybe we should have?
+        # But for now, just pass.
+        pass
+    return None
+
 def main():
     parser = argparse.ArgumentParser(description="Manage Nextcloud Contacts")
     parser.add_argument("--no-verify", action="store_false", dest="verify", help="Disable SSL certificate verification")
+    parser.add_argument("--ask-vault-pass", action="store_true", help="Ask for vault password to retrieve Nextcloud password")
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # List
@@ -363,6 +428,9 @@ def main():
     user = os.getenv("NEXTCLOUD_USER", DEFAULT_USER)
     password = os.getenv("NEXTCLOUD_PASSWORD")
     
+    if not password:
+        password = get_password_from_vault(args.ask_vault_pass)
+
     # SSL Verification: env var takes precedence if set, otherwise CLI flag
     verify_env = os.getenv("NEXTCLOUD_VERIFY_SSL", "true").lower()
     verify = args.verify if verify_env == "true" else False
