@@ -1,0 +1,83 @@
+---
+- name: Install Postfix and Dovecot
+  apt:
+    name:
+      - postfix
+      - dovecot-imapd
+      - dovecot-lmtpd
+      - mailutils
+    state: present
+    update_cache: yes
+
+- name: Create catchall user
+  user:
+    name: "{{ mail_repository_catchall_user }}"
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Set catchall password via chpasswd
+  shell: "echo {{ mail_repository_catchall_user }}:{{ mail_repository_catchall_password }} | chpasswd"
+  no_log: true
+
+- name: Set /etc/mailname
+  copy:
+    content: "{{ mail_repository_domain }}"
+    dest: /etc/mailname
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Configure Postfix (main.cf)
+  template:
+    src: postfix_main.cf.j2
+    dest: /etc/postfix/main.cf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart postfix
+
+- name: Configure Dovecot (main config)
+  template:
+    src: dovecot.conf.j2
+    dest: /etc/dovecot/dovecot.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart dovecot
+
+- name: Configure Dovecot (10-mail.conf)
+  template:
+    src: dovecot_10-mail.conf.j2
+    dest: /etc/dovecot/conf.d/10-mail.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart dovecot
+
+- name: Configure Dovecot (10-auth.conf)
+  template:
+    src: dovecot_10-auth.conf.j2
+    dest: /etc/dovecot/conf.d/10-auth.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart dovecot
+
+- name: Configure Dovecot (10-master.conf)
+  template:
+    src: dovecot_10-master.conf.j2
+    dest: /etc/dovecot/conf.d/10-master.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart dovecot
+
+- name: Ensure services are started and enabled
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - postfix
+    - dovecot

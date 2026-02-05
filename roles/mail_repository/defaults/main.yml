@@ -1,0 +1,6 @@
+---
+mail_repository_catchall_user: "catchall"
+mail_repository_catchall_password: "password123" # User should change this or use Vault
+mail_repository_trusted_networks: "127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 192.168.0.0/24"
+mail_repository_domain: "home.arpa"
+mail_repository_mailbox_limit: 0

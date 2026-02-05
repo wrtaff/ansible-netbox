@@ -1,0 +1,8 @@
+---
+- name: Provision Centralized Mail Repository
+  hosts: gmailctl-ansible
+  become: yes
+  vars_files:
+    - ../vault.yml
+  roles:
+    - mail_repository

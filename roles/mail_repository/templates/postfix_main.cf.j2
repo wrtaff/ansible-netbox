@@ -1,0 +1,31 @@
+# Postfix configuration for Mail Repository
+smtpd_banner = $myhostname ESMTP $mail_name (Debian/GNU)
+biff = no
+append_dot_mydomain = no
+
+# TLS parameters
+# (Basic config, could be enhanced with certs if needed)
+smtpd_use_tls=yes
+smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
+smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
+
+myhostname = {{ ansible_fqdn | default(ansible_host) }}
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+myorigin = /etc/mailname
+mydestination = {{ ansible_fqdn | default(ansible_host) }}, localhost.home.arpa, localhost, {{ mail_repository_domain }}
+relayhost = 
+mynetworks = {{ mail_repository_trusted_networks }}
+mailbox_size_limit = {{ mail_repository_mailbox_limit }}
+recipient_delimiter = +
+inet_interfaces = all
+inet_protocols = all
+
+smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination
+
+virtual_alias_domains =
+# Virtual alias to catch everything and send to catchall user
+virtual_alias_maps = static:{{ mail_repository_catchall_user }}
+
+# Delivery to Dovecot via LMTP
+mailbox_transport = lmtp:unix:private/dovecot-lmtp

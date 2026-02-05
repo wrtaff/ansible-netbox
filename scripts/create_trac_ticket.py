@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       create_trac_ticket.py
-Version:        1.1
+Version:        1.2
 Author:         Gemini CLI
-Last Modified:  2026-01-26
+Last Modified:  2026-02-05
 Context:        http://trac.home.arpa/ticket/2965
 
 Purpose:
@@ -12,6 +12,8 @@ Purpose:
     
     Update 1.1:
     - Enforced space-separated keywords by automatically replacing commas.
+    Update 1.2:
+    - Enforced correct line break encoding; forbidden XML entities like '&#10;'.
 
 Usage:
     ./create_trac_ticket.py --help
@@ -69,8 +71,13 @@ def main():
 
     args = parser.parse_args()
 
+    # Enforce correct line break encoding
+    if '&#10;' in args.description:
+        print("Error: Incorrect line break encoding detected. Do not use XML entities like '&#10;'. Use '\\n' for newlines.")
+        exit(1)
+
     # Replace literal '\n' with actual newline characters
-    processed_description = args.description.replace('\\n', '\n').replace('&#10;', '\n')
+    processed_description = args.description.replace('\\n', '\n')
     
     # Ensure keywords are space-separated
     processed_keywords = args.keywords.replace(',', ' ')

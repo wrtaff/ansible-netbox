@@ -1,0 +1,7 @@
+# Dovecot configuration
+protocols = imap lmtp
+listen = *, ::
+dict {
+}
+!include conf.d/*.conf
+!include_try /etc/dovecot/local.conf

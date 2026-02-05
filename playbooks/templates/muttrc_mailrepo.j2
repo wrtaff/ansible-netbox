@@ -1,0 +1,21 @@
+# NeoMutt config for Local Mail Repository
+set realname = "Will (Internal)"
+set from = "will@home.arpa"
+set use_from = yes
+
+# IMAP Settings
+set spoolfile = "imap://catchall:password123@gmailctl-ansible.home.arpa:143/INBOX"
+set folder = "imap://catchall:password123@gmailctl-ansible.home.arpa:143/"
+set postponed = "+Drafts"
+set record = "+Sent"
+
+# Connection settings
+set mail_check = 60
+set timeout = 15
+set imap_keepalive = 300
+
+# Basic UI
+set sort = reverse-date
+set mailcap_path = ~/.mailcap
+auto_view text/html
+# (Optional) Use 'v' to view attachments or 'q' to quit
