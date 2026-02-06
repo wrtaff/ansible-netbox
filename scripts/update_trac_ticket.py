@@ -1,19 +1,27 @@
-# Filename:       update_trac_ticket.py
-# Version:        1.3
-# Author:         Gemini CLI
-# Last Modified:  2026-02-04
-# Context:        http://trac.home.arpa/ticket/3028
-#
-# Purpose:
-#     A helper script to update Trac tickets via the XML-RPC API.
-#
-#     Update 1.3:
-#     - Fixed bug causing duplicate ticket updates due to redundant code blocks.
-#
-#     Update 1.2:
-#     - Improved newline handling for CLI-passed comments.
-#     - Updated documentation and version.
-# ==============================================================================
+#!/usr/bin/env python3
+"""
+================================================================================
+Filename:       update_trac_ticket.py
+Version:        1.4
+Author:         Gemini CLI
+Last Modified:  2026-02-05
+Context:        http://trac.home.arpa/ticket/3028
+
+Purpose:
+    A helper script to update Trac tickets via the XML-RPC API.
+
+    Update 1.4:
+    - Enforced correct line break encoding; forbidden XML entities like '&#10;'.
+    - Switched to standard docstring header format.
+
+    Update 1.3:
+    - Fixed bug causing duplicate ticket updates due to redundant code blocks.
+
+    Update 1.2:
+    - Improved newline handling for CLI-passed comments.
+    - Updated documentation and version.
+================================================================================
+"""
 import xmlrpc.client
 import argparse
 import textwrap
@@ -63,6 +71,16 @@ def main():
 
     args = parser.parse_args()
 
+    # Enforce correct line break encoding for comments
+    if args.comment and '&#10;' in args.comment:
+        print("Error: Incorrect line break encoding detected in comment. Do not use XML entities like '&#10;'. Use '\\n' for newlines.")
+        exit(1)
+
+    # Enforce correct line break encoding for description
+    if args.description and '&#10;' in args.description:
+        print("Error: Incorrect line break encoding detected in description. Do not use XML entities like '&#10;'. Use '\\n' for newlines.")
+        exit(1)
+
     comment_text = ""
     if args.comment_file:
         try:
@@ -72,15 +90,15 @@ def main():
             print(f"Error reading comment file: {e}")
             exit(1)
     elif args.comment:
-        # Handle both literal newlines and escaped newlines
-        comment_text = args.comment.replace("\\n", "\n").replace("&#10;", "\n")
+        # Replace literal '\n' with actual newline characters
+        comment_text = args.comment.replace("\\n", "\n")
 
     attributes = {}
     if args.summary:
         attributes['summary'] = args.summary
     if args.description:
-        # Handle both literal newlines and escaped newlines
-        attributes['description'] = args.description.replace("\\n", "\n").replace("&#10;", "\n")
+        # Replace literal '\n' with actual newline characters
+        attributes['description'] = args.description.replace("\\n", "\n")
     if args.action:
         attributes['action'] = args.action
     if args.action == 'resolve' and args.resolve_as:
