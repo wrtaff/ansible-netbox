@@ -1,4 +1,18 @@
 ---
+# ==============================================================================
+# Filename:       roles/mail_repository/handlers/main.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-05
+# Context:        http://trac.home.arpa/ticket/3034
+#
+# Revision History:
+#     1.0 - Initial version.
+#     1.1 - Added run newaliases handler.
+#
+# Purpose:
+#     Handlers for Postfix and Dovecot services.
+# ==============================================================================
 - name: restart postfix
   service:
     name: postfix
@@ -8,3 +22,6 @@
   service:
     name: dovecot
     state: restarted
+
+- name: run newaliases
+  command: newaliases

@@ -32,3 +32,23 @@ cors:
     - http://todo.van-bee.ts.net
     - http://todo.home.arpa
     - https://todo.home.arpa
+
+# Mailer configuration
+mailer:
+  # Whether to enable the mailer. If disabled, no emails will be sent.
+  enabled: {{ vikunja_mailer_enabled | default(false) | lower }}
+  # The host of the SMTP server
+  host: "{{ vikunja_mailer_host | default('smtp.gmail.com') }}"
+  # The port of the SMTP server
+  port: {{ vikunja_mailer_port | default(587) }}
+  # The username to use for the SMTP server
+  username: "{{ vikunja_mailer_username | default('') }}"
+  # The password to use for the SMTP server
+  password: "{{ vikunja_mailer_password | default('') }}"
+  # The address the emails will be sent from
+  fromaddress: "{{ vikunja_mailer_from_address | default('wrtaff@gmail.com') }}"
+  # Whether to use SSL for the SMTP connection
+  skiptlsverify: false
+  # The type of authentication to use for the SMTP server.
+  # Can be "plain", "login" or "cram-md5".
+  authtype: "plain"

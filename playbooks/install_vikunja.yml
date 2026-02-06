@@ -2,6 +2,8 @@
 - name: Install Vikunja from Source
   hosts: vikunja_servers
   become: yes
+  vars_files:
+    - ../vault.yml
   vars:
     vikunja_user: vikunja
     vikunja_group: vikunja
@@ -9,6 +11,13 @@
     vikunja_data_dir: "/var/lib/vikunja"
     vikunja_version: "v1.0.0-rc2" # Set to the desired version
     vikunja_download_url: "https://github.com/go-vikunja/vikunja/archive/refs/tags/{{ vikunja_version }}.tar.gz"
+    # Mailer defaults
+    vikunja_mailer_enabled: true
+    vikunja_mailer_host: "smtp.gmail.com"
+    vikunja_mailer_port: 587
+    vikunja_mailer_username: "{{ vikunja_smtp_user }}"
+    vikunja_mailer_password: "{{ vikunja_smtp_password }}"
+    vikunja_mailer_from_address: "wrtaff@gmail.com"
 
   tasks:
     - name: Install build dependencies

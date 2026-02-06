@@ -1,10 +1,15 @@
 ---
 # ==============================================================================
 # Filename:       roles/mail_repository/tasks/main.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
 # Last Modified:  2026-02-05
 # Context:        http://trac.home.arpa/ticket/3034
+#
+# Revision History:
+#     1.0 - Initial version.
+#     1.1 - Modified catchall password task to use chpasswd for better compatibility.
+#     1.2 - Added /etc/aliases management to fix root delivery errors.
 #
 # Purpose:
 #     Tasks for installing and configuring Postfix/Dovecot Mail Repository.
@@ -29,6 +34,13 @@
 - name: Set catchall password via chpasswd
   shell: "echo {{ mail_repository_catchall_user }}:{{ mail_repository_catchall_password }} | chpasswd"
   no_log: true
+
+- name: Configure /etc/aliases
+  lineinfile:
+    path: /etc/aliases
+    regexp: '^root:'
+    line: "root: {{ mail_repository_catchall_user }}"
+  notify: run newaliases
 
 - name: Set /etc/mailname
   copy:
