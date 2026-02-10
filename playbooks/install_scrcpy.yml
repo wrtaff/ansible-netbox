@@ -1,0 +1,61 @@
+# ==============================================================================
+# Filename:       install_scrcpy.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-02-10
+# Context:        http://trac.gafla.us.com/ticket/2840
+#
+# Purpose:
+#   Installs scrcpy screen mirroring application on Debian-based desktops
+#   by building from source using the official install script.
+#
+# NOTES:
+#   Remember to always "bump" your versions when you make a change to the
+#   code, and annotate any changes as well.
+# ==============================================================================
+---
+- name: Install scrcpy
+  hosts: desktops
+  become: true
+  tasks:
+    - name: Install dependencies
+      apt:
+        name:
+          - ffmpeg
+          - libsdl2-2.0-0
+          - adb
+          - wget
+          - gcc
+          - git
+          - pkg-config
+          - meson
+          - ninja-build
+          - libsdl2-dev
+          - libavcodec-dev
+          - libavdevice-dev
+          - libavformat-dev
+          - libavutil-dev
+          - libswresample-dev
+          - libusb-1.0-0
+          - libusb-1.0-0-dev
+        state: present
+        update_cache: true
+
+    - name: Clone scrcpy repository
+      git:
+        repo: https://github.com/Genymobile/scrcpy
+        dest: /tmp/scrcpy
+        version: master
+        force: true
+
+    - name: Run scrcpy install script
+      command: ./install_release.sh
+      args:
+        chdir: /tmp/scrcpy
+      register: scrcpy_install_result
+      changed_when: true
+
+    - name: Clean up build directory
+      file:
+        path: /tmp/scrcpy
+        state: absent
