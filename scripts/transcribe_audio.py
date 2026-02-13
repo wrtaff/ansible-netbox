@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       transcribe_audio.py
-Version:        1.5
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-01-28
+Last Modified:  2026-02-11
 Context:        http://trac.home.arpa/ticket/2988
 
 Purpose:
@@ -12,6 +12,10 @@ Purpose:
     Outputs the transcript to a .txt file in the same directory.
     Supports providing context to improve transcription accuracy.
     Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.6:
+    - Fixed MIME type mismatch by dynamically detecting and passing the correct 
+      type (e.g., audio/mpeg for mp3) to the Gemini API instead of hardcoding mp4.
 
 Changes in 1.5:
     - Added 60s overlap to audio chunks to prevent data loss at boundaries.
@@ -205,7 +209,7 @@ def upload_file(file_path, api_key):
     file_name_api = file_info['file']['name']
     
     print(f"File uploaded successfully. URI: {file_uri}")
-    return file_uri, file_name_api
+    return file_uri, file_name_api, mime_type
 
 def wait_for_file(file_name_api, api_key):
     """Waits for the file to be processed by Gemini."""
@@ -227,7 +231,7 @@ def wait_for_file(file_name_api, api_key):
         print(".", end="", flush=True)
         time.sleep(2)
 
-def transcribe_chunk(file_uri, api_key, model=DEFAULT_MODEL, context=None, chunk_index=0):
+def transcribe_chunk(file_uri, mime_type, api_key, model=DEFAULT_MODEL, context=None, chunk_index=0):
     """Sends the transcription request to Gemini for a specific chunk."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
@@ -243,7 +247,7 @@ def transcribe_chunk(file_uri, api_key, model=DEFAULT_MODEL, context=None, chunk
         "contents": [{
             "parts": [
                 {"text": prompt_text},
-                {"file_data": {"mime_type": "audio/mp4", "file_uri": file_uri}}
+                {"file_data": {"mime_type": mime_type, "file_uri": file_uri}}
             ]
         }],
         "generationConfig": {
@@ -300,9 +304,9 @@ def transcribe_chunk(file_uri, api_key, model=DEFAULT_MODEL, context=None, chunk
 
 def process_file_or_chunk(file_path, api_key, model, context, chunk_index=0):
     """Orchestrates upload, wait, and transcribe for a single file/chunk."""
-    file_uri, file_name_api = upload_file(file_path, api_key)
+    file_uri, file_name_api, mime_type = upload_file(file_path, api_key)
     wait_for_file(file_name_api, api_key)
-    return transcribe_chunk(file_uri, api_key, model, context, chunk_index)
+    return transcribe_chunk(file_uri, mime_type, api_key, model, context, chunk_index)
 
 def main():
     parser = argparse.ArgumentParser(description="Transcribe audio using Gemini.")
