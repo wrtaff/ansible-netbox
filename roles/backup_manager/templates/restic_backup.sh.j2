@@ -1,0 +1,47 @@
+#!/bin/bash
+# Managed by Ansible
+
+# --- Configuration ---
+export RESTIC_REPOSITORY="{{ item.repo }}"
+export RESTIC_PASSWORD="{{ lookup('vars', item.password_var) }}"
+
+# --- Pre-backup Tasks ---
+# (Add logic here if needed, e.g., mounting a share)
+
+# --- Run Backup ---
+echo "Starting restic backup for {{ item.name }}..."
+restic backup \
+{% for path in item.paths %}
+    "{{ path }}" \
+{% endfor %}
+{% if item.exclude is defined %}
+{% for exc in item.exclude %}
+    --exclude="{{ exc }}" \
+{% endfor %}
+{% endif %}
+    --tag "{{ item.name }}"
+
+# --- Run Retention (Forget & Prune) ---
+{% if item.retention is defined %}
+echo "Running retention policy for {{ item.name }}..."
+restic forget \
+{% if item.retention.keep_last is defined %} --keep-last {{ item.retention.keep_last }} {% endif %} \
+{% if item.retention.keep_daily is defined %} --keep-daily {{ item.retention.keep_daily }} {% endif %} \
+{% if item.retention.keep_weekly is defined %} --keep-weekly {{ item.retention.keep_weekly }} {% endif %} \
+{% if item.retention.keep_monthly is defined %} --keep-monthly {{ item.retention.keep_monthly }} {% endif %} \
+    --prune
+{% endif %}
+
+# --- Uptime Kuma Notification ---
+EXIT_CODE=$?
+{% if item.uptime_kuma_push_url is defined and item.uptime_kuma_push_url != "" %}
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Backup successful. Notifying Uptime Kuma..."
+    curl -s "{{ item.uptime_kuma_push_url }}?status=up&msg=OK" > /dev/null
+else
+    echo "Backup failed with exit code $EXIT_CODE. Notifying Uptime Kuma..."
+    curl -s "{{ item.uptime_kuma_push_url }}?status=down&msg=Failed" > /dev/null
+fi
+{% endif %}
+
+exit $EXIT_CODE

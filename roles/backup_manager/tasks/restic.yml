@@ -1,0 +1,88 @@
+# ==============================================================================
+# Filename:       roles/backup_manager/tasks/restic.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-08
+# Context:        http://trac.home.arpa/ticket/3008
+#
+# Purpose:
+#    Manages Restic backup client installation, scripts, and scheduling.
+# ==============================================================================
+---
+- name: "Install Restic"
+  apt:
+    name: restic
+    state: present
+
+- name: "Ensure SSH key exists for root"
+  openssh_keypair:
+    path: /root/.ssh/id_rsa
+    type: rsa
+    size: 4096
+    state: present
+  register: root_ssh_key
+
+- name: "Add pbs01 host key to known_hosts"
+  shell: "ssh-keyscan -H 192.168.0.10 >> /root/.ssh/known_hosts"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  when: restic_backups is defined
+
+- name: "Deploy client SSH key to pbs01"
+  authorized_key:
+    user: will
+    key: "{{ root_ssh_key.public_key }}"
+  delegate_to: 192.168.0.10
+  when: restic_backups is defined
+
+- name: "Create backup directory for scripts and configs"
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  with_items:
+    - "/opt/restic"
+    - "/etc/restic"
+
+- name: "Deploy Restic backup scripts"
+  template:
+    src: restic_backup.sh.j2
+    dest: "/opt/restic/{{ item.name }}.sh"
+    owner: root
+    group: root
+    mode: '0700'
+  with_items: "{{ restic_backups }}"
+  when: restic_backups is defined
+
+- name: "Deploy systemd services for Restic"
+  template:
+    src: restic_backup.service.j2
+    dest: "/etc/systemd/system/restic-{{ item.name }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items: "{{ restic_backups }}"
+  when: restic_backups is defined
+
+- name: "Deploy systemd timers for Restic"
+  template:
+    src: restic_backup.timer.j2
+    dest: "/etc/systemd/system/restic-{{ item.name }}.timer"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items: "{{ restic_backups }}"
+  when: restic_backups is defined
+  notify: reload systemd
+
+- name: "Ensure Restic timers are enabled and started"
+  systemd:
+    name: "restic-{{ item.name }}.timer"
+    state: started
+    enabled: true
+    daemon_reload: true
+  with_items: "{{ restic_backups }}"
+  when: restic_backups is defined

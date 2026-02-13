@@ -1,0 +1,9 @@
+[Unit]
+Description=Restic backup timer for {{ item.name }}
+
+[Timer]
+OnCalendar={{ item.schedule | default('daily') }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

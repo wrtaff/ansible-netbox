@@ -1,0 +1,13 @@
+[Unit]
+Description=Restic backup service for {{ item.name }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/restic/{{ item.name }}.sh
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

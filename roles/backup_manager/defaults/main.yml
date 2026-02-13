@@ -38,6 +38,7 @@ restic_backups: []
 #   - name: "system-configs"
 #     repo: "s3:https://s3.amazonaws.com/my-bucket"
 #     password_var: "restic_s3_password" # Key to look up in vault
+#     uptime_kuma_push_url: "https://kuma.home.arpa/api/push/..."
 #     paths:
 #       - "/etc"
 #       - "/opt/scripts"

@@ -1,3 +1,27 @@
 ---
 # Timezone for Columbus, Georgia
 system_timezone: "America/New_York"
+
+# --- Restic Backup Configuration ---
+restic_mgmt_enabled: true
+restic_backups:
+  - name: "family-garage"
+    repo: "sftp:will@192.168.0.10:/mnt/datastore/restic/family-garage"
+    password_var: "restic_garage_password"
+    paths:
+      - "/mnt/smb/share"
+    schedule: "daily"
+    retention:
+      keep_daily: 7
+      keep_weekly: 4
+  - name: "gemini-projects"
+    repo: "sftp:will@192.168.0.10:/mnt/datastore/restic/gemini-projects"
+    password_var: "restic_garage_password"
+    paths:
+      - "/mnt/smb/share/Documents/will/gemini_projects"
+    exclude:
+      - "*.mp4"
+    schedule: "daily"
+    retention:
+      keep_daily: 7
+      keep_weekly: 4

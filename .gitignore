@@ -41,3 +41,9 @@ scripts/token.pickle
 files/github_rw_deploy_key
 vars/homeassistant_token.txt
 .vault_pass.txt
+
+# Gemini CLI console exports
+gemini_debug_console.json
+gemini_error_console.json
+debug_console_export.json
+All-Messages-search-result.*.csv

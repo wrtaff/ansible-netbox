@@ -1,0 +1,19 @@
+# ------------------------------------------------------------------------------
+# Playbook: provision_backups.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/provision_backups.yml
+# Trac Ticket: #3008
+#
+# Purpose:
+#   Deploys the backup_manager role to configure Proxmox (PBS) and Restic backups.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/provision_backups.yml --ask-vault-pass
+# ------------------------------------------------------------------------------
+---
+- name: Provision Backup Configurations
+  hosts: proxmox:desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  roles:
+    - backup_manager

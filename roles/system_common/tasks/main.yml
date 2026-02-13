@@ -1,4 +1,18 @@
-# roles/system_common/tasks/main.yml
+# ==============================================================================
+# Filename:       roles/system_common/tasks/main.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-09
+# Context:        http://trac.home.arpa/ticket/3032
+#
+# Revision History:
+#     1.0 - Initial version.
+#     1.1 - Added systemd-networkd-wait-online override with --any flag to prevent
+#           boot/apt hangs in LXC containers.
+#
+# Purpose:
+#     Baseline configuration tasks for all Debian/Ubuntu servers.
+# ==============================================================================
 ---
 - name: Update apt package cache and upgrade all packages
   ansible.builtin.apt:
@@ -25,7 +39,7 @@
   become: yes
   community.general.timezone:
     name: "{{ system_timezone }}"
-  notify: Restart cron  # <-- ADD THIS LINE    
+  notify: Restart cron
 
 - name: Set vim.tiny as the default system editor
   community.general.alternatives:
@@ -50,3 +64,21 @@
   ansible.builtin.reboot:
     msg: "Reboot initiated by Ansible due to kernel updates"
   when: reboot_required_file.stat.exists
+
+- name: Create systemd override directory for systemd-networkd-wait-online
+  ansible.builtin.file:
+    path: /etc/systemd/system/systemd-networkd-wait-online.service.d
+    state: directory
+    mode: '0755'
+
+- name: Apply systemd override for systemd-networkd-wait-online (wait for ANY interface)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/systemd-networkd-wait-online.service.d/override.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=/lib/systemd/systemd-networkd-wait-online --any
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart systemd-networkd-wait-online
