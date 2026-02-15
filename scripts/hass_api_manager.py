@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       hass_api_manager.py
-Version:        1.0
+Version:        1.1
 Author:         Gemini CLI
-Last Modified:  2026-01-26
+Last Modified:  2026-02-14
 Context:        http://trac.home.arpa/ticket/2965
 
 Purpose:
@@ -166,6 +166,43 @@ def call_service(domain, service, service_data):
     except requests.exceptions.RequestException as e:
         print(f"Error calling service: {e}")
 
+def get_device_registry():
+    """Retrieves the device registry via WebSocket-over-HTTP if possible, or explains why not."""
+    # Note: The standard REST API does not expose the device registry.
+    # We use a long-lived access token to authenticate a WebSocket connection.
+    import websocket # requires 'pip install websocket-client'
+    
+    token = get_headers()["Authorization"].split(" ")[1]
+    ws_url = f"{HASS_URL.replace('http', 'ws')}/api/websocket"
+    
+    try:
+        ws = websocket.create_connection(ws_url)
+        # Auth
+        auth_msg = json.loads(ws.recv())
+        if auth_msg.get("type") != "auth_required":
+            print(f"Unexpected WS response: {auth_msg}")
+            return []
+            
+        ws.send(json.dumps({"type": "auth", "access_token": token}))
+        auth_ok = json.loads(ws.recv())
+        if auth_ok.get("type") != "auth_ok":
+            print(f"WS Auth failed: {auth_ok}")
+            return []
+
+        # Get devices
+        ws.send(json.dumps({"id": 1, "type": "config/device_registry/list"}))
+        result = json.loads(ws.recv())
+        ws.close()
+        
+        if result.get("success"):
+            return result.get("result", [])
+        else:
+            print(f"Error fetching devices: {result}")
+            return []
+    except Exception as e:
+        print(f"Error connecting to WebSocket: {e}")
+        return []
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: ./hass_api_manager.py <command> [args]")
@@ -176,6 +213,7 @@ if __name__ == "__main__":
         print("  on <entity_id>      - Turn on a light/switch")
         print("  off <entity_id>     - Turn off a light/switch")
         print("  call <domain> <service> <json_data> - Generic service call")
+        print("  list_devices        - List all devices from registry (JSON)")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -216,5 +254,8 @@ if __name__ == "__main__":
     elif command == "dump":
         states = get_all_states()
         print(json.dumps(states, indent=2))
+    elif command == "list_devices":
+        devices = get_device_registry()
+        print(json.dumps(devices, indent=2))
     else:
         print(f"Unknown command: {command}")

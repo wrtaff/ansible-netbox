@@ -15,7 +15,7 @@
 # Purpose:       This Ansible playbook configures rsyslog on target hosts to
 #                forward all logs to a central Graylog server and tags the
 #                host with 'graylog' in NetBox.
-# Version:       1.1.0 (Last Modified: 2025-12-12)
+# Version:       1.2.0 (Last Modified: 2026-02-13)
 # Prerequisites:
 #   - Ansible control node with Ansible installed.
 #   - SSH access and sudo/root privileges ('become: yes') on target hosts.
@@ -79,16 +79,31 @@
       notify:
         - Restart rsyslog
 
-    - name: Tag VM in NetBox with 'graylog'
+    - name: Tag Virtual Machine in NetBox with 'graylogger'
       netbox.netbox.netbox_virtual_machine:
         netbox_url: "{{ netbox_url }}"
         netbox_token: "{{ netbox_token }}"
         data:
           name: "{{ inventory_hostname }}"
           tags:
-            - slug: graylog
+            - slug: graylogger
         state: present
       delegate_to: localhost
+      when: ansible_virtualization_role is defined and ansible_virtualization_role == 'guest'
+      ignore_errors: yes
+
+    - name: Tag Physical Device in NetBox with 'graylogger'
+      netbox.netbox.netbox_device:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          name: "{{ inventory_hostname }}"
+          tags:
+            - slug: graylogger
+        state: present
+      delegate_to: localhost
+      when: ansible_virtualization_role is not defined or ansible_virtualization_role != 'guest'
+      ignore_errors: yes
 
   # --- Handlers ---
   # Handlers are special tasks that only run when notified by another task.
