@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.1
+Version:        1.2
 Author:         Gemini CLI
-Last Modified:  2026-02-16
+Last Modified:  2026-02-17
 Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
@@ -19,6 +19,7 @@ Usage:
 Revision History:
     v1.0 (2026-02-16): Initial version with basic Gmail/Drive/Cal/Tasks.
     v1.1 (2026-02-16): Added attachment retrieval and file upload support.
+    v1.2 (2026-02-17): Added gmail-send functionality.
 ================================================================================
 """
 import datetime
@@ -109,6 +110,26 @@ def gmail_list_messages(query='', max_results=10, output_format='text'):
             })
         
         output(full_messages, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def gmail_send_message(to, subject, body, output_format='text'):
+    creds = get_creds()
+    service = build('gmail', 'v1', credentials=creds)
+    try:
+        from email.message import EmailMessage
+        message = EmailMessage()
+        message.set_content(body)
+        message['To'] = to
+        message['Subject'] = subject
+        
+        # encoded message
+        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        create_message = {
+            'raw': encoded_message
+        }
+        send_message = service.users().messages().send(userId="me", body=create_message).execute()
+        output(send_message, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
@@ -279,6 +300,12 @@ if __name__ == '__main__':
     parser_gmail_list.add_argument('--query', default='', help='Gmail search query')
     parser_gmail_list.add_argument('--max', type=int, default=10, help='Max results')
 
+    # Gmail Send
+    parser_gmail_send = subparsers.add_parser('gmail-send', help='Send a Gmail message')
+    parser_gmail_send.add_argument('to', help='Recipient email address')
+    parser_gmail_send.add_argument('subject', help='Email subject')
+    parser_gmail_send.add_argument('body', help='Email body')
+
     # Gmail Get
     parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
     parser_gmail_get.add_argument('id', help='Message ID')
@@ -325,6 +352,8 @@ if __name__ == '__main__':
         print("Authentication verified.")
     elif args.command == 'gmail-list':
         gmail_list_messages(args.query, args.max, args.format)
+    elif args.command == 'gmail-send':
+        gmail_send_message(args.to, args.subject, args.body, args.format)
     elif args.command == 'gmail-get':
         gmail_get_message(args.id, args.format)
     elif args.command == 'drive-search':
