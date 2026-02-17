@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       unifi_api_manager.py
-Version:        1.0
+Version:        1.1
 Author:         Gemini CLI
-Last Modified:  2026-02-14
+Last Modified:  2026-02-16
 Context:        UniFi Controller Automation
 
 Purpose:
@@ -13,7 +13,12 @@ Purpose:
     provides wrappers for fetching devices, clients, and system events.
 
 Usage:
-    ./unifi_api_manager.py
+    ./unifi_api_manager.py [command] [--hours HOURS] [--json]
+
+Revision History:
+    1.0 (2026-02-14): Initial version.
+    1.1 (2026-02-16): Added argparse CLI support for summary, list-clients, 
+                      list-devices, and list-events commands.
 ================================================================================
 """
 import os
@@ -164,43 +169,71 @@ class UnifiManager:
 
 if __name__ == "__main__":
     import datetime
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='UniFi API Manager CLI')
+    parser.add_argument('command', choices=['summary', 'list-clients', 'list-devices', 'list-events'], help='Command to execute')
+    parser.add_argument('--hours', type=int, default=24, help='Hours for events')
+    parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    
+    args = parser.parse_args()
+    
     manager = UnifiManager()
     if manager.login():
-        print("--- UniFi Controller Summary ---")
-        devices = manager.get_devices()
-        print(f"Active Devices: {len(devices)}")
-        for d in devices:
-            status = "Online" if d.get('state') == 1 else "Offline"
-            print(f"  - {d.get('name') or d.get('model')}: {status} ({d.get('ip')})")
+        if args.command == 'summary':
+            print("--- UniFi Controller Summary ---")
+            devices = manager.get_devices()
+            print(f"Active Devices: {len(devices)}")
+            for d in devices:
+                status = "Online" if d.get('state') == 1 else "Offline"
+                print(f"  - {d.get('name') or d.get('model')}: {status} ({d.get('ip')})")
 
-        print("\n--- Last 24 Hours Event Analysis ---")
-        events = manager.get_events(hours=24)
-        if not events:
-            print("No events found in the last 24 hours.")
-        else:
-            print(f"Total Events: {len(events)}")
-            
-            # Basic Analysis
-            categories = {}
-            alerts = []
-            for event in events:
-                key = event.get('key', 'unknown')
-                categories[key] = categories.get(key, 0) + 1
-                
-                # Identify critical-sounding events
-                msg = event.get('msg', '')
-                if any(word in msg.lower() for word in ['failed', 'disconnected', 'error', 'timeout', 'rejected']):
-                    alerts.append(event)
+            print("\n--- Last 24 Hours Event Analysis ---")
+            events = manager.get_events(hours=args.hours)
+            if not events:
+                print("No events found.")
+            else:
+                print(f"Total Events: {len(events)}")
+                categories = {}
+                alerts = []
+                for event in events:
+                    key = event.get('key', 'unknown')
+                    categories[key] = categories.get(key, 0) + 1
+                    msg = event.get('msg', '')
+                    if any(word in msg.lower() for word in ['failed', 'disconnected', 'error', 'timeout', 'rejected']):
+                        alerts.append(event)
+                print("\nEvent Distribution:")
+                for cat, count in sorted(categories.items(), key=lambda item: item[1], reverse=True):
+                    print(f"  {cat}: {count}")
+                if alerts:
+                    print(f"\nPotential Issues Found ({len(alerts)}):")
+                    for alert in alerts[:5]:
+                        timestamp = datetime.datetime.fromtimestamp(alert.get('time', 0)/1000).strftime('%Y-%m-%d %H:%M:%S')
+                        print(f"  [{timestamp}] {alert.get('msg')}")
 
-            print("\nEvent Distribution:")
-            for cat, count in sorted(categories.items(), key=lambda item: item[1], reverse=True):
-                print(f"  {cat}: {count}")
+        elif args.command == 'list-clients':
+            clients = manager.get_clients()
+            if args.json:
+                print(json.dumps(clients, indent=2))
+            else:
+                for c in clients:
+                    print(f"{c.get('mac')} - {c.get('ip', 'No IP')} - {c.get('hostname', 'No Hostname')} - {c.get('name', 'No Name')}")
 
-            if alerts:
-                print(f"\nPotential Issues Found ({len(alerts)}):")
-                # Show latest 5 alerts
-                for alert in alerts[:5]:
-                    timestamp = datetime.datetime.fromtimestamp(alert.get('time', 0)/1000).strftime('%Y-%m-%d %H:%M:%S')
-                    print(f"  [{timestamp}] {alert.get('msg')}")
+        elif args.command == 'list-devices':
+            devices = manager.get_devices()
+            if args.json:
+                print(json.dumps(devices, indent=2))
+            else:
+                for d in devices:
+                    print(f"{d.get('mac')} - {d.get('ip', 'No IP')} - {d.get('name', d.get('model'))}")
+
+        elif args.command == 'list-events':
+            events = manager.get_events(hours=args.hours)
+            if args.json:
+                print(json.dumps(events, indent=2))
+            else:
+                for e in events:
+                    timestamp = datetime.datetime.fromtimestamp(e.get('time', 0)/1000).strftime('%Y-%m-%d %H:%M:%S')
+                    print(f"[{timestamp}] {e.get('msg')}")
     else:
         print("Could not log in.")
