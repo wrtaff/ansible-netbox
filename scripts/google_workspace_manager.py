@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.4
+Version:        1.5
 Author:         Gemini CLI
-Last Modified:  2026-02-17
-Context:        http://trac.home.arpa/ticket/3080
+Last Modified:  2026-02-18
+Context:        http://trac.home.arpa/ticket/3053
 
 Purpose:
     Unified manager for Google Workspace services (Calendar, Tasks, Gmail, Drive).
@@ -22,6 +22,7 @@ Revision History:
     v1.2 (2026-02-17): Added gmail-send functionality.
     v1.3 (2026-02-17): Added calendar-delete functionality.
     v1.4 (2026-02-17): Added gmail-get-by-header functionality.
+    v1.5 (2026-02-18): Added gmail-create-draft functionality.
 ================================================================================
 """
 import datetime
@@ -133,6 +134,28 @@ def gmail_send_message(to, subject, body, output_format='text'):
         }
         send_message = service.users().messages().send(userId="me", body=create_message).execute()
         output(send_message, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def gmail_create_draft(to, subject, body, output_format='text'):
+    creds = get_creds()
+    service = build('gmail', 'v1', credentials=creds)
+    try:
+        from email.message import EmailMessage
+        message = EmailMessage()
+        message.set_content(body)
+        message['To'] = to
+        message['Subject'] = subject
+        
+        # encoded message
+        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        create_draft = {
+            'message': {
+                'raw': encoded_message
+            }
+        }
+        draft = service.users().drafts().create(userId="me", body=create_draft).execute()
+        output(draft, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
@@ -351,6 +374,12 @@ if __name__ == '__main__':
     parser_gmail_send.add_argument('subject', help='Email subject')
     parser_gmail_send.add_argument('body', help='Email body')
 
+    # Gmail Create Draft
+    parser_gmail_draft = subparsers.add_parser('gmail-create-draft', help='Create a Gmail draft')
+    parser_gmail_draft.add_argument('to', help='Recipient email address')
+    parser_gmail_draft.add_argument('subject', help='Email subject')
+    parser_gmail_draft.add_argument('body', help='Email body')
+
     # Gmail Get
     parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
     parser_gmail_get.add_argument('id', help='Message ID')
@@ -407,6 +436,8 @@ if __name__ == '__main__':
         gmail_list_messages(args.query, args.max, args.format)
     elif args.command == 'gmail-send':
         gmail_send_message(args.to, args.subject, args.body, args.format)
+    elif args.command == 'gmail-create-draft':
+        gmail_create_draft(args.to, args.subject, args.body, args.format)
     elif args.command == 'gmail-get':
         gmail_get_message(args.id, args.format)
     elif args.command == 'gmail-get-by-header':

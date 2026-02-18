@@ -7,13 +7,34 @@ from mcp.server.fastmcp import FastMCP
 # Initialize FastMCP server
 mcp = FastMCP("trac-server")
 
+def get_trac_password():
+    """Gets the TRAC_PASSWORD, falling back to ~/.bashrc if not set in environment."""
+    password = os.getenv("TRAC_PASSWORD")
+    if password:
+        return password
+
+    bashrc_path = os.path.expanduser("~/.bashrc")
+    if os.path.exists(bashrc_path):
+        try:
+            with open(bashrc_path, "r") as f:
+                for line in f:
+                    if "export TRAC_PASSWORD=" in line:
+                        # Extract value: export TRAC_PASSWORD="value" or export TRAC_PASSWORD=value
+                        parts = line.split("=", 1)
+                        if len(parts) == 2:
+                            val = parts[1].strip().strip('"').strip("'")
+                            return val
+        except Exception:
+            pass
+    return None
+
 # Trac Configuration
 TRAC_URL = "http://trac.home.arpa/login/xmlrpc"
 TRAC_USER = "gemini"
-TRAC_PASSWORD = os.environ.get("TRAC_PASSWORD")
+TRAC_PASSWORD = get_trac_password()
 
 if not TRAC_PASSWORD:
-    logging.warning("TRAC_PASSWORD environment variable is not set. Operations may fail.")
+    logging.warning("TRAC_PASSWORD environment variable is not set (and not in ~/.bashrc). Operations may fail.")
 
 def get_proxy():
     """Create and return an XML-RPC proxy."""

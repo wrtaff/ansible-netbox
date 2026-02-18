@@ -13,13 +13,34 @@ import os
 import sys
 from xml.sax.saxutils import escape
 
+def get_trac_password():
+    """Gets the TRAC_PASSWORD, falling back to ~/.bashrc if not set in environment."""
+    password = os.getenv("TRAC_PASSWORD")
+    if password:
+        return password
+
+    bashrc_path = os.path.expanduser("~/.bashrc")
+    if os.path.exists(bashrc_path):
+        try:
+            with open(bashrc_path, "r") as f:
+                for line in f:
+                    if "export TRAC_PASSWORD=" in line:
+                        # Extract value: export TRAC_PASSWORD="value" or export TRAC_PASSWORD=value
+                        parts = line.split("=", 1)
+                        if len(parts) == 2:
+                            val = parts[1].strip().strip('"').strip("'")
+                            return val
+        except Exception:
+            pass
+    return None
+
 # Configuration
 VIKUNJA_URL = os.getenv("VIKUNJA_URL", "http://todo.home.arpa")
 VIKUNJA_API_TOKEN = os.getenv("VIKUNJA_API_TOKEN")
 TRAC_URL = os.getenv("TRAC_URL", "http://trac-lxc.home.arpa/login/xmlrpc")
 TRAC_PUBLIC_URL_BASE = os.getenv("TRAC_PUBLIC_URL_BASE", "http://trac.gafla.us.com/ticket")
 TRAC_USER = os.getenv("TRAC_USER", "will")
-TRAC_PASS = os.getenv("TRAC_PASSWORD")
+TRAC_PASS = get_trac_password()
 TEMP_DIR = "tmp"
 
 if not VIKUNJA_API_TOKEN:
@@ -27,7 +48,7 @@ if not VIKUNJA_API_TOKEN:
     sys.exit(1)
 
 if not TRAC_PASS:
-    print("Error: TRAC_PASSWORD environment variable not set.")
+    print("Error: TRAC_PASSWORD environment variable not set (or defined in ~/.bashrc).")
     sys.exit(1)
 
 def get_vikunja_task(task_id):

@@ -2,16 +2,16 @@
 """
 ================================================================================
 Filename:       create_trac_ticket.py
-Version:        1.2
+Version:        1.3
 Author:         Gemini CLI
-Last Modified:  2026-02-05
+Last Modified:  2026-02-18
 Context:        http://trac.home.arpa/ticket/2965
 
 Purpose:
     A helper script to create Trac tickets via the XML-RPC API.
     
-    Update 1.1:
-    - Enforced space-separated keywords by automatically replacing commas.
+    Update 1.3:
+    - Added fallback to retrieve TRAC_PASSWORD from ~/.bashrc.
     Update 1.2:
     - Enforced correct line break encoding; forbidden XML entities like '&#10;'.
 
@@ -25,14 +25,35 @@ import textwrap
 import os
 
 # --- Configuration ---
+def get_trac_password():
+    """Gets the TRAC_PASSWORD, falling back to ~/.bashrc if not set in environment."""
+    password = os.getenv("TRAC_PASSWORD")
+    if password:
+        return password
+
+    bashrc_path = os.path.expanduser("~/.bashrc")
+    if os.path.exists(bashrc_path):
+        try:
+            with open(bashrc_path, "r") as f:
+                for line in f:
+                    if "export TRAC_PASSWORD=" in line:
+                        # Extract value: export TRAC_PASSWORD="value" or export TRAC_PASSWORD=value
+                        parts = line.split("=", 1)
+                        if len(parts) == 2:
+                            val = parts[1].strip().strip('"').strip("'")
+                            return val
+        except Exception:
+            pass
+    return None
+
 TRAC_USER = os.getenv("TRAC_USER", "will")
-TRAC_PASSWORD = os.getenv("TRAC_PASSWORD")
+TRAC_PASSWORD = get_trac_password()
 TRAC_HOST = os.getenv("TRAC_HOST", "trac.home.arpa")
 TRAC_PATH = os.getenv("TRAC_PATH", "/login/xmlrpc")
 
 if not TRAC_PASSWORD:
-    # Fallback/Safety: Do not run if password is not in env
-    print("Error: TRAC_PASSWORD environment variable must be set.")
+    # Fallback/Safety: Do not run if password is not in env or .bashrc
+    print("Error: TRAC_PASSWORD environment variable must be set (or defined in ~/.bashrc).")
     exit(1)
 
 TRAC_URL = f"http://{TRAC_USER}:{TRAC_PASSWORD}@{TRAC_HOST}{TRAC_PATH}"
