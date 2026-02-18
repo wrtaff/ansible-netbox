@@ -1,3 +1,21 @@
+#!/usr/bin/env python3
+"""
+================================================================================
+Filename:       mcp-servers/trac/server.py
+Version:        1.0
+Author:         Gemini CLI
+Last Modified:  2026-02-18
+Context:        http://trac.gafla.us.com/ticket/2933
+
+Purpose:
+    Model Context Protocol (MCP) server for Trac integration.
+    Provides tools for ticket management (get, update, create, search)
+    directly within AI agent sessions.
+
+Revision History:
+    v1.0 (2026-02-18): Initial implementation with stdio transport.
+================================================================================
+"""
 import os
 import xmlrpc.client
 import logging
