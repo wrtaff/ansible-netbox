@@ -1,0 +1,76 @@
+# ==============================================================================
+# Filename:       playbooks/provision_python_env.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-02-18
+# Context:        http://trac.home.arpa/ticket/3085
+#
+# Purpose:
+#    Sets up a standardized Python virtual environment on limbo-bd.
+#    Ensures scripts can run with correct dependencies.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/provision_python_env.yml
+#
+# Revision History:
+#    v1.0 (2026-02-18) - Initial version.
+# ==============================================================================
+
+- name: Provision Common Python Environment
+  hosts: limbo-bd
+  gather_facts: true
+  become: true  # Need root for apt
+  
+  vars:
+    project_root: /home/will/gemini_projects
+    venv_path: "/home/will/.venv/gemini_projects"
+    requirements_file: "{{ project_root }}/requirements.txt"
+
+  tasks:
+    - name: Install system dependencies for Python
+      ansible.builtin.apt:
+        name:
+          - python3-venv
+          - python3-pip
+          - python3-full
+        state: present
+        update_cache: yes
+
+    - name: Create project directory with correct ownership
+      ansible.builtin.file:
+        path: "{{ project_root }}"
+        state: directory
+        owner: will
+        group: will
+        mode: '0755'
+
+    - name: Ensure venv directory parent exists
+      ansible.builtin.file:
+        path: "{{ venv_path | dirname }}"
+        state: directory
+        owner: will
+        group: will
+        mode: '0755'
+
+    - name: Create Python virtual environment
+      ansible.builtin.command:
+        cmd: "python3 -m venv {{ venv_path }}"
+        creates: "{{ venv_path }}/bin/activate"
+      become_user: will
+
+    - name: Ensure pip, setuptools, and wheel are up-to-date
+      ansible.builtin.pip:
+        name: 
+          - pip
+          - setuptools
+          - wheel
+        state: latest
+        virtualenv: "{{ venv_path }}"
+      become_user: will
+
+    - name: Install dependencies from requirements.txt
+      ansible.builtin.pip:
+        requirements: "{{ requirements_file }}"
+        virtualenv: "{{ venv_path }}"
+      become_user: will
+      when: query('file', '../requirements.txt') | length > 0
