@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.2
+Version:        1.4
 Author:         Gemini CLI
 Last Modified:  2026-02-17
 Context:        http://trac.home.arpa/ticket/3080
@@ -20,6 +20,8 @@ Revision History:
     v1.0 (2026-02-16): Initial version with basic Gmail/Drive/Cal/Tasks.
     v1.1 (2026-02-16): Added attachment retrieval and file upload support.
     v1.2 (2026-02-17): Added gmail-send functionality.
+    v1.3 (2026-02-17): Added calendar-delete functionality.
+    v1.4 (2026-02-17): Added gmail-get-by-header functionality.
 ================================================================================
 """
 import datetime
@@ -29,6 +31,7 @@ import argparse
 import pickle
 import json
 import base64
+import re
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -131,6 +134,39 @@ def gmail_send_message(to, subject, body, output_format='text'):
         send_message = service.users().messages().send(userId="me", body=create_message).execute()
         output(send_message, output_format)
     except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def gmail_get_by_header(header_string, output_format='text'):
+    creds = get_creds()
+    service = build('gmail', 'v1', credentials=creds)
+    try:
+        # Extract Message-ID, handling potential artifacts like spaces before @
+        match = re.search(r'Message-ID:\s*<([^>]+)>', header_string, re.IGNORECASE)
+        if not match:
+            output({'error': 'Message-ID not found in header string'}, output_format)
+            return
+
+        msg_id_header = match.group(1).strip()
+        query = f'rfc822msgid:{msg_id_header}'
+        
+        results = service.users().messages().list(userId='me', q=query).execute()
+        messages = results.get('messages', [])
+        
+        if not messages:
+            # Try stripping spaces if it failed
+            clean_msg_id = msg_id_header.replace(' ', '')
+            if clean_msg_id != msg_id_header:
+                query = f'rfc822msgid:{clean_msg_id}'
+                results = service.users().messages().list(userId='me', q=query).execute()
+                messages = results.get('messages', [])
+
+        if not messages:
+            output({'error': f'No message found for Message-ID: {msg_id_header}'}, output_format)
+            return
+            
+        gmail_id = messages[0]['id']
+        gmail_get_message(gmail_id, output_format)
+    except Exception as error:
         output({'error': str(error)}, output_format)
 
 def gmail_get_message(message_id, output_format='text'):
@@ -260,6 +296,15 @@ def calendar_create_event(summary, start_time_str, duration_mins=60, description
     except Exception as error:
         output({'error': str(error)}, output_format)
 
+def calendar_delete_event(event_id, output_format='text'):
+    creds = get_creds()
+    service = build('calendar', 'v3', credentials=creds)
+    try:
+        service.events().delete(calendarId='primary', eventId=event_id).execute()
+        output({'result': f'Event {event_id} deleted'}, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
 # --- TASKS FUNCTIONS ---
 
 def tasks_list_tasks(max_results=10, output_format='text'):
@@ -310,6 +355,10 @@ if __name__ == '__main__':
     parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
     parser_gmail_get.add_argument('id', help='Message ID')
 
+    # Gmail Get by Header
+    parser_gmail_header = subparsers.add_parser('gmail-get-by-header', help='Get message details by header string')
+    parser_gmail_header.add_argument('header', help='Full email header string')
+
     # Drive Search
     parser_drive_search = subparsers.add_parser('drive-search', help='Search Google Drive')
     parser_drive_search.add_argument('--query', help='Drive query (e.g. "name contains \'resume\'")')
@@ -335,6 +384,10 @@ if __name__ == '__main__':
     parser_cal_create.add_argument('--duration', type=int, default=60, help='Duration in minutes')
     parser_cal_create.add_argument('--desc', help='Description')
 
+    # Calendar Delete
+    parser_cal_delete = subparsers.add_parser('cal-delete', help='Delete calendar event')
+    parser_cal_delete.add_argument('id', help='Event ID')
+
     # Tasks List
     parser_tasks_list = subparsers.add_parser('tasks-list', help='List tasks')
     parser_tasks_list.add_argument('--max', type=int, default=10, help='Max results')
@@ -356,6 +409,8 @@ if __name__ == '__main__':
         gmail_send_message(args.to, args.subject, args.body, args.format)
     elif args.command == 'gmail-get':
         gmail_get_message(args.id, args.format)
+    elif args.command == 'gmail-get-by-header':
+        gmail_get_by_header(args.header, args.format)
     elif args.command == 'drive-search':
         drive_search(args.query, args.max, args.format)
     elif args.command == 'drive-get':
@@ -366,6 +421,8 @@ if __name__ == '__main__':
         calendar_list_events(args.max, args.format)
     elif args.command == 'cal-create':
         calendar_create_event(args.summary, args.start, args.duration, args.desc, args.format)
+    elif args.command == 'cal-delete':
+        calendar_delete_event(args.id, args.format)
     elif args.command == 'tasks-list':
         tasks_list_tasks(args.max, args.format)
     elif args.command == 'tasks-create':
