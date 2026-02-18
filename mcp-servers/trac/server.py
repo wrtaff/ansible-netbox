@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       mcp-servers/trac/server.py
-Version:        1.0
+Version:        1.4
 Author:         Gemini CLI
 Last Modified:  2026-02-18
 Context:        http://trac.gafla.us.com/ticket/2933
@@ -13,6 +13,10 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.4 (2026-02-18): Verified tool stability and finalized 'trac_' prefix naming.
+    v1.3 (2026-02-18): Fixed duplicate tool definitions and standardized names.
+    v1.2 (2026-02-18): Added file-based logging to /tmp/trac_mcp.log and ping tool.
+    v1.1 (2026-02-18): Changed default user to 'will' and added author='gemini'.
     v1.0 (2026-02-18): Initial implementation with stdio transport.
 ================================================================================
 """
@@ -22,6 +26,15 @@ import logging
 from typing import Optional
 from mcp.server.fastmcp import FastMCP
 
+# Configure logging to file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename='/tmp/trac_mcp.log',
+    filemode='a'
+)
+logger = logging.getLogger("trac-mcp")
+
 # Initialize FastMCP server
 mcp = FastMCP("trac-server")
 
@@ -29,6 +42,7 @@ def get_trac_password():
     """Gets the TRAC_PASSWORD, falling back to ~/.bashrc if not set in environment."""
     password = os.getenv("TRAC_PASSWORD")
     if password:
+        logger.info("TRAC_PASSWORD found in environment.")
         return password
 
     bashrc_path = os.path.expanduser("~/.bashrc")
@@ -37,39 +51,47 @@ def get_trac_password():
             with open(bashrc_path, "r") as f:
                 for line in f:
                     if "export TRAC_PASSWORD=" in line:
-                        # Extract value: export TRAC_PASSWORD="value" or export TRAC_PASSWORD=value
                         parts = line.split("=", 1)
                         if len(parts) == 2:
                             val = parts[1].strip().strip('"').strip("'")
+                            logger.info("TRAC_PASSWORD found in ~/.bashrc.")
                             return val
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Error reading ~/.bashrc: {e}")
+    
+    logger.warning("TRAC_PASSWORD not found.")
     return None
 
 # Trac Configuration
 TRAC_URL = "http://trac.home.arpa/login/xmlrpc"
-TRAC_USER = "gemini"
+TRAC_USER = os.getenv("TRAC_USER", "will")
 TRAC_PASSWORD = get_trac_password()
 
-if not TRAC_PASSWORD:
-    logging.warning("TRAC_PASSWORD environment variable is not set (and not in ~/.bashrc). Operations may fail.")
+logger.info(f"Initialized Trac MCP v1.3 with user: {TRAC_USER}")
 
 def get_proxy():
     """Create and return an XML-RPC proxy."""
     if not TRAC_PASSWORD:
+        logger.error("Attempted to get proxy without TRAC_PASSWORD.")
         raise ValueError("TRAC_PASSWORD is not set")
     
     # Construct URL with auth
-    # Format: http://user:password@host/path
     auth_url = TRAC_URL.replace("http://", f"http://{TRAC_USER}:{TRAC_PASSWORD}@", 1)
     return xmlrpc.client.ServerProxy(auth_url)
 
-@mcp.tool()
+@mcp.tool(name="trac_ping")
+def ping() -> str:
+    """A simple ping tool to verify MCP transport connectivity without external dependencies."""
+    logger.info("Ping tool called.")
+    return "pong"
+
+@mcp.tool(name="trac_get_ticket")
 def get_ticket(ticket_id: int) -> str:
     """
     Fetch details of a Trac ticket by its ID.
     Returns a formatted string with ticket summary, description, and attributes.
     """
+    logger.info(f"Fetching ticket #{ticket_id}")
     try:
         proxy = get_proxy()
         ticket = proxy.ticket.get(ticket_id)
@@ -77,18 +99,20 @@ def get_ticket(ticket_id: int) -> str:
         t_id, created, changed, attrs = ticket
         
         output = [f"Ticket: #{t_id}"]
-        output.append(f"Summary: {attrs.get('summary', 'No summary')}")
-        output.append(f"Status: {attrs.get('status', 'Unknown')}")
-        output.append(f"Priority: {attrs.get('priority', 'Unknown')}")
-        output.append(f"Keywords: {attrs.get('keywords', '')}")
+        output.append(f"Summary: {str(attrs.get('summary', 'No summary'))}")
+        output.append(f"Status: {str(attrs.get('status', 'Unknown'))}")
+        output.append(f"Priority: {str(attrs.get('priority', 'Unknown'))}")
+        output.append(f"Keywords: {str(attrs.get('keywords', ''))}")
         output.append("-" * 20)
-        output.append(f"Description:\n{attrs.get('description', '')}")
+        output.append(f"Description:\n{str(attrs.get('description', ''))}")
         
+        logger.info(f"Successfully fetched ticket #{ticket_id}")
         return "\n".join(output)
     except Exception as e:
+        logger.error(f"Error fetching ticket #{ticket_id}: {str(e)}")
         return f"Error fetching ticket #{ticket_id}: {str(e)}"
 
-@mcp.tool()
+@mcp.tool(name="trac_update_ticket")
 def update_ticket(ticket_id: int, comment: str, keywords: Optional[str] = None, status: Optional[str] = None) -> str:
     """
     Update a Trac ticket with a comment and optional attributes.
@@ -99,6 +123,7 @@ def update_ticket(ticket_id: int, comment: str, keywords: Optional[str] = None, 
         keywords: Optional new keywords (overwrites existing if provided).
         status: Optional new status (e.g., 'closed', 'reopened').
     """
+    logger.info(f"Updating ticket #{ticket_id}")
     try:
         proxy = get_proxy()
         attributes = {}
@@ -109,14 +134,15 @@ def update_ticket(ticket_id: int, comment: str, keywords: Optional[str] = None, 
             if status == 'closed':
                 attributes['resolution'] = 'fixed' # Default to fixed if closing
         
-        # update(id, comment, attributes, notify=True)
-        # We assume author is handled by the auth user 'gemini'
-        proxy.ticket.update(ticket_id, comment, attributes, True)
+        # update(id, comment, attributes, notify=True, author='gemini')
+        proxy.ticket.update(ticket_id, comment, attributes, True, "gemini")
+        logger.info(f"Successfully updated ticket #{ticket_id}")
         return f"Successfully updated ticket #{ticket_id}."
     except Exception as e:
+        logger.error(f"Error updating ticket #{ticket_id}: {str(e)}")
         return f"Error updating ticket #{ticket_id}: {str(e)}"
 
-@mcp.tool()
+@mcp.tool(name="trac_create_ticket")
 def create_ticket(summary: str, description: str, type: str = "task", priority: str = "major", keywords: str = "") -> str:
     """
     Create a new Trac ticket.
@@ -128,33 +154,38 @@ def create_ticket(summary: str, description: str, type: str = "task", priority: 
         priority: Priority (blocker, critical, major, minor, trivial). Defaults to 'major'.
         keywords: Comma-separated keywords.
     """
+    logger.info(f"Creating new ticket: {summary}")
     try:
         proxy = get_proxy()
         attributes = {
-            'type': type,
-            'priority': priority,
-            'keywords': keywords,
+            'type': str(type),
+            'priority': str(priority),
+            'keywords': str(keywords),
             'cc': 'will' # Standard practice to cc user
         }
         
         # create(summary, description, attributes, notify=True)
         ticket_id = proxy.ticket.create(summary, description, attributes, True)
+        logger.info(f"Successfully created ticket #{ticket_id}")
         return f"Successfully created ticket #{ticket_id}."
     except Exception as e:
+        logger.error(f"Error creating ticket: {str(e)}")
         return f"Error creating ticket: {str(e)}"
 
-@mcp.tool()
+@mcp.tool(name="trac_search_tickets")
 def search_tickets(query: str) -> str:
     """
     Search for tickets using Trac query syntax.
     Example query: 'status=!closed&keywords=~ynh2'
     """
+    logger.info(f"Searching tickets with query: {query}")
     try:
         proxy = get_proxy()
         # query(qstr) returns list of ticket IDs
         ticket_ids = proxy.ticket.query(query)
         
         if not ticket_ids:
+            logger.info("No tickets found matching query.")
             return "No tickets found matching query."
             
         results = []
@@ -163,13 +194,17 @@ def search_tickets(query: str) -> str:
                 # get(id) -> [id, time_created, time_changed, attributes]
                 t_info = proxy.ticket.get(t_id)
                 attrs = t_info[3]
-                results.append(f"#{t_id}: {attrs.get('summary')} ({attrs.get('status')})")
-            except:
+                results.append(f"#{t_id}: {str(attrs.get('summary'))} ({str(attrs.get('status'))})")
+            except Exception as e:
+                logger.warning(f"Error fetching details for ticket #{t_id} in search: {e}")
                 results.append(f"#{t_id}: (Error fetching details)")
-                
+        
+        logger.info(f"Found {len(results)} results for query: {query}")
         return "\n".join(results)
     except Exception as e:
+        logger.error(f"Error searching tickets: {str(e)}")
         return f"Error searching tickets: {str(e)}"
 
 if __name__ == "__main__":
+    logger.info("Starting Trac MCP server...")
     mcp.run()
