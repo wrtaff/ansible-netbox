@@ -1,0 +1,75 @@
+# ==============================================================================
+# Filename:       playbooks/configure_mcp_servers.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-18
+# Context:        http://trac.gafla.us.com/ticket/2933
+#
+# Purpose:
+#   Provisions MCP servers for Gemini CLI using the project virtual environment.
+#   Configures FastMCP and updates settings for Trac integration.
+#
+# Revision History:
+#   v1.0 (2026-02-18): Initial implementation for Trac MCP server.
+#   v1.1 (2026-02-18): Standardized WWOS header and versioning.
+# ==============================================================================
+
+- name: Configure MCP Servers for Gemini CLI
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars:
+    gemini_user: "root"
+    gemini_home: "/root"
+    venv_path: "/opt/netbox/ansible-netbox"
+    mcp_servers:
+      trac:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ venv_path }}/mcp-servers/trac/server.py"
+
+  tasks:
+    - name: 1. Install MCP Python Dependencies (FastMCP)
+      ansible.builtin.pip:
+        name: fastmcp
+        virtualenv: "{{ venv_path }}"
+        state: present
+
+    - name: 2. Load Existing Gemini Settings
+      ansible.builtin.slurp:
+        src: "{{ gemini_home }}/.gemini/settings.json"
+      register: slurped_settings
+      ignore_errors: true
+
+    - name: 3. Parse and Update Gemini Settings
+      set_fact:
+        current_settings: "{{ (slurped_settings.content | b64decode | from_json) if slurped_settings is success else {} }}"
+
+    - name: 4. Merge MCP Configuration
+      set_fact:
+        updated_settings: >-
+          {{
+            current_settings | combine({
+              'mcp': {
+                'servers': mcp_servers
+              }
+            }, recursive=True)
+          }}
+
+    - name: 5. Write Updated Gemini Settings
+      ansible.builtin.copy:
+        content: "{{ updated_settings | to_nice_json }}"
+        dest: "{{ gemini_home }}/.gemini/settings.json"
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+        mode: '0644'
+
+    - name: 6. Verify MCP Servers via Gemini CLI
+      ansible.builtin.command:
+        cmd: "{{ venv_path }}/bin/gemini mcp list"
+      register: mcp_list
+      changed_when: false
+
+    - name: 7. Display MCP Server Status
+      ansible.builtin.debug:
+        var: mcp_list.stdout_lines
