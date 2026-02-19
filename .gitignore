@@ -47,3 +47,6 @@ gemini_debug_console.json
 gemini_error_console.json
 debug_console_export.json
 All-Messages-search-result.*.csv
+
+# Gemini CLI local configuration
+.gemini/settings.json
