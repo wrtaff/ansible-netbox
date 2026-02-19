@@ -1,0 +1,71 @@
+# ==============================================================================
+# Filename:       playbooks/configure_remote_mcp.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-02-18
+# Context:        http://trac.home.arpa/ticket/3086
+#
+# Purpose:
+#   Configures MCP servers on a remote host (limbo-bd).
+#   - Sets up TRAC_PASSWORD in ~/.bashrc for the Trac MCP server.
+#   - Configures .gemini/settings.json with MCP server definitions.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/configure_remote_mcp.yml --ask-vault-pass
+# ==============================================================================
+
+- name: Configure Remote MCP Servers
+  hosts: limbo-bd
+  gather_facts: false
+  become: false
+  vars_files:
+    - ../vault.yml
+
+  vars:
+    project_root: "/home/will/gemini_projects"
+    venv_path: "/home/will/.venv/gemini_projects"
+    mcp_servers:
+      trac:
+        command: "{{ venv_path }}/bin/python"
+        args:
+          - "{{ project_root }}/mcp-servers/trac/server.py"
+
+  tasks:
+    - name: 1. Ensure TRAC_PASSWORD is set in ~/.bashrc
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME | default('/home/will') }}/.bashrc"
+        line: 'export TRAC_PASSWORD="{{ trac_password | default("8675309") }}"'
+        regexp: '^export TRAC_PASSWORD='
+        create: true
+        mode: '0644'
+
+    - name: 2. Ensure .gemini directory exists
+      ansible.builtin.file:
+        path: "{{ project_root }}/.gemini"
+        state: directory
+        mode: '0755'
+
+    - name: 3. Check for existing settings.json
+      ansible.builtin.stat:
+        path: "{{ project_root }}/.gemini/settings.json"
+      register: settings_stat
+
+    - name: 4. Load existing settings if they exist
+      ansible.builtin.slurp:
+        src: "{{ project_root }}/.gemini/settings.json"
+      register: slurped_settings
+      when: settings_stat.stat.exists
+
+    - name: 5. Parse current settings
+      set_fact:
+        current_settings: "{{ (slurped_settings.content | b64decode | from_json) if (slurped_settings is defined and slurped_settings.content is defined) else {} }}"
+
+    - name: 6. Merge MCP Configuration
+      set_fact:
+        updated_settings: "{{ current_settings | combine({'mcpServers': mcp_servers}, recursive=True) }}"
+
+    - name: 7. Write updated settings.json
+      ansible.builtin.copy:
+        content: "{{ updated_settings | to_nice_json }}"
+        dest: "{{ project_root }}/.gemini/settings.json"
+        mode: '0600'
