@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.5
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-02-18
+Last Modified:  2026-02-19
 Context:        http://trac.home.arpa/ticket/3053
 
 Purpose:
@@ -23,6 +23,7 @@ Revision History:
     v1.3 (2026-02-17): Added calendar-delete functionality.
     v1.4 (2026-02-17): Added gmail-get-by-header functionality.
     v1.5 (2026-02-18): Added gmail-create-draft functionality.
+    v1.6 (2026-02-19): Added cal-get, attendees to cal-create, and fixed newline handling in Gmail.
 ================================================================================
 """
 import datetime
@@ -123,6 +124,8 @@ def gmail_send_message(to, subject, body, output_format='text'):
     try:
         from email.message import EmailMessage
         message = EmailMessage()
+        # Handle literal \n as newlines
+        body = body.replace('\\n', '\n')
         message.set_content(body)
         message['To'] = to
         message['Subject'] = subject
@@ -143,6 +146,8 @@ def gmail_create_draft(to, subject, body, output_format='text'):
     try:
         from email.message import EmailMessage
         message = EmailMessage()
+        # Handle literal \n as newlines
+        body = body.replace('\\n', '\n')
         message.set_content(body)
         message['To'] = to
         message['Subject'] = subject
@@ -302,7 +307,7 @@ def calendar_list_events(max_results=10, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def calendar_create_event(summary, start_time_str, duration_mins=60, description=None, output_format='text'):
+def calendar_create_event(summary, start_time_str, duration_mins=60, description=None, attendees=None, output_format='text'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
     try:
@@ -311,12 +316,24 @@ def calendar_create_event(summary, start_time_str, duration_mins=60, description
         event = {
             'summary': summary,
             'description': description,
-            'start': {'dateTime': start_time.isoformat(), 'timeZone': 'UTC'},
-            'end': {'dateTime': end_time.isoformat(), 'timeZone': 'UTC'},
+            'start': {'dateTime': start_time.isoformat()},
+            'end': {'dateTime': end_time.isoformat()},
         }
+        if attendees:
+            event['attendees'] = [{'email': email.strip()} for email in attendees.split(',')]
+        
         event = service.events().insert(calendarId='primary', body=event).execute()
         output(event, output_format)
     except Exception as error:
+        output({'error': str(error)}, output_format)
+
+def calendar_get_event(event_id, output_format='text'):
+    creds = get_creds()
+    service = build('calendar', 'v3', credentials=creds)
+    try:
+        event = service.events().get(calendarId='primary', eventId=event_id).execute()
+        output(event, output_format)
+    except HttpError as error:
         output({'error': str(error)}, output_format)
 
 def calendar_delete_event(event_id, output_format='text'):
@@ -412,10 +429,15 @@ if __name__ == '__main__':
     parser_cal_create.add_argument('start', help='Start time (ISO format)')
     parser_cal_create.add_argument('--duration', type=int, default=60, help='Duration in minutes')
     parser_cal_create.add_argument('--desc', help='Description')
+    parser_cal_create.add_argument('--attendees', help='Comma-separated attendee emails')
 
     # Calendar Delete
     parser_cal_delete = subparsers.add_parser('cal-delete', help='Delete calendar event')
     parser_cal_delete.add_argument('id', help='Event ID')
+
+    # Calendar Get
+    parser_cal_get = subparsers.add_parser('cal-get', help='Get calendar event details')
+    parser_cal_get.add_argument('id', help='Event ID')
 
     # Tasks List
     parser_tasks_list = subparsers.add_parser('tasks-list', help='List tasks')
@@ -451,7 +473,9 @@ if __name__ == '__main__':
     elif args.command == 'cal-list':
         calendar_list_events(args.max, args.format)
     elif args.command == 'cal-create':
-        calendar_create_event(args.summary, args.start, args.duration, args.desc, args.format)
+        calendar_create_event(args.summary, args.start, args.duration, args.desc, args.attendees, args.format)
+    elif args.command == 'cal-get':
+        calendar_get_event(args.id, args.format)
     elif args.command == 'cal-delete':
         calendar_delete_event(args.id, args.format)
     elif args.command == 'tasks-list':
