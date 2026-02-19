@@ -1,6 +1,6 @@
 # ==============================================================================
 # Filename:       playbooks/provision_python_env.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini CLI
 # Last Modified:  2026-02-18
 # Context:        http://trac.home.arpa/ticket/3085
@@ -14,16 +14,18 @@
 #
 # Revision History:
 #    v1.0 (2026-02-18) - Initial version.
+#    v1.1 (2026-02-18) - Update venv path to local /opt/venvs to fix SMB 
+#                       filesystem limitations.
 # ==============================================================================
 
 - name: Provision Common Python Environment
   hosts: limbo-bd
   gather_facts: true
-  become: true  # Need root for apt
+  become: true  # Need root for apt and creating /opt/venvs
   
   vars:
     project_root: /home/will/gemini_projects
-    venv_path: "/home/will/.venv/gemini_projects"
+    venv_path: "/opt/venvs/gemini_projects"
     requirements_file: "{{ project_root }}/requirements.txt"
 
   tasks:
@@ -44,7 +46,7 @@
         group: will
         mode: '0755'
 
-    - name: Ensure venv directory parent exists
+    - name: Ensure venv parent directory exists
       ansible.builtin.file:
         path: "{{ venv_path | dirname }}"
         state: directory
@@ -73,4 +75,3 @@
         requirements: "{{ requirements_file }}"
         virtualenv: "{{ venv_path }}"
       become_user: will
-      when: query('file', '../requirements.txt') | length > 0

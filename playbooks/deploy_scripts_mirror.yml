@@ -48,6 +48,15 @@
         recursive: yes
       delegate_to: localhost
 
+    - name: Synchronize mcp-servers directory
+      ansible.posix.synchronize:
+        src: "{{ playbook_dir }}/../mcp-servers/"
+        dest: /home/will/gemini_projects/mcp-servers/
+        archive: yes
+        delete: yes  # Mirroring: delete files on dest that aren't on source
+        recursive: yes
+      delegate_to: localhost
+
     - name: Copy requirements.txt
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../requirements.txt"
