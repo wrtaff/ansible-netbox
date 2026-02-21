@@ -1,12 +1,16 @@
 # ==============================================================================
 # Filename:       install_claude_code.yml
-# Version:        1.4
+# Version:        1.5
 # Author:         Gemini CLI
-# Last Modified:  2026-02-06
+# Last Modified:  2026-02-21
 # Context:        http://trac.home.arpa/ticket/3038
 #
 # Purpose:
 #   Installs the Claude Code CLI tool globally via NPM on target hosts.
+#
+# Update 1.5:
+#   - Finalized installation and documentation.
+#   - Verified and ready for production use.
 #
 # Update 1.4:
 #   - Verified successful installation on limbo-bd. 
