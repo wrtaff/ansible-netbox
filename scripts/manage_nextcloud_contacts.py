@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       manage_nextcloud_contacts.py
-Version:        1.6
+Version:        1.7
 Author:         Gemini CLI
-Last Modified:  2026-02-05
+Last Modified:  2026-02-20
 Context:        Nextcloud Contact Management Interface
 
 Purpose:
@@ -13,6 +13,7 @@ Purpose:
     Version 1.4 supports appending values to multi-value fields (EMAIL, TEL, URL, ADR, CATEGORIES).
     Version 1.5 adds the ability to update a contact from a raw VCard file.
     Version 1.6 adds password caching to avoid repeated vault prompts.
+    Version 1.7 adds support for ORG and TITLE fields.
 
 Usage:
     # List all contacts
@@ -93,7 +94,7 @@ class NextcloudContactManager:
                 results.append(contact)
         return results
 
-    def create_contact(self, fn, email=None, tel=None, categories=None, address=None, url=None, note=None):
+    def create_contact(self, fn, email=None, tel=None, categories=None, address=None, url=None, note=None, org=None, title=None):
         """Creates a new contact using a VCard 3.0 template."""
         uid = str(uuid.uuid4())
         vcard_data = defaultdict(list)
@@ -108,6 +109,8 @@ class NextcloudContactManager:
         if address: vcard_data['ADR;TYPE=HOME'].append(f";;{address};;;;")
         if url: vcard_data['URL'].append(url)
         if note: vcard_data['NOTE'].append(note)
+        if org: vcard_data['ORG'].append(org)
+        if title: vcard_data['TITLE'].append(title)
 
         vcard_str = self._construct_vcard(vcard_data)
         resource_url = f"{self.dav_url}{uid}.vcf"
@@ -129,7 +132,7 @@ class NextcloudContactManager:
                 return contact['href']
         return None
 
-    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None, address=None, url=None, note=None, vcard_file=None):
+    def update_contact(self, uid, fn=None, email=None, tel=None, categories=None, address=None, url=None, note=None, vcard_file=None, org=None, title=None):
         """
         Updates an existing contact. Fetches current VCard, parses to list, appends new values,
         or updates from a raw VCard file.
@@ -171,6 +174,8 @@ class NextcloudContactManager:
             if categories: self._append_if_missing(vcard_data, 'CATEGORIES', categories)
             if url: self._append_if_missing(vcard_data, 'URL', url)
             if note: self._append_if_missing(vcard_data, 'NOTE', note)
+            if org: vcard_data['ORG'] = [org]
+            if title: vcard_data['TITLE'] = [title]
             
             if address:
                 # Check if this address string is already in any ADR field
@@ -273,6 +278,8 @@ class NextcloudContactManager:
                             urls = self._extract_fields(vcard_text, 'URL')
                             categories = self._extract_field(vcard_text, 'CATEGORIES')
                             note = self._extract_field(vcard_text, 'NOTE')
+                            org = self._extract_field(vcard_text, 'ORG')
+                            title = self._extract_field(vcard_text, 'TITLE')
                             
                             # Address usually one, but could be multiple.
                             # For display summary, just take the first one or clean it up.
@@ -293,6 +300,8 @@ class NextcloudContactManager:
                                 'address': address,
                                 'urls': urls,
                                 'note': note,
+                                'org': org,
+                                'title': title,
                                 'uid': uid,
                                 'vcard': vcard_text
                             })
@@ -404,6 +413,8 @@ def main():
     create_parser.add_argument("--address", help="Home Street Address")
     create_parser.add_argument("--url", help="Website URL")
     create_parser.add_argument("--note", help="Notes")
+    create_parser.add_argument("--org", help="Organization")
+    create_parser.add_argument("--title", help="Job Title")
 
     # Update Command
     update_parser = subparsers.add_parser("update", help="Update an existing contact")
@@ -416,6 +427,8 @@ def main():
     update_parser.add_argument("--url", help="Website URL")
     update_parser.add_argument("--note", help="Notes")
     update_parser.add_argument("--vcard-file", help="Path to a VCard file for updating")
+    update_parser.add_argument("--org", help="Organization")
+    update_parser.add_argument("--title", help="Job Title")
 
     # Delete Command
     delete_parser = subparsers.add_parser("delete", help="Delete a contact")
@@ -456,11 +469,13 @@ def main():
                 addr = f" [Addr: {c['address']}]" if c['address'] else ""
                 urls = f" [URLs: {', '.join(c['urls'])}]" if c['urls'] else ""
                 note = f" [Note: {c['note']}]" if c['note'] else ""
+                org = f" [Org: {c['org']}]" if c.get('org') else ""
+                title = f" [Title: {c['title']}]" if c.get('title') else ""
                 # Join first email/tel for brevity if list
                 email_display = c['emails'][0] if c['emails'] else ""
                 tel_display = c['tels'][0] if c['tels'] else ""
                 
-                print(f"- {c['fn']} ({email_display}) [Tel: {tel_display}]{cats}{addr}{urls}{note} [UID: {c['uid']}] [HREF: {c['href']}]")
+                print(f"- {c['fn']} ({email_display}) [Tel: {tel_display}]{cats}{addr}{urls}{note}{org}{title} [UID: {c['uid']}] [HREF: {c['href']}]")
 
     elif args.command == "search":
         results = manager.search_contacts(args.query)
@@ -471,16 +486,18 @@ def main():
                 addr = f" [Addr: {c['address']}]" if c['address'] else ""
                 urls = f" [URLs: {', '.join(c['urls'])}]" if c['urls'] else ""
                 note = f" [Note: {c['note']}]" if c['note'] else ""
+                org = f" [Org: {c['org']}]" if c.get('org') else ""
+                title = f" [Title: {c['title']}]" if c.get('title') else ""
                 email_display = c['emails'][0] if c['emails'] else ""
                 tel_display = c['tels'][0] if c['tels'] else ""
 
-                print(f"- {c['fn']} ({email_display}) [Tel: {tel_display}]{cats}{addr}{urls}{note} [UID: {c['uid']}] [HREF: {c['href']}]")
+                print(f"- {c['fn']} ({email_display}) [Tel: {tel_display}]{cats}{addr}{urls}{note}{org}{title} [UID: {c['uid']}] [HREF: {c['href']}]")
 
     elif args.command == "create":
-        manager.create_contact(args.fn, args.email, args.tel, args.categories, args.address, args.url, args.note)
+        manager.create_contact(args.fn, args.email, args.tel, args.categories, args.address, args.url, args.note, args.org, args.title)
 
     elif args.command == "update":
-        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories, args.address, args.url, args.note, args.vcard_file):
+        if manager.update_contact(args.uid, args.fn, args.email, args.tel, args.categories, args.address, args.url, args.note, args.vcard_file, args.org, args.title):
             print(f"Successfully updated contact: {args.uid}")
 
     elif args.command == "delete":

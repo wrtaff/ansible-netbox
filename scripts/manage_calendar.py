@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/manage_calendar.py
-Version:        2.0
+Version:        2.1
 Author:         Gemini CLI
-Last Modified:  2026-02-16
+Last Modified:  2026-02-20
 Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
@@ -18,6 +18,7 @@ Usage:
     python3 manage_calendar.py create_task "Title" --notes "Details"
 
 Revision History:
+    v2.1 (2026-02-20): Improved manager path resolution using os.path.dirname.
     v1.0: Original standalone script.
     v2.0 (2026-02-16): Refactored as a wrapper for unified manager.
 ================================================================================
@@ -25,9 +26,13 @@ Revision History:
 import sys
 import subprocess
 import argparse
+import os
 
 def run_command(cmd_args):
-    manager_path = "scripts/google_workspace_manager.py"
+    # Determine the directory where this script resides
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    manager_path = os.path.join(script_dir, "google_workspace_manager.py")
+    
     full_cmd = ["python3", manager_path] + cmd_args
     subprocess.run(full_cmd)
 

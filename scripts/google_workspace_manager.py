@@ -2,17 +2,17 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.6
+Version:        1.7
 Author:         Gemini CLI
-Last Modified:  2026-02-19
-Context:        http://trac.home.arpa/ticket/3053
+Last Modified:  2026-02-20
+Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
     Unified manager for Google Workspace services (Calendar, Tasks, Gmail, Drive).
     Provides both human-readable and JSON output for AI agent consumption.
 
 Usage:
-    python3 google_workspace_manager.py auth
+    python3 google_workspace_manager.py auth [--console]
     python3 google_workspace_manager.py gmail-list [--query "query"]
     python3 google_workspace_manager.py drive-search [--query "name contains '...']
 
@@ -24,6 +24,7 @@ Revision History:
     v1.4 (2026-02-17): Added gmail-get-by-header functionality.
     v1.5 (2026-02-18): Added gmail-create-draft functionality.
     v1.6 (2026-02-19): Added cal-get, attendees to cal-create, and fixed newline handling in Gmail.
+    v1.7 (2026-02-20): Added console authentication support for headless environments.
 ================================================================================
 """
 import datetime
@@ -54,7 +55,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CREDENTIALS_FILE = os.path.join(SCRIPT_DIR, 'credentials.json')
 TOKEN_FILE = os.path.join(SCRIPT_DIR, 'token.pickle')
 
-def get_creds(port=8080):
+def get_creds(port=8080, use_console=False):
     creds = None
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, 'rb') as token:
@@ -77,9 +78,14 @@ def get_creds(port=8080):
             print(f"Error: {CREDENTIALS_FILE} not found.")
             sys.exit(1)
         flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-        # Note: run_local_server might not work in non-interactive environment
-        # But for first run, user will provide input.
-        creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', open_browser=False)
+        
+        if use_console:
+            creds = flow.run_console()
+        else:
+            # Note: run_local_server might not work in non-interactive environment
+            # But for first run, user will provide input.
+            creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', open_browser=False)
+            
         with open(TOKEN_FILE, 'wb') as token:
             pickle.dump(creds, token)
     return creds
@@ -379,6 +385,7 @@ if __name__ == '__main__':
     # Auth
     parser_auth = subparsers.add_parser('auth', help='Refresh or establish authentication')
     parser_auth.add_argument('--port', type=int, default=8080, help='Port for local server auth (default: 8080)')
+    parser_auth.add_argument('--console', action='store_true', help='Use console-based auth flow (for headless servers)')
 
     # Gmail List
     parser_gmail_list = subparsers.add_parser('gmail-list', help='List Gmail messages')
@@ -452,7 +459,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.command == 'auth':
-        get_creds(port=args.port)
+        get_creds(port=args.port, use_console=args.console)
         print("Authentication verified.")
     elif args.command == 'gmail-list':
         gmail_list_messages(args.query, args.max, args.format)

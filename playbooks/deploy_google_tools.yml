@@ -60,19 +60,27 @@
         name: python3-pip
         state: present
 
-    - name: Install Google Python Client Libraries
-      ansible.builtin.pip:
+    - name: Install Google Python Client Libraries (APT)
+      ansible.builtin.apt:
         name:
-          - google-api-python-client
-          - google-auth-oauthlib
-          - google-auth-httplib2
+          - python3-googleapi
+          - python3-google-auth-oauthlib
+          - python3-google-auth-httplib2
         state: present
-        executable: pip3
+        update_cache: yes
 
     - name: Ensure target directory exists
       ansible.builtin.file:
         path: "{{ target_dir }}"
         state: directory
+        owner: "{{ script_owner }}"
+        group: "{{ script_group }}"
+        mode: '0755'
+
+    - name: Copy google_workspace_manager.py
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/google_workspace_manager.py"
+        dest: "{{ target_dir }}/google_workspace_manager.py"
         owner: "{{ script_owner }}"
         group: "{{ script_group }}"
         mode: '0755'
