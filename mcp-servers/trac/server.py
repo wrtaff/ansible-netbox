@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/trac/server.py
-Version:        1.4
+Version:        1.5
 Author:         Gemini CLI
-Last Modified:  2026-02-18
+Last Modified:  2026-02-21
 Context:        http://trac.gafla.us.com/ticket/2933
 
 Purpose:
@@ -13,6 +13,7 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.5 (2026-02-21): Enforced space-separated keywords and component validation.
     v1.4 (2026-02-18): Verified tool stability and finalized 'trac_' prefix naming.
     v1.3 (2026-02-18): Fixed duplicate tool definitions and standardized names.
     v1.2 (2026-02-18): Added file-based logging to /tmp/trac_mcp.log and ping tool.
@@ -67,7 +68,7 @@ TRAC_URL = "http://trac.home.arpa/login/xmlrpc"
 TRAC_USER = os.getenv("TRAC_USER", "will")
 TRAC_PASSWORD = get_trac_password()
 
-logger.info(f"Initialized Trac MCP v1.3 with user: {TRAC_USER}")
+logger.info(f"Initialized Trac MCP v1.5 with user: {TRAC_USER}")
 
 def get_proxy():
     """Create and return an XML-RPC proxy."""
@@ -113,14 +114,15 @@ def get_ticket(ticket_id: int) -> str:
         return f"Error fetching ticket #{ticket_id}: {str(e)}"
 
 @mcp.tool(name="trac_update_ticket")
-def update_ticket(ticket_id: int, comment: str, keywords: Optional[str] = None, status: Optional[str] = None) -> str:
+def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None) -> str:
     """
     Update a Trac ticket with a comment and optional attributes.
     
     Args:
         ticket_id: The ID of the ticket to update.
         comment: The comment text to add.
-        keywords: Optional new keywords (overwrites existing if provided).
+        component: Optional new component (must exist).
+        keywords: Optional new keywords (space-separated, overwrites existing if provided).
         status: Optional new status (e.g., 'closed', 'reopened').
     """
     logger.info(f"Updating ticket #{ticket_id}")
@@ -128,7 +130,15 @@ def update_ticket(ticket_id: int, comment: str, keywords: Optional[str] = None, 
         proxy = get_proxy()
         attributes = {}
         if keywords:
-            attributes['keywords'] = keywords
+            # Enforce space-separated keywords
+            attributes['keywords'] = ' '.join(keywords.replace(',', ' ').split())
+        if component:
+            # Validate component
+            valid_components = proxy.ticket.component.getAll()
+            if component not in valid_components:
+                logger.warning(f"Invalid component provided: {component}")
+                return f"Error: Invalid component '{component}'. Valid components are: {', '.join(valid_components)}"
+            attributes['component'] = component
         if status:
             attributes['status'] = status
             if status == 'closed':
@@ -143,24 +153,36 @@ def update_ticket(ticket_id: int, comment: str, keywords: Optional[str] = None, 
         return f"Error updating ticket #{ticket_id}: {str(e)}"
 
 @mcp.tool(name="trac_create_ticket")
-def create_ticket(summary: str, description: str, type: str = "task", priority: str = "major", keywords: str = "") -> str:
+def create_ticket(summary: str, description: str, component: str, type: str = "task", priority: str = "major", keywords: str = "") -> str:
     """
     Create a new Trac ticket.
     
     Args:
         summary: The title of the ticket.
         description: The body of the ticket.
+        component: The Trac component. MUST be an existing component.
         type: Ticket type (task, bug, enhancement). Defaults to 'task'.
         priority: Priority (blocker, critical, major, minor, trivial). Defaults to 'major'.
-        keywords: Comma-separated keywords.
+        keywords: Space-separated keywords.
     """
     logger.info(f"Creating new ticket: {summary}")
     try:
         proxy = get_proxy()
+        
+        # Enforce space-separated keywords
+        keywords = ' '.join(keywords.replace(',', ' ').split())
+        
+        # Validate component
+        valid_components = proxy.ticket.component.getAll()
+        if component not in valid_components:
+            logger.warning(f"Invalid component provided: {component}")
+            return f"Error: Invalid component '{component}'. Valid components are: {', '.join(valid_components)}"
+
         attributes = {
             'type': str(type),
             'priority': str(priority),
             'keywords': str(keywords),
+            'component': str(component),
             'cc': 'will' # Standard practice to cc user
         }
         
