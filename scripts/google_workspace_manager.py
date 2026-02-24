@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.7
+Version:        1.8
 Author:         Gemini CLI
-Last Modified:  2026-02-20
+Last Modified:  2026-02-21
 Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
@@ -25,6 +25,7 @@ Revision History:
     v1.5 (2026-02-18): Added gmail-create-draft functionality.
     v1.6 (2026-02-19): Added cal-get, attendees to cal-create, and fixed newline handling in Gmail.
     v1.7 (2026-02-20): Added console authentication support for headless environments.
+    v1.8 (2026-02-21): Added drive-export functionality for exporting Google Docs to text.
 ================================================================================
 """
 import datetime
@@ -298,6 +299,26 @@ def drive_get_file_metadata(file_id, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
+def drive_export_file(file_id, mime_type='text/plain', output_file=None):
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        request = service.files().export_media(fileId=file_id, mimeType=mime_type)
+        file_data = request.execute()
+        
+        if output_file:
+            with open(output_file, 'wb') as f:
+                f.write(file_data)
+            print(f"Exported to {output_file}")
+        else:
+            # Try to decode as text for stdout
+            try:
+                print(file_data.decode('utf-8'))
+            except:
+                print(file_data)
+    except HttpError as error:
+        print(f"Error exporting file: {error}")
+
 # --- CALENDAR FUNCTIONS ---
 
 def calendar_list_events(max_results=10, output_format='text'):
@@ -426,6 +447,12 @@ if __name__ == '__main__':
     parser_drive_upload.add_argument('file_path', help='Path to local file')
     parser_drive_upload.add_argument('--mime', help='MIME type')
 
+    # Drive Export
+    parser_drive_export = subparsers.add_parser('drive-export', help='Export a Google Doc')
+    parser_drive_export.add_argument('id', help='File ID')
+    parser_drive_export.add_argument('--mime', default='text/plain', help='MIME type to export to (default: text/plain)')
+    parser_drive_export.add_argument('--out', help='Output file path')
+
     # Calendar List
     parser_cal_list = subparsers.add_parser('cal-list', help='List calendar events')
     parser_cal_list.add_argument('--max', type=int, default=10, help='Max results')
@@ -475,6 +502,8 @@ if __name__ == '__main__':
         drive_search(args.query, args.max, args.format)
     elif args.command == 'drive-get':
         drive_get_file_metadata(args.id, args.format)
+    elif args.command == 'drive-export':
+        drive_export_file(args.id, args.mime, args.out)
     elif args.command == 'drive-upload':
         drive_upload_file(args.file_path, args.mime, args.format)
     elif args.command == 'cal-list':

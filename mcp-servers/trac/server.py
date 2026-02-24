@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/trac/server.py
-Version:        1.5
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-02-21
-Context:        http://trac.gafla.us.com/ticket/2933
+Last Modified:  2026-02-24
+Context:        http://trac.home.arpa/ticket/2933
 
 Purpose:
     Model Context Protocol (MCP) server for Trac integration.
@@ -13,6 +13,8 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.6 (2026-02-24): Added ticket comments to get_ticket, URL-encoded password,
+                       and added resolution/author/action to update_ticket.
     v1.5 (2026-02-21): Enforced space-separated keywords and component validation.
     v1.4 (2026-02-18): Verified tool stability and finalized 'trac_' prefix naming.
     v1.3 (2026-02-18): Fixed duplicate tool definitions and standardized names.
@@ -25,6 +27,7 @@ import os
 import xmlrpc.client
 import logging
 from typing import Optional
+from urllib.parse import quote
 from mcp.server.fastmcp import FastMCP
 
 # Configure logging to file
@@ -68,7 +71,7 @@ TRAC_URL = "http://trac.home.arpa/login/xmlrpc"
 TRAC_USER = os.getenv("TRAC_USER", "will")
 TRAC_PASSWORD = get_trac_password()
 
-logger.info(f"Initialized Trac MCP v1.5 with user: {TRAC_USER}")
+logger.info(f"Initialized Trac MCP v1.6 with user: {TRAC_USER}")
 
 def get_proxy():
     """Create and return an XML-RPC proxy."""
@@ -76,8 +79,9 @@ def get_proxy():
         logger.error("Attempted to get proxy without TRAC_PASSWORD.")
         raise ValueError("TRAC_PASSWORD is not set")
     
-    # Construct URL with auth
-    auth_url = TRAC_URL.replace("http://", f"http://{TRAC_USER}:{TRAC_PASSWORD}@", 1)
+    # Construct URL with auth, URL-encoding the password for special characters
+    encoded_password = quote(TRAC_PASSWORD, safe='')
+    auth_url = TRAC_URL.replace("http://", f"http://{TRAC_USER}:{encoded_password}@", 1)
     return xmlrpc.client.ServerProxy(auth_url)
 
 @mcp.tool(name="trac_ping")
@@ -90,7 +94,7 @@ def ping() -> str:
 def get_ticket(ticket_id: int) -> str:
     """
     Fetch details of a Trac ticket by its ID.
-    Returns a formatted string with ticket summary, description, and attributes.
+    Returns a formatted string with ticket summary, description, and comments.
     """
     logger.info(f"Fetching ticket #{ticket_id}")
     try:
@@ -107,6 +111,23 @@ def get_ticket(ticket_id: int) -> str:
         output.append("-" * 20)
         output.append(f"Description:\n{str(attrs.get('description', ''))}")
         
+        # Add comments from changelog
+        try:
+            changelog = proxy.ticket.changeLog(ticket_id)
+            comments = []
+            for change in changelog:
+                # change is [time, author, field, old_value, new_value, permanent]
+                t, author, field, old, new, perm = change
+                if field == 'comment' and new:
+                    comments.append(f"\n[{author}] ({t}):\n{new}")
+            
+            if comments:
+                output.append("-" * 20)
+                output.append("History/Comments:")
+                output.extend(comments)
+        except Exception as ce:
+            logger.warning(f"Could not fetch comments for ticket #{ticket_id}: {ce}")
+
         logger.info(f"Successfully fetched ticket #{ticket_id}")
         return "\n".join(output)
     except Exception as e:
@@ -114,7 +135,7 @@ def get_ticket(ticket_id: int) -> str:
         return f"Error fetching ticket #{ticket_id}: {str(e)}"
 
 @mcp.tool(name="trac_update_ticket")
-def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None) -> str:
+def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None, resolution: Optional[str] = None, author: str = "gemini", action: Optional[str] = None) -> str:
     """
     Update a Trac ticket with a comment and optional attributes.
     
@@ -124,6 +145,9 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
         component: Optional new component (must exist).
         keywords: Optional new keywords (space-separated, overwrites existing if provided).
         status: Optional new status (e.g., 'closed', 'reopened').
+        resolution: Optional resolution (e.g., 'fixed', 'invalid', 'periodic hold').
+        author: The author name to use for the update. Defaults to 'gemini'.
+        action: The workflow action to perform (e.g., 'resolve').
     """
     logger.info(f"Updating ticket #{ticket_id}")
     try:
@@ -141,11 +165,17 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
             attributes['component'] = component
         if status:
             attributes['status'] = status
-            if status == 'closed':
-                attributes['resolution'] = 'fixed' # Default to fixed if closing
+        if resolution:
+            attributes['resolution'] = resolution
+        if action:
+            attributes['action'] = action
+            if action == 'resolve' and resolution:
+                attributes['action_resolve_resolve_as'] = resolution
+        elif status == 'closed' and not resolution:
+            attributes['resolution'] = 'fixed' # Default to fixed if closing without resolution
         
-        # update(id, comment, attributes, notify=True, author='gemini')
-        proxy.ticket.update(ticket_id, comment, attributes, True, "gemini")
+        # update(id, comment, attributes, notify=True, author=author)
+        proxy.ticket.update(ticket_id, comment, attributes, True, author)
         logger.info(f"Successfully updated ticket #{ticket_id}")
         return f"Successfully updated ticket #{ticket_id}."
     except Exception as e:
