@@ -1,12 +1,17 @@
 # ==============================================================================
 # Filename:       install_claude_code.yml
-# Version:        1.5
+# Version:        1.6
 # Author:         Gemini CLI
 # Last Modified:  2026-02-21
 # Context:        http://trac.home.arpa/ticket/3038
 #
 # Purpose:
-#   Installs the Claude Code CLI tool globally via NPM on target hosts.
+#   Installs or updates the Claude Code CLI tool globally via NPM on target hosts.
+#
+# Update 1.6:
+#   - Changed state from 'present' to 'latest' to allow updates.
+#   - Added pre-check task to capture current version before installation.
+#   - Enhanced debug output to show before/after versions.
 #
 # Update 1.5:
 #   - Finalized installation and documentation.
@@ -21,17 +26,25 @@
 #     and attempting to manage them via apt caused dependency conflicts.
 # ==============================================================================
 ---
-- name: Install Claude Code CLI
+- name: Install or Update Claude Code CLI
   hosts: limbo-bd
   become: true
   gather_facts: true
 
   tasks:
-    - name: 1. Install Claude Code CLI Globally via NPM
+    - name: 0. Check current Claude Code version (if any)
+      ansible.builtin.command:
+        cmd: claude --version
+      register: claude_version_before
+      changed_when: false
+      failed_when: false
+      tags: [install, verify]
+
+    - name: 1. Install or Update Claude Code CLI Globally via NPM
       ansible.builtin.npm:
         name: "@anthropic-ai/claude-code"
         global: true
-        state: present
+        state: latest
       tags: install
 
     - name: 2. Verify Claude Code CLI is installed
@@ -43,5 +56,13 @@
 
     - name: 3. Show Claude Code Version
       ansible.builtin.debug:
-        msg: "Claude Code installed successfully: {{ claude_version_output.stdout }}"
+        msg: >-
+          Claude Code version: {{ claude_version_output.stdout }}
+          {% if claude_version_before.rc == 0 and claude_version_before.stdout != claude_version_output.stdout %}
+          (updated from {{ claude_version_before.stdout }})
+          {% elif claude_version_before.rc != 0 %}
+          (fresh install)
+          {% else %}
+          (already up to date)
+          {% endif %}
       when: claude_version_output.rc == 0

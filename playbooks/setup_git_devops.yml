@@ -1,0 +1,142 @@
+# ==============================================================================
+# Filename:       playbooks/setup_git_devops.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-24
+# Context:        http://trac.home.arpa/ticket/3104
+#
+# Use Case:
+#   Standardizes the Git environment on secondary DevOps hosts (limbo-bd, ynh2).
+#   Allows user 'will' to push and pull changes to the 'ansible-netbox' repository.
+#
+# Revision History:
+#   v1.1: Refactored become logic to avoid global sudo issues.
+# ==============================================================================
+
+- name: Setup Git DevOps Environment
+  hosts: limbo-bd, ynh2
+  gather_facts: false
+  vars_files:
+    - ../vault.yml
+  vars:
+    git_user_name: "wrtaff"
+    git_user_email: "wrtaff@gmail.com"
+    repo_url: "git@github.com:wrtaff/ansible-netbox.git"
+    ssh_key_dest: "/home/will/.ssh/id_rsa_github"
+    ssh_key_src: "~/.ssh/id_rsa"
+
+  tasks:
+    - name: 1. Ensure git is installed
+      ansible.builtin.apt:
+        name: git
+        state: present
+        update_cache: yes
+      become: true
+      become_method: sudo
+      when: inventory_hostname != 'ynh2'
+      tags: install_git
+
+    - name: 1b. Ensure git is installed (ynh2)
+      ansible.builtin.apt:
+        name: git
+        state: present
+        update_cache: yes
+      become: true
+      become_method: su
+      when: inventory_hostname == 'ynh2'
+      tags: install_git
+
+    - name: 2. Configure global git identity for will
+      community.general.git_config:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        scope: global
+      loop:
+        - { key: "user.name", value: "{{ git_user_name }}" }
+        - { key: "user.email", value: "{{ git_user_email }}" }
+        - { key: "init.defaultBranch", value: "main" }
+        - { key: "pull.rebase", value: "true" }
+      tags: git_config
+
+    - name: 3. Ensure .ssh directory exists for will
+      ansible.builtin.file:
+        path: /home/will/.ssh
+        state: directory
+        mode: '0700'
+      tags: ssh_setup
+
+    - name: 4. Deploy GitHub SSH key
+      ansible.builtin.copy:
+        src: "{{ ssh_key_src }}"
+        dest: "{{ ssh_key_dest }}"
+        mode: '0600'
+      tags: ssh_setup
+
+    - name: 5. Configure SSH client for GitHub
+      ansible.builtin.blockinfile:
+        path: /home/will/.ssh/config
+        create: yes
+        mode: '0600'
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR GITHUB ACCESS"
+        block: |
+          Host github.com
+            HostName github.com
+            User git
+            IdentityFile {{ ssh_key_dest }}
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+      tags: ssh_setup
+
+    - name: 6. Setup Local Git Repository
+      tags: repo_setup
+      block:
+        - name: Clone ansible-netbox to local home
+          ansible.builtin.git:
+            repo: "{{ repo_url }}"
+            dest: /home/will/ansible-netbox
+            accept_hostkey: yes
+            update: yes
+
+        - name: Ensure /home/will/bin exists (ynh2)
+          ansible.builtin.file:
+            path: /home/will/bin
+            state: directory
+            mode: '0755'
+          when: inventory_hostname == 'ynh2'
+
+        - name: Create symlinks under /home/will/bin (ynh2)
+          ansible.builtin.file:
+            src: "/home/will/ansible-netbox/{{ item }}"
+            dest: "/home/will/bin/{{ item }}"
+            state: link
+            force: yes
+          loop:
+            - scripts
+            - mcp-servers
+          when: inventory_hostname == 'ynh2'
+
+        - name: Backup existing SMB directories (limbo-bd)
+          ansible.builtin.command:
+            cmd: "mv /home/will/gemini_projects/{{ item }} /home/will/gemini_projects/{{ item }}.bak"
+            creates: "/home/will/gemini_projects/{{ item }}.bak"
+          loop:
+            - scripts
+            - mcp-servers
+          when: inventory_hostname == 'limbo-bd'
+
+        - name: Link scripts and mcp-servers back to gemini_projects (limbo-bd)
+          ansible.builtin.file:
+            src: "/home/will/ansible-netbox/{{ item }}"
+            dest: "/home/will/gemini_projects/{{ item }}"
+            state: link
+            force: yes
+          loop:
+            - scripts
+            - mcp-servers
+          when: inventory_hostname == 'limbo-bd'
+
+        - name: Restore v1.6 changes from backup to local repo (limbo-bd)
+          ansible.builtin.shell:
+            cmd: "cp -rv /home/will/gemini_projects/mcp-servers.bak/trac/server.py /home/will/ansible-netbox/mcp-servers/trac/server.py"
+          when: inventory_hostname == 'limbo-bd'
+          changed_when: true

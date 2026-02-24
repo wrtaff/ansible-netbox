@@ -1,0 +1,129 @@
+# ==============================================================================
+# Filename:       install_gemini_yunohost.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-21
+# Context:        http://trac.home.arpa/ticket/2930
+#
+# Purpose:
+#   Isolated installation of the Gemini CLI on YunoHost (ynh2) to avoid 
+#   conflicting with system-wide Python/Node.js dependencies.
+#   Installs NPM package locally to /home/will/tools/gemini.
+#
+# Dependencies:
+#   - vault.yml (for gemini_api_key)
+#   - jq (for IDE integration helper)
+# ==============================================================================
+
+- name: Isolated Gemini CLI Installation on YunoHost (ynh2)
+  hosts: yunohost_servers
+  gather_facts: true
+  become: true
+  become_method: su
+  vars_files: [../vault.yml]
+  vars:
+    gemini_user: "will"
+    gemini_base_dir: "/home/{{ gemini_user }}/tools/gemini"
+
+  tasks:
+    - name: "0. PREREQUISITE: Install Node.js (v20+) and jq"
+      block:
+        - name: Add NodeSource PPA key
+          ansible.builtin.apt_key:
+            url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
+            state: present
+
+        - name: Add NodeSource repository for Node.js 20.x
+          ansible.builtin.apt_repository:
+            repo: "deb https://deb.nodesource.com/node_20.x nodistro main"
+            state: present
+            update_cache: true
+
+        - name: Install Node.js, NPM, and jq
+          ansible.builtin.apt:
+            name: 
+              - nodejs
+              - jq
+            state: present
+      tags: prereq
+
+    - name: 1. Ensure tools directory exists
+      ansible.builtin.file:
+        path: "{{ gemini_base_dir }}"
+        state: directory
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+        mode: '0755'
+
+    - name: 2. Install Gemini CLI locally via NPM
+      ansible.builtin.npm:
+        name: "@google/gemini-cli"
+        path: "{{ gemini_base_dir }}"
+        state: present
+        global: false
+      become: true
+      become_user: "{{ gemini_user }}"
+      tags: install
+
+    - name: 3. Configure Gemini API Key (Persistent Env Var)
+      ansible.builtin.lineinfile:
+        path: "/home/{{ gemini_user }}/.bashrc"
+        line: 'export GEMINI_API_KEY="{{ gemini_api_key }}"'
+        regexp: '^export GEMINI_API_KEY='
+        create: true
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+        mode: '0644'
+      tags: configure
+
+    - name: 4. Add Gemini local bin to PATH
+      ansible.builtin.lineinfile:
+        path: "/home/{{ gemini_user }}/.bashrc"
+        line: 'export PATH="$PATH:{{ gemini_base_dir }}/node_modules/.bin"'
+        regexp: '^export PATH="\$PATH:{{ gemini_base_dir }}/node_modules/\.bin"'
+        state: present
+      tags: configure
+
+    - name: 5. Create gemini alias
+      ansible.builtin.lineinfile:
+        path: "/home/{{ gemini_user }}/.bashrc"
+        line: "alias gemini='{{ gemini_base_dir }}/node_modules/.bin/gemini'"
+        regexp: "^alias gemini="
+        state: present
+      tags: configure
+
+    - name: 5b. Add IDE integration helper to .bashrc
+      ansible.builtin.blockinfile:
+        path: "/home/{{ gemini_user }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK: GEMINI IDE INTEGRATION"
+        block: |
+          # Gemini CLI IDE Integration helper
+          # Automatically finds the port and workspace path for Coder
+          gemini_ide_detect() {
+            # Get the most recent discovery file (in case multiple are present)
+            local discovery_file=$(ls -t /tmp/gemini/ide/gemini-ide-server-*.json 2>/dev/null | head -n 1)
+            if [ -f "$discovery_file" ]; then
+              export GEMINI_CLI_IDE_SERVER_PORT=$(jq -r '.port' "$discovery_file")
+              export GEMINI_CLI_IDE_WORKSPACE_PATH=$(jq -r '.workspacePath' "$discovery_file")
+            fi
+          }
+
+          # Run detection if this is an interactive terminal
+          if [[ $- == *i* ]]; then
+            gemini_ide_detect
+          fi
+      tags: configure
+
+    - name: 6. Verify Gemini CLI version
+      ansible.builtin.shell:
+        cmd: "export PATH=$PATH:{{ gemini_base_dir }}/node_modules/.bin && gemini --version"
+      register: gemini_version_output
+      changed_when: false
+      become: true
+      become_user: "{{ gemini_user }}"
+      tags: verify
+
+    - name: Display Gemini CLI version
+      ansible.builtin.debug:
+        msg: "Gemini CLI version installed: {{ gemini_version_output.stdout }}"
+      tags: verify
