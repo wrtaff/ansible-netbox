@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.8
+Version:        1.10
 Author:         Gemini CLI
-Last Modified:  2026-02-21
+Last Modified:  2026-02-25
 Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
@@ -26,6 +26,8 @@ Revision History:
     v1.6 (2026-02-19): Added cal-get, attendees to cal-create, and fixed newline handling in Gmail.
     v1.7 (2026-02-20): Added console authentication support for headless environments.
     v1.8 (2026-02-21): Added drive-export functionality for exporting Google Docs to text.
+    v1.9 (2026-02-25): Added attachment support to gmail-send and gmail-create-draft.
+    v1.10 (2026-02-25): Added drive-download support for binary files.
 ================================================================================
 """
 import datetime
@@ -125,11 +127,12 @@ def gmail_list_messages(query='', max_results=10, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def gmail_send_message(to, subject, body, output_format='text'):
+def gmail_send_message(to, subject, body, attachment_path=None, output_format='text'):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
         from email.message import EmailMessage
+        import mimetypes
         message = EmailMessage()
         # Handle literal \n as newlines
         body = body.replace('\\n', '\n')
@@ -137,6 +140,16 @@ def gmail_send_message(to, subject, body, output_format='text'):
         message['To'] = to
         message['Subject'] = subject
         
+        if attachment_path and os.path.exists(attachment_path):
+            mime_type, _ = mimetypes.guess_type(attachment_path)
+            if mime_type is None:
+                mime_type = 'application/octet-stream'
+            main_type, sub_type = mime_type.split('/', 1)
+            
+            with open(attachment_path, 'rb') as fp:
+                attachment_data = fp.read()
+            message.add_attachment(attachment_data, maintype=main_type, subtype=sub_type, filename=os.path.basename(attachment_path))
+
         # encoded message
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         create_message = {
@@ -147,17 +160,28 @@ def gmail_send_message(to, subject, body, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def gmail_create_draft(to, subject, body, output_format='text'):
+def gmail_create_draft(to, subject, body, attachment_path=None, output_format='text'):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
         from email.message import EmailMessage
+        import mimetypes
         message = EmailMessage()
         # Handle literal \n as newlines
         body = body.replace('\\n', '\n')
         message.set_content(body)
         message['To'] = to
         message['Subject'] = subject
+
+        if attachment_path and os.path.exists(attachment_path):
+            mime_type, _ = mimetypes.guess_type(attachment_path)
+            if mime_type is None:
+                mime_type = 'application/octet-stream'
+            main_type, sub_type = mime_type.split('/', 1)
+            
+            with open(attachment_path, 'rb') as fp:
+                attachment_data = fp.read()
+            message.add_attachment(attachment_data, maintype=main_type, subtype=sub_type, filename=os.path.basename(attachment_path))
         
         # encoded message
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
@@ -266,6 +290,25 @@ def gmail_download_attachment(message_id, attachment_id, filename, output_dir=No
         return None
 
 # --- DRIVE FUNCTIONS ---
+
+def drive_download_file(file_id, output_path, output_format='text'):
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        from googleapiclient.http import MediaIoBaseDownload
+        import io
+        request = service.files().get_media(fileId=file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+        
+        with open(output_path, 'wb') as f:
+            f.write(fh.getvalue())
+        output({'result': f'Downloaded to {output_path}'}, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
 
 def drive_upload_file(file_path, mimetype=None, output_format='text'):
     creds = get_creds()
@@ -418,12 +461,14 @@ if __name__ == '__main__':
     parser_gmail_send.add_argument('to', help='Recipient email address')
     parser_gmail_send.add_argument('subject', help='Email subject')
     parser_gmail_send.add_argument('body', help='Email body')
+    parser_gmail_send.add_argument('--attachment', help='Path to file to attach')
 
     # Gmail Create Draft
     parser_gmail_draft = subparsers.add_parser('gmail-create-draft', help='Create a Gmail draft')
     parser_gmail_draft.add_argument('to', help='Recipient email address')
     parser_gmail_draft.add_argument('subject', help='Email subject')
     parser_gmail_draft.add_argument('body', help='Email body')
+    parser_gmail_draft.add_argument('--attachment', help='Path to file to attach')
 
     # Gmail Get
     parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
@@ -441,6 +486,11 @@ if __name__ == '__main__':
     # Drive Get
     parser_drive_get = subparsers.add_parser('drive-get', help='Get file metadata')
     parser_drive_get.add_argument('id', help='File ID')
+
+    # Drive Download
+    parser_drive_download = subparsers.add_parser('drive-download', help='Download a file from Drive')
+    parser_drive_download.add_argument('id', help='File ID')
+    parser_drive_download.add_argument('out', help='Output file path')
 
     # Drive Upload
     parser_drive_upload = subparsers.add_parser('drive-upload', help='Upload a file to Drive')
@@ -491,9 +541,9 @@ if __name__ == '__main__':
     elif args.command == 'gmail-list':
         gmail_list_messages(args.query, args.max, args.format)
     elif args.command == 'gmail-send':
-        gmail_send_message(args.to, args.subject, args.body, args.format)
+        gmail_send_message(args.to, args.subject, args.body, args.attachment, args.format)
     elif args.command == 'gmail-create-draft':
-        gmail_create_draft(args.to, args.subject, args.body, args.format)
+        gmail_create_draft(args.to, args.subject, args.body, args.attachment, args.format)
     elif args.command == 'gmail-get':
         gmail_get_message(args.id, args.format)
     elif args.command == 'gmail-get-by-header':
@@ -502,6 +552,8 @@ if __name__ == '__main__':
         drive_search(args.query, args.max, args.format)
     elif args.command == 'drive-get':
         drive_get_file_metadata(args.id, args.format)
+    elif args.command == 'drive-download':
+        drive_download_file(args.id, args.out, args.format)
     elif args.command == 'drive-export':
         drive_export_file(args.id, args.mime, args.out)
     elif args.command == 'drive-upload':
