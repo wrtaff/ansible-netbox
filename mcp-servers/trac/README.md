@@ -20,6 +20,6 @@ python server.py
 ## Tools
 
 *   `get_ticket(ticket_id)`: View ticket details.
-*   `update_ticket(ticket_id, comment, ...)`: Add comments or change status/keywords.
+*   `update_ticket(ticket_id, comment, ...)`: Add comments or change status/keywords/priority.
 *   `create_ticket(summary, description, ...)`: Open a new ticket.
 *   `search_tickets(query)`: Search using Trac query syntax.

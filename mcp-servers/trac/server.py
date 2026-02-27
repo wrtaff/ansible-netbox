@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/trac/server.py
-Version:        1.6
+Version:        1.7
 Author:         Gemini CLI
-Last Modified:  2026-02-24
+Last Modified:  2026-02-27
 Context:        http://trac.home.arpa/ticket/2933
 
 Purpose:
@@ -13,6 +13,7 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.7 (2026-02-27): Added priority validation and support for updating priority.
     v1.6 (2026-02-24): Added ticket comments to get_ticket, URL-encoded password,
                        and added resolution/author/action to update_ticket.
     v1.5 (2026-02-21): Enforced space-separated keywords and component validation.
@@ -135,7 +136,7 @@ def get_ticket(ticket_id: int) -> str:
         return f"Error fetching ticket #{ticket_id}: {str(e)}"
 
 @mcp.tool(name="trac_update_ticket")
-def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None, resolution: Optional[str] = None, author: str = "gemini", action: Optional[str] = None) -> str:
+def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None, resolution: Optional[str] = None, author: str = "gemini", action: Optional[str] = None, priority: Optional[str] = None) -> str:
     """
     Update a Trac ticket with a comment and optional attributes.
     
@@ -148,6 +149,7 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
         resolution: Optional resolution (e.g., 'fixed', 'invalid', 'periodic hold').
         author: The author name to use for the update. Defaults to 'gemini'.
         action: The workflow action to perform (e.g., 'resolve').
+        priority: Optional new priority (must exist).
     """
     logger.info(f"Updating ticket #{ticket_id}")
     try:
@@ -163,6 +165,13 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
                 logger.warning(f"Invalid component provided: {component}")
                 return f"Error: Invalid component '{component}'. Valid components are: {', '.join(valid_components)}"
             attributes['component'] = component
+        if priority:
+            # Validate priority
+            valid_priorities = proxy.ticket.priority.getAll()
+            if priority not in valid_priorities:
+                logger.warning(f"Invalid priority provided: {priority}")
+                return f"Error: Invalid priority '{priority}'. Valid priorities are: {', '.join(valid_priorities)}"
+            attributes['priority'] = priority
         if status:
             attributes['status'] = status
         if resolution:
@@ -207,6 +216,12 @@ def create_ticket(summary: str, description: str, component: str, type: str = "t
         if component not in valid_components:
             logger.warning(f"Invalid component provided: {component}")
             return f"Error: Invalid component '{component}'. Valid components are: {', '.join(valid_components)}"
+
+        # Validate priority
+        valid_priorities = proxy.ticket.priority.getAll()
+        if priority not in valid_priorities:
+            logger.warning(f"Invalid priority provided: {priority}")
+            return f"Error: Invalid priority '{priority}'. Valid priorities are: {', '.join(valid_priorities)}"
 
         attributes = {
             'type': str(type),
