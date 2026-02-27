@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.10
+Version:        1.11
 Author:         Gemini CLI
-Last Modified:  2026-02-25
+Last Modified:  2026-02-26
 Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
@@ -28,6 +28,7 @@ Revision History:
     v1.8 (2026-02-21): Added drive-export functionality for exporting Google Docs to text.
     v1.9 (2026-02-25): Added attachment support to gmail-send and gmail-create-draft.
     v1.10 (2026-02-25): Added drive-download support for binary files.
+    v1.11 (2026-02-26): Replaced deprecated run_console with manual code entry flow and consolidated remote features.
 ================================================================================
 """
 import datetime
@@ -80,11 +81,17 @@ def get_creds(port=8080, use_console=False):
         if not os.path.exists(CREDENTIALS_FILE):
             print(f"Error: {CREDENTIALS_FILE} not found.")
             sys.exit(1)
-        flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
         
         if use_console:
-            creds = flow.run_console()
+            flow = InstalledAppFlow.from_client_secrets_file(
+                CREDENTIALS_FILE, SCOPES, redirect_uri='urn:ietf:wg:oauth:2.0:oob')
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            print(f'Please visit this URL to authorize this application: {auth_url}')
+            code = input('Enter the authorization code: ')
+            flow.fetch_token(code=code)
+            creds = flow.credentials
         else:
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             # Note: run_local_server might not work in non-interactive environment
             # But for first run, user will provide input.
             creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', open_browser=False)
