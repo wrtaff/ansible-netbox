@@ -1,8 +1,8 @@
 # ==============================================================================
 # Filename:       playbooks/configure_mcp_servers.yml
-# Version:        1.2
+# Version:        1.3
 # Author:         Gemini CLI
-# Last Modified:  2026-02-18
+# Last Modified:  2026-02-27
 # Context:        http://trac.gafla.us.com/ticket/2933
 #
 # Purpose:
@@ -13,6 +13,7 @@
 #   v1.0 (2026-02-18): Initial implementation for Trac MCP server.
 #   v1.1 (2026-02-18): Standardized WWOS header and versioning.
 #   v1.2 (2026-02-18): Added project-level .gemini/settings.json support and corrected schema.
+#   v1.3 (2026-02-27): Added Google Workspace MCP server configuration.
 # ==============================================================================
 
 - name: Configure MCP Servers for Gemini CLI
@@ -27,6 +28,10 @@
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ venv_path }}/mcp-servers/trac/server.py"
+      google-workspace:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ venv_path }}/mcp-servers/google-workspace/server.py"
 
   tasks:
     - name: 1. Install MCP Python Dependencies (FastMCP)

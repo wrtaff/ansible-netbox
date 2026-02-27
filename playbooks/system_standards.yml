@@ -1,7 +1,20 @@
-# system_standards.yml
+# ==============================================================================
+# Filename:       playbooks/system_standards.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-02-27
+# Context:        http://trac.home.arpa/ticket/3032
+#
+# Revision History:
+#     1.0 - Initial version.
+#     1.1 - Expanded hosts to include desktops for fleet-wide #3032 fix.
+#
+# Purpose:
+#     Apply baseline configuration to all managed servers and desktops.
+# ==============================================================================
 ---
-- name: Apply baseline configuration to new servers
-  hosts: servers
+- name: Apply baseline configuration to all managed servers and desktops
+  hosts: servers, desktops
   become: yes
   roles:
     - admin_user

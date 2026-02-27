@@ -1,13 +1,15 @@
 # ==============================================================================
 # Filename:       roles/system_common/handlers/main.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
-# Last Modified:  2026-02-09
+# Last Modified:  2026-02-27
 # Context:        http://trac.home.arpa/ticket/3032
 #
 # Revision History:
 #     1.0 - Initial version.
-#     1.1 - Added handlers for systemd reload and systemd-networkd-wait-online.
+#     1.1 - Added handlers for systemd-networkd-wait-online.
+#     1.2 - Removed systemd-networkd-wait-online handler as service is now 
+#           disabled fleet-wide.
 #
 # Purpose:
 #     Handlers for common system administration tasks.
@@ -21,8 +23,3 @@
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: yes
-
-- name: Restart systemd-networkd-wait-online
-  ansible.builtin.service:
-    name: systemd-networkd-wait-online
-    state: restarted

@@ -1,14 +1,15 @@
 # ==============================================================================
 # Filename:       roles/system_common/tasks/main.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
-# Last Modified:  2026-02-09
+# Last Modified:  2026-02-27
 # Context:        http://trac.home.arpa/ticket/3032
 #
 # Revision History:
 #     1.0 - Initial version.
-#     1.1 - Added systemd-networkd-wait-online override with --any flag to prevent
-#           boot/apt hangs in LXC containers.
+#     1.1 - Added systemd-networkd-wait-online override with --any flag.
+#     1.2 - Switched to disabling redundant network managers (systemd-networkd, 
+#           NetworkManager) when ifupdown is present to resolve systemic hangs.
 #
 # Purpose:
 #     Baseline configuration tasks for all Debian/Ubuntu servers.
@@ -65,20 +66,32 @@
     msg: "Reboot initiated by Ansible due to kernel updates"
   when: reboot_required_file.stat.exists
 
-- name: Create systemd override directory for systemd-networkd-wait-online
+# --- SYSTEMIC NETWORK WAIT FIX (REF: #3032) ---
+- name: Check if ifupdown is the primary network manager
+  ansible.builtin.stat:
+    path: /etc/network/interfaces
+  register: ifupdown_config
+
+- name: Detect active network managers
+  ansible.builtin.service_facts:
+
+- name: Disable redundant network managers to prevent 'wait-online' hangs
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  loop:
+    - systemd-networkd
+    - systemd-networkd-wait-online
+    - NetworkManager
+    - NetworkManager-wait-online
+  when: 
+    - ifupdown_config.stat.exists
+    - ansible_facts.services[item + '.service'] is defined
+    - ansible_facts.services[item + '.service'].state != 'masked'
+
+- name: Ensure redundant override directory is removed
   ansible.builtin.file:
     path: /etc/systemd/system/systemd-networkd-wait-online.service.d
-    state: directory
-    mode: '0755'
-
-- name: Apply systemd override for systemd-networkd-wait-online (wait for ANY interface)
-  ansible.builtin.copy:
-    dest: /etc/systemd/system/systemd-networkd-wait-online.service.d/override.conf
-    content: |
-      [Service]
-      ExecStart=
-      ExecStart=/lib/systemd/systemd-networkd-wait-online --any
-    mode: '0644'
-  notify:
-    - Reload systemd
-    - Restart systemd-networkd-wait-online
+    state: absent
+  notify: Reload systemd
