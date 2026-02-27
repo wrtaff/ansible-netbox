@@ -2,19 +2,20 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.11
+Version:        1.12
 Author:         Gemini CLI
-Last Modified:  2026-02-26
+Last Modified:  2026-02-27
 Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
-    Unified manager for Google Workspace services (Calendar, Tasks, Gmail, Drive).
+    Unified manager for Google Workspace services (Calendar, Tasks, Gmail, Drive, Contacts).
     Provides both human-readable and JSON output for AI agent consumption.
 
 Usage:
     python3 google_workspace_manager.py auth [--console]
     python3 google_workspace_manager.py gmail-list [--query "query"]
     python3 google_workspace_manager.py drive-search [--query "name contains '...']
+    python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
     v1.0 (2026-02-16): Initial version with basic Gmail/Drive/Cal/Tasks.
@@ -29,6 +30,7 @@ Revision History:
     v1.9 (2026-02-25): Added attachment support to gmail-send and gmail-create-draft.
     v1.10 (2026-02-25): Added drive-download support for binary files.
     v1.11 (2026-02-26): Replaced deprecated run_console with manual code entry flow and consolidated remote features.
+    v1.12 (2026-02-27): Added People API support for creating contacts.
 ================================================================================
 """
 import datetime
@@ -51,7 +53,8 @@ SCOPES = [
     'https://www.googleapis.com/auth/calendar',
     'https://www.googleapis.com/auth/tasks',
     'https://www.googleapis.com/auth/gmail.modify',
-    'https://www.googleapis.com/auth/drive'
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/contacts'
 ]
 
 # Paths
@@ -94,7 +97,7 @@ def get_creds(port=8080, use_console=False):
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             # Note: run_local_server might not work in non-interactive environment
             # But for first run, user will provide input.
-            creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', open_browser=False)
+            creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', open_browser=True)
             
         with open(TOKEN_FILE, 'wb') as token:
             pickle.dump(creds, token)
@@ -446,6 +449,33 @@ def tasks_create_task(title, notes=None, due_date_str=None, output_format='text'
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
+# --- CONTACTS FUNCTIONS ---
+
+def contacts_create_contact(given_name, family_name, job_title=None, company=None, phone=None, email=None, notes=None, output_format='text'):
+    creds = get_creds()
+    service = build('people', 'v1', credentials=creds)
+    try:
+        contact_body = {
+            "names": [{"givenName": given_name, "familyName": family_name}],
+        }
+        if job_title or company:
+            contact_body["organizations"] = [{
+                "name": company if company else "",
+                "title": job_title if job_title else "",
+                "type": "work"
+            }]
+        if phone:
+            contact_body["phoneNumbers"] = [{"value": phone, "type": "mobile"}]
+        if email:
+            contact_body["emailAddresses"] = [{"value": email, "type": "work"}]
+        if notes:
+            contact_body["biographies"] = [{"value": notes}]
+            
+        result = service.people().createContact(body=contact_body).execute()
+        output(result, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
 # --- MAIN CLI ---
 
 if __name__ == '__main__':
@@ -457,6 +487,16 @@ if __name__ == '__main__':
     parser_auth = subparsers.add_parser('auth', help='Refresh or establish authentication')
     parser_auth.add_argument('--port', type=int, default=8080, help='Port for local server auth (default: 8080)')
     parser_auth.add_argument('--console', action='store_true', help='Use console-based auth flow (for headless servers)')
+
+    # People Create
+    parser_people_create = subparsers.add_parser('people-create', help='Create a Google Contact')
+    parser_people_create.add_argument('given_name', help='Given name')
+    parser_people_create.add_argument('family_name', help='Family name')
+    parser_people_create.add_argument('--job', help='Job title')
+    parser_people_create.add_argument('--company', help='Company name')
+    parser_people_create.add_argument('--phone', help='Phone number')
+    parser_people_create.add_argument('--email', help='Email address')
+    parser_people_create.add_argument('--notes', help='Notes or biography')
 
     # Gmail List
     parser_gmail_list = subparsers.add_parser('gmail-list', help='List Gmail messages')
@@ -545,6 +585,8 @@ if __name__ == '__main__':
     if args.command == 'auth':
         get_creds(port=args.port, use_console=args.console)
         print("Authentication verified.")
+    elif args.command == 'people-create':
+        contacts_create_contact(args.given_name, args.family_name, args.job, args.company, args.phone, args.email, args.notes, args.format)
     elif args.command == 'gmail-list':
         gmail_list_messages(args.query, args.max, args.format)
     elif args.command == 'gmail-send':
