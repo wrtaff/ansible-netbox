@@ -1,6 +1,6 @@
 # ==============================================================================
 # Filename:       roles/system_common/handlers/main.yml
-# Version:        1.2
+# Version:        1.7
 # Author:         Gemini CLI
 # Last Modified:  2026-02-27
 # Context:        http://trac.home.arpa/ticket/3032
@@ -8,8 +8,10 @@
 # Revision History:
 #     1.0 - Initial version.
 #     1.1 - Added handlers for systemd-networkd-wait-online.
-#     1.2 - Removed systemd-networkd-wait-online handler as service is now 
-#           disabled fleet-wide.
+#     1.2 - Removed systemd-networkd-wait-online handler.
+#     1.3 - Re-added systemd-networkd-wait-online handler for override fix.
+#     1.7 - Removed systemd-networkd-wait-online handler as binary is 
+#           now diverted.
 #
 # Purpose:
 #     Handlers for common system administration tasks.

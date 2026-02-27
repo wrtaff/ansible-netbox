@@ -1,6 +1,6 @@
 # ==============================================================================
 # Filename:       playbooks/system_standards.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
 # Last Modified:  2026-02-27
 # Context:        http://trac.home.arpa/ticket/3032
@@ -8,13 +8,15 @@
 # Revision History:
 #     1.0 - Initial version.
 #     1.1 - Expanded hosts to include desktops for fleet-wide #3032 fix.
+#     1.2 - Targets all hosts and implements definitive wait-online fix via 
+#           dpkg-divert.
 #
 # Purpose:
-#     Apply baseline configuration to all managed servers and desktops.
+#     Apply baseline configuration to managed hosts.
 # ==============================================================================
 ---
-- name: Apply baseline configuration to all managed servers and desktops
-  hosts: servers, desktops
+- name: Apply baseline configuration to managed hosts
+  hosts: all
   become: yes
   roles:
     - admin_user

@@ -1,6 +1,6 @@
 # ==============================================================================
 # Filename:       roles/system_common/tasks/main.yml
-# Version:        1.2
+# Version:        1.7
 # Author:         Gemini CLI
 # Last Modified:  2026-02-27
 # Context:        http://trac.home.arpa/ticket/3032
@@ -8,8 +8,13 @@
 # Revision History:
 #     1.0 - Initial version.
 #     1.1 - Added systemd-networkd-wait-online override with --any flag.
-#     1.2 - Switched to disabling redundant network managers (systemd-networkd, 
-#           NetworkManager) when ifupdown is present to resolve systemic hangs.
+#     1.2 - Switched to disabling redundant network managers.
+#     1.3 - Re-implemented wait-online fix using override with --any flag. 
+#     1.4 - Added --interface=eth0 to override.
+#     1.5 - Set --operational-state=routable.
+#     1.6 - Switched to dummy /bin/true override.
+#     1.7 - Diverted /lib/systemd/systemd-networkd-wait-online binary to 
+#           /bin/true via dpkg-divert for definitive fix.
 #
 # Purpose:
 #     Baseline configuration tasks for all Debian/Ubuntu servers.
@@ -75,6 +80,20 @@
 - name: Detect active network managers
   ansible.builtin.service_facts:
 
+- name: Check if systemd-networkd-wait-online diversion exists
+  ansible.builtin.shell: dpkg-divert --list /lib/systemd/systemd-networkd-wait-online
+  register: diversion_check
+  changed_when: false
+  when: ifupdown_config.stat.exists
+
+- name: Divert systemd-networkd-wait-online binary to prevent apt hangs
+  ansible.builtin.shell: |
+    dpkg-divert --add --rename --divert /lib/systemd/systemd-networkd-wait-online.real /lib/systemd/systemd-networkd-wait-online
+    ln -sf /bin/true /lib/systemd/systemd-networkd-wait-online
+  when: 
+    - ifupdown_config.stat.exists
+    - diversion_check.stdout == ""
+
 - name: Disable redundant network managers to prevent 'wait-online' hangs
   ansible.builtin.service:
     name: "{{ item }}"
@@ -88,6 +107,7 @@
   when: 
     - ifupdown_config.stat.exists
     - ansible_facts.services[item + '.service'] is defined
+    - ansible_facts.services[item + '.service'].status != 'not-found'
     - ansible_facts.services[item + '.service'].state != 'masked'
 
 - name: Ensure redundant override directory is removed
