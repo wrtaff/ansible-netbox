@@ -1,0 +1,65 @@
+# ==============================================================================
+# Filename:       playbooks/sync_ansible_repo.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-02-27
+# Context:        http://trac.home.arpa/ticket/3126
+#
+# Purpose:
+#    Synchronizes the local ansible-netbox repository from GitHub on all 
+#    managed hosts that have an existing checkout. This allows for a "PRN" 
+#    (as needed) sync of the codebase across the infrastructure.
+#
+#    Workflow:
+#      1. Identifies the repository path (searches common locations).
+#      2. If found, performs a 'git pull' to sync with origin/master.
+#      3. Reports if the codebase was updated.
+#
+# Usage:
+#      ansible-playbook -i inventory.ini playbooks/sync_ansible_repo.yml
+#
+# Revision History:
+#    v1.0 (2026-02-27) - Initial creation for PRN repository synchronization.
+#
+# NOTES:
+#    - We always "bump" versions when making code changes and annotate changes.
+# ==============================================================================
+
+- name: Sync Ansible Control Repo from GitHub
+  hosts: all
+  gather_facts: false
+  become: false
+  vars:
+    # List of common paths where the repository might be checked out
+    possible_repo_paths:
+      - /opt/netbox/ansible-netbox
+      - /home/will/ansible-netbox
+      - /root/ansible-netbox
+
+  tasks:
+    - name: Check for existing repository checkouts
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ possible_repo_paths }}"
+      register: repo_path_stats
+
+    - name: Identify active repository path
+      ansible.builtin.set_fact:
+        active_repo_path: "{{ (repo_path_stats.results | selectattr('stat.exists') | map(attribute='item') | list)[0] | default(None) }}"
+
+    - name: Pull latest changes from GitHub
+      ansible.builtin.git:
+        repo: git@github.com:wrtaff/ansible-netbox.git
+        dest: "{{ active_repo_path }}"
+        update: yes
+        version: master
+        accept_hostkey: yes
+      when: active_repo_path is not none
+      register: git_sync_result
+
+    - name: Report sync status
+      ansible.builtin.debug:
+        msg: "Codebase updated on {{ inventory_hostname }} at {{ active_repo_path }}"
+      when: 
+        - active_repo_path is not none
+        - git_sync_result.changed
