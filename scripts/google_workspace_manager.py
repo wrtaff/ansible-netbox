@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.14
+Version:        1.15
 Author:         Gemini CLI
-Last Modified:  2026-03-03
+Last Modified:  2026-03-04
 Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
@@ -19,23 +19,29 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
-    v1.0 (2026-02-16): Initial version with basic Gmail/Drive/Cal/Tasks.
-    v1.1 (2026-02-16): Added attachment retrieval and file upload support.
-    v1.2 (2026-02-17): Added gmail-send functionality.
-    v1.3 (2026-02-17): Added calendar-delete functionality.
-    v1.4 (2026-02-17): Added gmail-get-by-header functionality.
-    v1.5 (2026-02-18): Added gmail-create-draft functionality.
-    v1.6 (2026-02-19): Added cal-get, attendees to cal-create, and fixed newline handling in Gmail.
-    v1.7 (2026-02-20): Added console authentication support for headless environments.
-    v1.8 (2026-02-21): Added drive-export functionality for exporting Google Docs to text.
-    v1.9 (2026-02-25): Added attachment support to gmail-send and gmail-create-draft.
-    v1.10 (2026-02-25): Added drive-download support for binary files.
-    v1.11 (2026-02-26): Replaced deprecated run_console with manual code entry flow and consolidated remote features.
-    v1.12 (2026-02-27): Added People API support for creating contacts.
-    v1.13 (2026-03-02): Added drive-update support for updating file metadata (e.g. filename).
+    v1.15 (2026-03-04): Integrated GitHub v1.14 changes; bumped version.
     v1.14 (2026-03-03): Added support for all-day calendar events and updating Google Tasks.
+    v1.13 (2026-03-02): Added drive-update support for updating file metadata (e.g. filename).
+    v1.12 (2026-02-27): Added People API support for creating contacts.
+    v1.11 (2026-02-26): Replaced deprecated run_console with manual code entry flow and consolidated remote features.
+    v1.10 (2026-02-25): Added drive-download support for binary files.
+    v1.9 (2026-02-25): Added attachment support to gmail-send and gmail-create-draft.
+    v1.8 (2026-02-21): Added drive-export functionality for exporting Google Docs to text.
+    v1.7 (2026-02-20): Added console authentication support for headless environments.
+    v1.6 (2026-02-19): Added cal-get, attendees to cal-create, and fixed newline handling in Gmail.
+    v1.5 (2026-02-18): Added gmail-create-draft functionality.
+    v1.4 (2026-02-17): Added gmail-get-by-header functionality.
+    v1.3 (2026-02-17): Added calendar-delete functionality.
+    v1.2 (2026-02-17): Added gmail-send functionality.
+    v1.1 (2026-02-16): Added attachment retrieval and file upload support.
+    v1.0 (2026-02-16): Initial version with basic Gmail/Drive/Cal/Tasks.
+
+Notes:
+    Always bump the version number when modifying this file and annotate 
+    the changes in the Revision History section.
 ================================================================================
 """
+
 import datetime
 import os.path
 import sys
@@ -98,10 +104,8 @@ def get_creds(port=8080, use_console=False):
             creds = flow.credentials
         else:
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            # Note: run_local_server might not work in non-interactive environment
-            # But for first run, user will provide input.
             creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', open_browser=True)
-            
+        
         with open(TOKEN_FILE, 'wb') as token:
             pickle.dump(creds, token)
     return creds
@@ -110,7 +114,6 @@ def output(data, format='text'):
     if format == 'json':
         print(json.dumps(data, indent=2))
     else:
-        # Standardize textual output if needed
         if isinstance(data, dict):
             print(json.dumps(data, indent=2))
         elif isinstance(data, list):
@@ -147,7 +150,6 @@ def gmail_send_message(to, subject, body, attachment_path=None, output_format='t
         from email.message import EmailMessage
         import mimetypes
         message = EmailMessage()
-        # Handle literal \n as newlines
         body = body.replace('\\n', '\n')
         message.set_content(body)
         message['To'] = to
@@ -161,9 +163,8 @@ def gmail_send_message(to, subject, body, attachment_path=None, output_format='t
             
             with open(attachment_path, 'rb') as fp:
                 attachment_data = fp.read()
-            message.add_attachment(attachment_data, maintype=main_type, subtype=sub_type, filename=os.path.basename(attachment_path))
+                message.add_attachment(attachment_data, maintype=main_type, subtype=sub_type, filename=os.path.basename(attachment_path))
 
-        # encoded message
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         create_message = {
             'raw': encoded_message
@@ -180,7 +181,6 @@ def gmail_create_draft(to, subject, body, attachment_path=None, output_format='t
         from email.message import EmailMessage
         import mimetypes
         message = EmailMessage()
-        # Handle literal \n as newlines
         body = body.replace('\\n', '\n')
         message.set_content(body)
         message['To'] = to
@@ -194,9 +194,8 @@ def gmail_create_draft(to, subject, body, attachment_path=None, output_format='t
             
             with open(attachment_path, 'rb') as fp:
                 attachment_data = fp.read()
-            message.add_attachment(attachment_data, maintype=main_type, subtype=sub_type, filename=os.path.basename(attachment_path))
+                message.add_attachment(attachment_data, maintype=main_type, subtype=sub_type, filename=os.path.basename(attachment_path))
         
-        # encoded message
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         create_draft = {
             'message': {
@@ -212,7 +211,6 @@ def gmail_get_by_header(header_string, output_format='text'):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
-        # Extract Message-ID, handling potential artifacts like spaces before @
         match = re.search(r'Message-ID:\s*<([^>]+)>', header_string, re.IGNORECASE)
         if not match:
             output({'error': 'Message-ID not found in header string'}, output_format)
@@ -225,17 +223,16 @@ def gmail_get_by_header(header_string, output_format='text'):
         messages = results.get('messages', [])
         
         if not messages:
-            # Try stripping spaces if it failed
             clean_msg_id = msg_id_header.replace(' ', '')
             if clean_msg_id != msg_id_header:
                 query = f'rfc822msgid:{clean_msg_id}'
                 results = service.users().messages().list(userId='me', q=query).execute()
                 messages = results.get('messages', [])
 
-        if not messages:
-            output({'error': f'No message found for Message-ID: {msg_id_header}'}, output_format)
-            return
-            
+            if not messages:
+                output({'error': f'No message found for Message-ID: {msg_id_header}'}, output_format)
+                return
+        
         gmail_id = messages[0]['id']
         gmail_get_message(gmail_id, output_format)
     except Exception as error:
@@ -246,12 +243,10 @@ def gmail_get_message(message_id, output_format='text'):
     service = build('gmail', 'v1', credentials=creds)
     try:
         message = service.users().messages().get(userId='me', id=message_id).execute()
-        # Basic parsing of message
         headers = message['payload'].get('headers', [])
         subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No Subject')
         from_email = next((h['value'] for h in headers if h['name'].lower() == 'from'), 'Unknown')
         
-        # Extract body
         body = ""
         if 'parts' in message['payload']:
             for part in message['payload']['parts']:
@@ -334,7 +329,6 @@ def drive_upload_file(file_path, mimetype=None, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-
 def drive_update_file(file_id, name=None, description=None, output_format='text'):
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
@@ -382,7 +376,6 @@ def drive_export_file(file_id, mime_type='text/plain', output_file=None):
                 f.write(file_data)
             print(f"Exported to {output_file}")
         else:
-            # Try to decode as text for stdout
             try:
                 print(file_data.decode('utf-8'))
             except:
@@ -410,8 +403,6 @@ def calendar_create_event(summary, start_time_str, duration_mins=60, description
     service = build('calendar', 'v3', credentials=creds)
     try:
         if all_day:
-            # For all-day events, start_time_str should be YYYY-MM-DD
-            # end_date should be the day after
             start_date = datetime.date.fromisoformat(start_time_str)
             end_date = start_date + datetime.timedelta(days=1)
             event = {
@@ -458,11 +449,35 @@ def calendar_delete_event(event_id, output_format='text'):
 
 # --- TASKS FUNCTIONS ---
 
+def tasks_list_tasks(max_results=10, output_format='text'):
+    creds = get_creds()
+    service = build('tasks', 'v1', credentials=creds)
+    try:
+        results = service.tasks().list(tasklist='@default', maxResults=max_results).execute()
+        tasks = results.get('items', [])
+        output(tasks, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def tasks_create_task(title, notes=None, due_date_str=None, output_format='text'):
+    creds = get_creds()
+    service = build('tasks', 'v1', credentials=creds)
+    try:
+        task = {
+            'title': title,
+            'notes': notes
+        }
+        if due_date_str:
+            task['due'] = due_date_str
+        result = service.tasks().insert(tasklist='@default', body=task).execute()
+        output(result, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
 def tasks_update_task(task_id, title=None, notes=None, due_date_str=None, output_format='text'):
     creds = get_creds()
     service = build('tasks', 'v1', credentials=creds)
     try:
-        # First get the task
         task = service.tasks().get(tasklist='@default', task=task_id).execute()
         if title:
             task['title'] = title
@@ -470,7 +485,7 @@ def tasks_update_task(task_id, title=None, notes=None, due_date_str=None, output
             task['notes'] = notes
         if due_date_str:
             task['due'] = due_date_str
-            
+        
         result = service.tasks().update(tasklist='@default', task=task_id, body=task).execute()
         output(result, output_format)
     except HttpError as error:
@@ -497,7 +512,7 @@ def contacts_create_contact(given_name, family_name, job_title=None, company=Non
             contact_body["emailAddresses"] = [{"value": email, "type": "work"}]
         if notes:
             contact_body["biographies"] = [{"value": notes}]
-            
+        
         result = service.people().createContact(body=contact_body).execute()
         output(result, output_format)
     except HttpError as error:
@@ -510,12 +525,10 @@ if __name__ == '__main__':
     parser.add_argument('--format', choices=['text', 'json'], default='text', help='Output format')
     subparsers = parser.add_subparsers(dest='command', required=True)
 
-    # Auth
     parser_auth = subparsers.add_parser('auth', help='Refresh or establish authentication')
     parser_auth.add_argument('--port', type=int, default=8080, help='Port for local server auth (default: 8080)')
     parser_auth.add_argument('--console', action='store_true', help='Use console-based auth flow (for headless servers)')
 
-    # People Create
     parser_people_create = subparsers.add_parser('people-create', help='Create a Google Contact')
     parser_people_create.add_argument('given_name', help='Given name')
     parser_people_create.add_argument('family_name', help='Family name')
@@ -525,69 +538,56 @@ if __name__ == '__main__':
     parser_people_create.add_argument('--email', help='Email address')
     parser_people_create.add_argument('--notes', help='Notes or biography')
 
-    # Gmail List
     parser_gmail_list = subparsers.add_parser('gmail-list', help='List Gmail messages')
     parser_gmail_list.add_argument('--query', default='', help='Gmail search query')
     parser_gmail_list.add_argument('--max', type=int, default=10, help='Max results')
 
-    # Gmail Send
     parser_gmail_send = subparsers.add_parser('gmail-send', help='Send a Gmail message')
     parser_gmail_send.add_argument('to', help='Recipient email address')
     parser_gmail_send.add_argument('subject', help='Email subject')
     parser_gmail_send.add_argument('body', help='Email body')
     parser_gmail_send.add_argument('--attachment', help='Path to file to attach')
 
-    # Gmail Create Draft
     parser_gmail_draft = subparsers.add_parser('gmail-create-draft', help='Create a Gmail draft')
     parser_gmail_draft.add_argument('to', help='Recipient email address')
     parser_gmail_draft.add_argument('subject', help='Email subject')
     parser_gmail_draft.add_argument('body', help='Email body')
     parser_gmail_draft.add_argument('--attachment', help='Path to file to attach')
 
-    # Gmail Get
     parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
     parser_gmail_get.add_argument('id', help='Message ID')
 
-    # Gmail Get by Header
     parser_gmail_header = subparsers.add_parser('gmail-get-by-header', help='Get message details by header string')
     parser_gmail_header.add_argument('header', help='Full email header string')
 
-    # Drive Search
     parser_drive_search = subparsers.add_parser('drive-search', help='Search Google Drive')
     parser_drive_search.add_argument('--query', help='Drive query (e.g. "name contains \'resume\'")')
     parser_drive_search.add_argument('--max', type=int, default=10, help='Max results')
 
-    # Drive Get
     parser_drive_get = subparsers.add_parser('drive-get', help='Get file metadata')
     parser_drive_get.add_argument('id', help='File ID')
 
-    # Drive Update
     parser_drive_update = subparsers.add_parser('drive-update', help='Update file metadata')
     parser_drive_update.add_argument('id', help='File ID')
     parser_drive_update.add_argument('--name', help='New filename')
     parser_drive_update.add_argument('--desc', help='New description')
 
-    # Drive Download
     parser_drive_download = subparsers.add_parser('drive-download', help='Download a file from Drive')
     parser_drive_download.add_argument('id', help='File ID')
     parser_drive_download.add_argument('out', help='Output file path')
 
-    # Drive Upload
     parser_drive_upload = subparsers.add_parser('drive-upload', help='Upload a file to Drive')
     parser_drive_upload.add_argument('file_path', help='Path to local file')
     parser_drive_upload.add_argument('--mime', help='MIME type')
 
-    # Drive Export
     parser_drive_export = subparsers.add_parser('drive-export', help='Export a Google Doc')
     parser_drive_export.add_argument('id', help='File ID')
     parser_drive_export.add_argument('--mime', default='text/plain', help='MIME type to export to (default: text/plain)')
     parser_drive_export.add_argument('--out', help='Output file path')
 
-    # Calendar List
     parser_cal_list = subparsers.add_parser('cal-list', help='List calendar events')
     parser_cal_list.add_argument('--max', type=int, default=10, help='Max results')
 
-    # Calendar Create
     parser_cal_create = subparsers.add_parser('cal-create', help='Create calendar event')
     parser_cal_create.add_argument('summary', help='Event summary')
     parser_cal_create.add_argument('start', help='Start time (ISO format)')
@@ -596,25 +596,20 @@ if __name__ == '__main__':
     parser_cal_create.add_argument('--attendees', help='Comma-separated attendee emails')
     parser_cal_create.add_argument('--all-day', action='store_true', help='Create an all-day event')
 
-    # Calendar Delete
     parser_cal_delete = subparsers.add_parser('cal-delete', help='Delete calendar event')
     parser_cal_delete.add_argument('id', help='Event ID')
 
-    # Calendar Get
     parser_cal_get = subparsers.add_parser('cal-get', help='Get calendar event details')
     parser_cal_get.add_argument('id', help='Event ID')
 
-    # Tasks List
     parser_tasks_list = subparsers.add_parser('tasks-list', help='List tasks')
     parser_tasks_list.add_argument('--max', type=int, default=10, help='Max results')
 
-    # Tasks Create
     parser_tasks_create = subparsers.add_parser('tasks-create', help='Create task')
     parser_tasks_create.add_argument('title', help='Task title')
     parser_tasks_create.add_argument('--notes', help='Notes')
     parser_tasks_create.add_argument('--due', help='Due date (ISO format)')
 
-    # Tasks Update
     parser_tasks_update = subparsers.add_parser('tasks-update', help='Update task')
     parser_tasks_update.add_argument('id', help='Task ID')
     parser_tasks_update.add_argument('--title', help='New title')

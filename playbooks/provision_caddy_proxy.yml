@@ -7,7 +7,7 @@
   vars:
     vmid: 110
     hostname: caddy01
-    ip_address: 192.168.0.128
+    ip_address: 192.168.0.20
     gateway: 192.168.0.1
     template: local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst
     storage: local-lvm
