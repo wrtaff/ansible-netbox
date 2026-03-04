@@ -2,15 +2,18 @@
 """
 ================================================================================
 Filename:       create_vikunja_task.py
-Version:        1.3
+Version:        1.4
 Author:         Gemini CLI
-Last Modified:  2026-01-30
+Last Modified:  2026-03-03
 
 Purpose:
     Creates a new task in a Vikunja instance. This script is designed to be 
     portable and can be used locally or on remote hosts with Gemini CLI. It 
     supports setting the task title, description, project ID, "favorite" 
     status, and labels.
+
+    Update 1.4:
+    - Added support for setting task due dates via --due argument.
 
     Update 1.3:
     - Fixed label attachment logic: Labels are now added via a separate API call
@@ -44,8 +47,10 @@ Arguments:
     --no-favorite    If set, the task will not be marked as a favorite/starred.
     --host           The Vikunja instance URL (Default: http://todo.home.arpa).
     --token          The Vikunja API token (Overrides VIKUNJA_API_TOKEN env var).
+    --due            Due date (ISO format, e.g., 2026-03-04T13:00:00)
 
 Version History:
+    v1.4 (2026-03-03) - Added support for task due dates.
     v1.3 (2026-01-30) - Fixed label attachment:
         - Labels are now attached via /api/v1/tasks/{id}/labels endpoint.
     v1.2 (2026-01-30) - Enhanced label support:
@@ -126,7 +131,7 @@ def add_label_to_task(host, token, task_id, label_id):
         print(f"Warning: Could not attach label ID {label_id} to task {task_id}: {e}")
     return False
 
-def create_task(title, description="", project_id=1, is_favorite=True, host="http://todo.home.arpa", token=None, labels=None):
+def create_task(title, description="", project_id=1, is_favorite=True, host="http://todo.home.arpa", token=None, labels=None, due_date=None):
     if not token:
         token = os.getenv("VIKUNJA_API_TOKEN")
     
@@ -165,6 +170,8 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
         "description": description,
         "is_favorite": is_favorite
     }
+    if due_date:
+        payload["due_date"] = due_date
     
     # NOTE: Labels are NOT added here in the create payload anymore.
     
@@ -212,6 +219,7 @@ def main():
     parser.add_argument("--no-favorite", action="store_true", help="Do not mark as favorite (Default: Favorite)")
     parser.add_argument("--host", default="http://todo.home.arpa", help="Vikunja host URL")
     parser.add_argument("--token", help="API Token (overrides VIKUNJA_API_TOKEN env var)")
+    parser.add_argument("--due", help="Due date (ISO format, e.g., 2026-03-04T13:00:00)")
     
     args = parser.parse_args()
     
@@ -227,7 +235,8 @@ def main():
         is_favorite=not args.no_favorite,
         host=args.host.rstrip('/'),
         token=args.token,
-        labels=labels
+        labels=labels,
+        due_date=args.due
     )
 
 if __name__ == "__main__":

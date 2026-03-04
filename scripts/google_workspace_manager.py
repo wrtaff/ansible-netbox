@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.12
+Version:        1.14
 Author:         Gemini CLI
-Last Modified:  2026-02-27
+Last Modified:  2026-03-03
 Context:        http://trac.home.arpa/ticket/3080
 
 Purpose:
@@ -15,6 +15,7 @@ Usage:
     python3 google_workspace_manager.py auth [--console]
     python3 google_workspace_manager.py gmail-list [--query "query"]
     python3 google_workspace_manager.py drive-search [--query "name contains '...']
+    python3 google_workspace_manager.py drive-update "file_id" --name "new_name"
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
@@ -31,6 +32,8 @@ Revision History:
     v1.10 (2026-02-25): Added drive-download support for binary files.
     v1.11 (2026-02-26): Replaced deprecated run_console with manual code entry flow and consolidated remote features.
     v1.12 (2026-02-27): Added People API support for creating contacts.
+    v1.13 (2026-03-02): Added drive-update support for updating file metadata (e.g. filename).
+    v1.14 (2026-03-03): Added support for all-day calendar events and updating Google Tasks.
 ================================================================================
 """
 import datetime
@@ -332,6 +335,21 @@ def drive_upload_file(file_path, mimetype=None, output_format='text'):
         output({'error': str(error)}, output_format)
 
 
+def drive_update_file(file_id, name=None, description=None, output_format='text'):
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        file_metadata = {}
+        if name:
+            file_metadata['name'] = name
+        if description:
+            file_metadata['description'] = description
+        
+        file = service.files().update(fileId=file_id, body=file_metadata, fields='id, name').execute()
+        output(file, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
 def drive_search(query=None, max_results=10, output_format='text'):
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
@@ -387,18 +405,31 @@ def calendar_list_events(max_results=10, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def calendar_create_event(summary, start_time_str, duration_mins=60, description=None, attendees=None, output_format='text'):
+def calendar_create_event(summary, start_time_str, duration_mins=60, description=None, attendees=None, all_day=False, output_format='text'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
     try:
-        start_time = datetime.datetime.fromisoformat(start_time_str)
-        end_time = start_time + datetime.timedelta(minutes=duration_mins)
-        event = {
-            'summary': summary,
-            'description': description,
-            'start': {'dateTime': start_time.isoformat()},
-            'end': {'dateTime': end_time.isoformat()},
-        }
+        if all_day:
+            # For all-day events, start_time_str should be YYYY-MM-DD
+            # end_date should be the day after
+            start_date = datetime.date.fromisoformat(start_time_str)
+            end_date = start_date + datetime.timedelta(days=1)
+            event = {
+                'summary': summary,
+                'description': description,
+                'start': {'date': start_date.isoformat()},
+                'end': {'date': end_date.isoformat()},
+            }
+        else:
+            start_time = datetime.datetime.fromisoformat(start_time_str)
+            end_time = start_time + datetime.timedelta(minutes=duration_mins)
+            event = {
+                'summary': summary,
+                'description': description,
+                'start': {'dateTime': start_time.isoformat()},
+                'end': {'dateTime': end_time.isoformat()},
+            }
+        
         if attendees:
             event['attendees'] = [{'email': email.strip()} for email in attendees.split(',')]
         
@@ -427,24 +458,20 @@ def calendar_delete_event(event_id, output_format='text'):
 
 # --- TASKS FUNCTIONS ---
 
-def tasks_list_tasks(max_results=10, output_format='text'):
+def tasks_update_task(task_id, title=None, notes=None, due_date_str=None, output_format='text'):
     creds = get_creds()
     service = build('tasks', 'v1', credentials=creds)
     try:
-        results = service.tasks().list(tasklist='@default', maxResults=max_results).execute()
-        tasks = results.get('items', [])
-        output(tasks, output_format)
-    except HttpError as error:
-        output({'error': str(error)}, output_format)
-
-def tasks_create_task(title, notes=None, due_date_str=None, output_format='text'):
-    creds = get_creds()
-    service = build('tasks', 'v1', credentials=creds)
-    try:
-        task = {'title': title, 'notes': notes}
+        # First get the task
+        task = service.tasks().get(tasklist='@default', task=task_id).execute()
+        if title:
+            task['title'] = title
+        if notes:
+            task['notes'] = notes
         if due_date_str:
             task['due'] = due_date_str
-        result = service.tasks().insert(tasklist='@default', body=task).execute()
+            
+        result = service.tasks().update(tasklist='@default', task=task_id, body=task).execute()
         output(result, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
@@ -534,6 +561,12 @@ if __name__ == '__main__':
     parser_drive_get = subparsers.add_parser('drive-get', help='Get file metadata')
     parser_drive_get.add_argument('id', help='File ID')
 
+    # Drive Update
+    parser_drive_update = subparsers.add_parser('drive-update', help='Update file metadata')
+    parser_drive_update.add_argument('id', help='File ID')
+    parser_drive_update.add_argument('--name', help='New filename')
+    parser_drive_update.add_argument('--desc', help='New description')
+
     # Drive Download
     parser_drive_download = subparsers.add_parser('drive-download', help='Download a file from Drive')
     parser_drive_download.add_argument('id', help='File ID')
@@ -561,6 +594,7 @@ if __name__ == '__main__':
     parser_cal_create.add_argument('--duration', type=int, default=60, help='Duration in minutes')
     parser_cal_create.add_argument('--desc', help='Description')
     parser_cal_create.add_argument('--attendees', help='Comma-separated attendee emails')
+    parser_cal_create.add_argument('--all-day', action='store_true', help='Create an all-day event')
 
     # Calendar Delete
     parser_cal_delete = subparsers.add_parser('cal-delete', help='Delete calendar event')
@@ -579,6 +613,13 @@ if __name__ == '__main__':
     parser_tasks_create.add_argument('title', help='Task title')
     parser_tasks_create.add_argument('--notes', help='Notes')
     parser_tasks_create.add_argument('--due', help='Due date (ISO format)')
+
+    # Tasks Update
+    parser_tasks_update = subparsers.add_parser('tasks-update', help='Update task')
+    parser_tasks_update.add_argument('id', help='Task ID')
+    parser_tasks_update.add_argument('--title', help='New title')
+    parser_tasks_update.add_argument('--notes', help='New notes')
+    parser_tasks_update.add_argument('--due', help='New due date (ISO format)')
 
     args = parser.parse_args()
 
@@ -601,6 +642,8 @@ if __name__ == '__main__':
         drive_search(args.query, args.max, args.format)
     elif args.command == 'drive-get':
         drive_get_file_metadata(args.id, args.format)
+    elif args.command == 'drive-update':
+        drive_update_file(args.id, args.name, args.desc, args.format)
     elif args.command == 'drive-download':
         drive_download_file(args.id, args.out, args.format)
     elif args.command == 'drive-export':
@@ -610,7 +653,7 @@ if __name__ == '__main__':
     elif args.command == 'cal-list':
         calendar_list_events(args.max, args.format)
     elif args.command == 'cal-create':
-        calendar_create_event(args.summary, args.start, args.duration, args.desc, args.attendees, args.format)
+        calendar_create_event(args.summary, args.start, args.duration, args.desc, args.attendees, args.all_day, args.format)
     elif args.command == 'cal-get':
         calendar_get_event(args.id, args.format)
     elif args.command == 'cal-delete':
@@ -619,3 +662,5 @@ if __name__ == '__main__':
         tasks_list_tasks(args.max, args.format)
     elif args.command == 'tasks-create':
         tasks_create_task(args.title, args.notes, args.due, args.format)
+    elif args.command == 'tasks-update':
+        tasks_update_task(args.id, args.title, args.notes, args.due, args.format)
