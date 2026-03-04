@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        1.1
+Version:        1.2
 Author:         Gemini CLI
 Last Modified:  2026-03-04
 Context:        http://trac.home.arpa/ticket/3119
@@ -10,9 +10,11 @@ Context:        http://trac.home.arpa/ticket/3119
 Purpose:
     Model Context Protocol (MCP) server for Google Workspace integration.
     Wraps scripts/google_workspace_manager.py to provide tools for Gmail,
-    Google Drive, Calendar, and Tasks within AI agent sessions.
+    Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v1.2 (2026-03-04): Added People API (Contacts), Drive Update, Drive Export, 
+                       and Task Update tools. Support for all-day calendar events.
     v1.1 (2026-03-04): Updated header to WWOS standards; prepared for GitHub push.
     v1.0 (2026-02-26): Initial prototype wrapping google_workspace_manager.py.
 
@@ -47,7 +49,7 @@ logger = logging.getLogger("google-workspace-mcp")
 # Initialize FastMCP server
 mcp = FastMCP("google-workspace-server")
 
-logger.info("Initializing Google Workspace MCP Server v1.0")
+logger.info("Initializing Google Workspace MCP Server v1.2")
 
 # --- GMAIL TOOLS ---
 
@@ -55,7 +57,6 @@ logger.info("Initializing Google Workspace MCP Server v1.0")
 def list_messages(query: str = "", max_results: int = 10) -> str:
     """List Gmail messages matching an optional query."""
     logger.info(f"Gmail: List messages with query='{query}'")
-    # Redirect output to capture it
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
@@ -109,6 +110,28 @@ def search_drive(query: Optional[str] = None, max_results: int = 10) -> str:
         gwm.drive_search(query=query, max_results=max_results, output_format='json')
     return f.getvalue()
 
+@mcp.tool(name="drive_get_metadata")
+def drive_get_metadata(file_id: str) -> str:
+    """Get detailed metadata for a specific file (ID, name, mimeType, description, link)."""
+    logger.info(f"Drive: Getting metadata for {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    with redirect_stdout(f):
+        gwm.drive_get_file_metadata(file_id=file_id, output_format='json')
+    return f.getvalue()
+
+@mcp.tool(name="drive_update")
+def drive_update(file_id: str, name: Optional[str] = None, description: Optional[str] = None) -> str:
+    """Update a file's name or description."""
+    logger.info(f"Drive: Updating file {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    with redirect_stdout(f):
+        gwm.drive_update_file(file_id=file_id, name=name, description=description, output_format='json')
+    return f.getvalue()
+
 @mcp.tool(name="drive_download")
 def download_drive_file(file_id: str, output_path: str) -> str:
     """Download a file from Google Drive to a local path."""
@@ -131,6 +154,17 @@ def upload_drive_file(file_path: str, mime_type: Optional[str] = None) -> str:
         gwm.drive_upload_file(file_path=file_path, mimetype=mime_type, output_format='json')
     return f.getvalue()
 
+@mcp.tool(name="drive_export")
+def drive_export(file_id: str, mime_type: str = "text/plain", output_file: Optional[str] = None) -> str:
+    """Export a Google Doc to a specific format (e.g. text/plain, application/pdf)."""
+    logger.info(f"Drive: Exporting {file_id} as {mime_type}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    with redirect_stdout(f):
+        gwm.drive_export_file(file_id=file_id, mime_type=mime_type, output_file=output_file)
+    return f.getvalue() or "Export initiated."
+
 # --- CALENDAR TOOLS ---
 
 @mcp.tool(name="calendar_list_events")
@@ -144,15 +178,26 @@ def list_calendar_events(max_results: int = 10) -> str:
         gwm.calendar_list_events(max_results=max_results, output_format='json')
     return f.getvalue()
 
+@mcp.tool(name="calendar_get_event")
+def calendar_get_event(event_id: str) -> str:
+    """Get details for a specific calendar event."""
+    logger.info(f"Calendar: Getting event {event_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    with redirect_stdout(f):
+        gwm.calendar_get_event(event_id=event_id, output_format='json')
+    return f.getvalue()
+
 @mcp.tool(name="calendar_create_event")
-def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60, description: Optional[str] = None, attendees: Optional[str] = None) -> str:
-    """Create a calendar event (start_time in ISO format)."""
+def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60, description: Optional[str] = None, attendees: Optional[str] = None, all_day: bool = False) -> str:
+    """Create a calendar event. For normal events, start_time is ISO. For all-day, use YYYY-MM-DD."""
     logger.info(f"Calendar: Creating event '{summary}' at {start_time}")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     with redirect_stdout(f):
-        gwm.calendar_create_event(summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, attendees=attendees, output_format='json')
+        gwm.calendar_create_event(summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, attendees=attendees, all_day=all_day, output_format='json')
     return f.getvalue()
 
 # --- TASKS TOOLS ---
@@ -177,6 +222,30 @@ def create_task(title: str, notes: Optional[str] = None, due_date: Optional[str]
     f = io.StringIO()
     with redirect_stdout(f):
         gwm.tasks_create_task(title=title, notes=notes, due_date_str=due_date, output_format='json')
+    return f.getvalue()
+
+@mcp.tool(name="tasks_update")
+def tasks_update(task_id: str, title: Optional[str] = None, notes: Optional[str] = None, due_date: Optional[str] = None) -> str:
+    """Update an existing task's title, notes, or due date."""
+    logger.info(f"Tasks: Updating task {task_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    with redirect_stdout(f):
+        gwm.tasks_update_task(task_id=task_id, title=title, notes=notes, due_date_str=due_date, output_format='json')
+    return f.getvalue()
+
+# --- CONTACTS (PEOPLE) TOOLS ---
+
+@mcp.tool(name="people_create_contact")
+def create_contact(given_name: str, family_name: str, job_title: Optional[str] = None, company: Optional[str] = None, phone: Optional[str] = None, email: Optional[str] = None, notes: Optional[str] = None) -> str:
+    """Create a new contact in Google Contacts (People API)."""
+    logger.info(f"People: Creating contact {given_name} {family_name}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    with redirect_stdout(f):
+        gwm.contacts_create_contact(given_name=given_name, family_name=family_name, job_title=job_title, company=company, phone=phone, email=email, notes=notes, output_format='json')
     return f.getvalue()
 
 if __name__ == "__main__":
