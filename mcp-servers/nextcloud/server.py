@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/nextcloud/server.py
-Version:        1.1
+Version:        1.3
 Author:         Gemini CLI
-Last Modified:  2026-03-04
+Last Modified:  2026-03-05
 Context:        http://trac.home.arpa/ticket/3154
 
 Purpose:
@@ -13,6 +13,10 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.3 (2026-03-05): Standardized VCard handling: added folding/unfolding,
+                       proper property escaping, and unified NOTE handling.
+    v1.2 (2026-03-05): Improved VCard handling: escaped/unescaped newlines;
+                       combined multiple NOTE fields into a single display.
     v1.1 (2026-03-04): Updated header to WWOS standards; fixed syntax errors
                        in _construct_vcard and search_contacts.
     v1.0 (2026-03-04): Initial implementation with contact management tools.
@@ -148,7 +152,7 @@ class NextcloudContactManager:
                                 'categories': self._extract_field(vcard_text, 'CATEGORIES'),
                                 'address': self._extract_field(vcard_text, 'ADR'),
                                 'urls': self._extract_fields(vcard_text, 'URL'),
-                                'note': self._extract_field(vcard_text, 'NOTE'),
+                                'note': "\n".join(self._extract_fields(vcard_text, 'NOTE')),
                                 'org': self._extract_field(vcard_text, 'ORG'),
                                 'title': self._extract_field(vcard_text, 'TITLE'),
                                 'uid': self._extract_field(vcard_text, 'UID'),
@@ -159,19 +163,51 @@ class NextcloudContactManager:
         return contacts
 
     def _extract_field(self, vcard, field_name):
-        for line in vcard.splitlines():
+        unfolded = self._unfold_vcard(vcard)
+        for line in unfolded.splitlines():
             if line.startswith(field_name + ":") or line.startswith(field_name + ";"):
                 parts = line.split(':', 1)
-                return parts[1] if len(parts) > 1 else ""
+                val = parts[1] if len(parts) > 1 else ""
+                return self._unescape_vcard_value(val)
         return ""
 
     def _extract_fields(self, vcard, field_name):
         values = []
-        for line in vcard.splitlines():
+        unfolded = self._unfold_vcard(vcard)
+        for line in unfolded.splitlines():
             if line.startswith(field_name + ":") or line.startswith(field_name + ";"):
                 parts = line.split(':', 1)
-                if len(parts) > 1: values.append(parts[1])
+                if len(parts) > 1:
+                    values.append(self._unescape_vcard_value(parts[1]))
         return values
+
+    def _unfold_vcard(self, vcard_text):
+        # Unfold: Join lines that start with space or tab
+        lines = vcard_text.splitlines()
+        if not lines: return ""
+        unfolded = []
+        for line in lines:
+            if line.startswith((' ', '\t')) and unfolded:
+                unfolded[-1] += line[1:]
+            else:
+                unfolded.append(line)
+        return "\n".join(unfolded)
+
+    def _fold_vcard_line(self, line):
+        # Fold: Max 75 octets per line (simplified to chars here)
+        if len(line) <= 75: return line
+        folded = [line[:75]]
+        for i in range(75, len(line), 74):
+            folded.append(" " + line[i:i+74])
+        return "\r\n".join(folded)
+
+    def _escape_vcard_value(self, val):
+        if not val: return ""
+        return val.replace('\\', '\\\\').replace(',', '\\,').replace(';', '\\;').replace('\n', '\\n')
+
+    def _unescape_vcard_value(self, val):
+        if not val: return ""
+        return val.replace('\\n', '\n').replace('\\N', '\n').replace('\\,', ',').replace('\\;', ';').replace('\\\\', '\\')
 
     def _construct_vcard(self, vcard_data):
         lines = ["BEGIN:VCARD"]
@@ -180,18 +216,21 @@ class NextcloudContactManager:
             lines.append(f"VERSION:{ver}")
         for key, values in vcard_data.items():
             for val in values:
-                lines.append(f"{key}:{val}")
+                val_esc = self._escape_vcard_value(val)
+                line = f"{key}:{val_esc}"
+                lines.append(self._fold_vcard_line(line))
         lines.append("END:VCARD")
         return "\r\n".join(lines)
 
     def _parse_vcard_lines(self, vcard_text):
         data = defaultdict(list)
-        for line in vcard_text.splitlines():
+        unfolded = self._unfold_vcard(vcard_text)
+        for line in unfolded.splitlines():
             line = line.strip()
             if not line or line in ["BEGIN:VCARD", "END:VCARD"]: continue
             if ":" in line:
                 key, value = line.split(":", 1)
-                data[key].append(value)
+                data[key].append(self._unescape_vcard_value(value))
         return data
 
     def search_contacts(self, query):
@@ -231,23 +270,50 @@ class NextcloudContactManager:
         parsed_base = urlparse(self.base_url)
         vcf_url = f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
         try:
+            # 1. Fetch current VCard and ETag
             response = self.session.get(vcf_url)
             if response.status_code != 200: return False, f"Error fetching: {response.status_code}"
+            etag = response.headers.get('ETag')
             vcard_data = self._parse_vcard_lines(response.text)
+            
+            # 2. Update fields
             if fn: vcard_data['FN'] = [fn]
             if email: self._append_if_missing(vcard_data, 'EMAIL;TYPE=INTERNET', email)
             if tel: self._append_if_missing(vcard_data, 'TEL;TYPE=HOME', tel)
             if categories: self._append_if_missing(vcard_data, 'CATEGORIES', categories)
             if url: self._append_if_missing(vcard_data, 'URL', url)
-            if note: self._append_if_missing(vcard_data, 'NOTE', note)
+            
+            if note:
+                existing_notes = vcard_data.get('NOTE', [])
+                # If note is not already a substring of the combined notes, add it
+                combined = "\n".join(existing_notes)
+                if note not in combined:
+                    if existing_notes:
+                        # Standardize on a single merged NOTE field
+                        vcard_data['NOTE'] = [combined + "\n" + note]
+                    else:
+                        vcard_data['NOTE'] = [note]
+                else:
+                    # If it's already there, we might still want to consolidate if there are multiple fields
+                    vcard_data['NOTE'] = [combined]
+
             if org: vcard_data['ORG'] = [org]
             if title: vcard_data['TITLE'] = [title]
             if address:
                 exists = any(address in adr for adr in vcard_data.get('ADR;TYPE=HOME', []) + vcard_data.get('ADR', []))
                 if not exists: vcard_data['ADR;TYPE=HOME'].append(f";;{address};;;;")
+            
+            # 3. Construct and PUT back
             vcard_str = self._construct_vcard(vcard_data)
-            response = self.session.put(vcf_url, data=vcard_str.encode('utf-8'))
-            return response.status_code in [200, 201, 204], ""
+            headers = {'Content-Type': 'text/vcard; charset=utf-8'}
+            if etag: headers['If-Match'] = etag
+            
+            response = self.session.put(vcf_url, data=vcard_str.encode('utf-8'), headers=headers)
+            if response.status_code in [200, 201, 204]:
+                return True, ""
+            else:
+                logger.error(f"PUT failed: {response.status_code} - {response.text}")
+                return False, f"PUT failed: {response.status_code} {response.reason}"
         except Exception as e:
             logger.error(f"Update failed: {e}")
             return False, str(e)

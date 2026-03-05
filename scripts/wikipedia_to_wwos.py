@@ -66,6 +66,7 @@ def get_wikipedia_content(url):
     revision = pages[page_id]["revisions"][0]
     content = revision["*"]
     real_title = pages[page_id]["title"]
+    canonical_url = f"https://en.wikipedia.org/wiki/{urllib.parse.quote(real_title.replace(' ', '_'))}"
     
     categories = []
     if "categories" in pages[page_id]:
@@ -87,12 +88,12 @@ def get_wikipedia_content(url):
                 
             categories.append(cat_title)
             
-    return real_title, content, categories
+    return real_title, content, categories, canonical_url
 
 def format_content(content, url):
     """
     Formats the Wikitext content for WWOS:
-    1. Removes existing categories.
+    1. Extracts ONLY the first paragraph.
     2. Inserts citation after the first paragraph.
     """
     # 1. Remove existing categories (lines starting with [[Category:)
@@ -147,11 +148,11 @@ def format_content(content, url):
         i += 1
         
     if insertion_point != -1:
-        # Insert citation before the double newline
-        content = content[:insertion_point] + citation + content[insertion_point:]
+        # Keep ONLY up to the end of the first paragraph
+        content = content[:insertion_point].strip() + citation
     else:
-        # If no double newline found, append to end
-        content = content.rstrip() + citation + "\n\n"
+        # If no double newline found, keep everything and append citation
+        content = content.strip() + citation
 
     return content
 
@@ -170,7 +171,7 @@ def main():
     
     print(f"Fetching from {args.url}...")
     try:
-        title, raw_content, wik_categories = get_wikipedia_content(args.url)
+        title, raw_content, wik_categories, canonical_url = get_wikipedia_content(args.url)
     except Exception as e:
         print(f"Error fetching Wikipedia content: {e}", file=sys.stderr)
         sys.exit(1)
@@ -180,64 +181,11 @@ def main():
     print(f"Checking if '{final_title}' already exists on WWOS...")
     
     if page_exists(final_title):
-        print(f"Page '{final_title}' already exists.")
-        existing_content = get_page_content(final_title)
-        existing_cats = get_existing_categories(existing_content)
-        
-        user_cats = {cat.strip() for cat in args.category.split(",") if cat.strip()}
-        
-        # Merge user categories with Wikipedia categories
-        potential_cats = user_cats.union(set(wik_categories))
-        
-        # Determine which categories are new
-        new_cats = potential_cats - existing_cats
-        
-        if not new_cats:
-            print("No new categories to add. Exiting.")
-            sys.exit(0)
-            
-        print(f"Automatically adding new categories: {', '.join(new_cats)}")
-        
-        # Append new categories to existing content
-        updated_content = existing_content.rstrip() + "\n"
-        for cat in new_cats:
-            updated_content += f"[[Category:{cat}]]\n"
-            
-        from create_wwos_page import get_authenticated_session, API_URL
-        
-        session = get_authenticated_session()
-        
-        # Get CSRF token
-        csrf_token_response = session.get(API_URL, params={
-            "action": "query",
-            "meta": "tokens",
-            "format": "json"
-        })
-        csrf_token_response.raise_for_status()
-        csrf_token = csrf_token_response.json()["query"]["tokens"]["csrftoken"]
-        
-        edit_data = {
-            "action": "edit",
-            "title": final_title,
-            "text": updated_content,
-            "token": csrf_token,
-            "format": "json",
-            "summary": f"Adding categories from Wikipedia: {', '.join(new_cats)}",
-        }
-        
-        edit_response = session.post(API_URL, data=edit_data)
-        edit_response.raise_for_status()
-        result = edit_response.json()
-        
-        if "edit" in result and result["edit"].get("result") == "Success":
-            print(f"Successfully added categories to '{final_title}'")
-            sys.exit(0)
-        else:
-            print(f"Failed to update page: {result}", file=sys.stderr)
-            sys.exit(1)
+        print(f"Alert: Page '{final_title}' already exists on WWOS. Skipping creation.")
+        sys.exit(0)
 
     print(f"Processing '{final_title}'...")
-    formatted_content = format_content(raw_content, args.url)
+    formatted_content = format_content(raw_content, canonical_url)
     
     # Merge user categories with Wikipedia categories for NEW pages too
     user_cats = {cat.strip() for cat in args.category.split(",") if cat.strip()}

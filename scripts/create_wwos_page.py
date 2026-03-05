@@ -97,11 +97,23 @@ import argparse
 import requests
 import os
 import sys
+import re
 
 # MediaWiki API endpoint and credentials
 API_URL = "http://192.168.0.99/mediawiki/api.php"
 USERNAME = "will"
 PASSWORD = os.getenv("WWOS_PASSWORD")
+
+if not PASSWORD:
+    # Try to find it in .bashrc
+    bashrc_path = os.path.expanduser("~/.bashrc")
+    if os.path.exists(bashrc_path):
+        with open(bashrc_path, 'r') as f:
+            for line in f:
+                match = re.search(r'export WWOS_PASSWORD=[\'"]?([^\'"]+)[\'"]?', line)
+                if match:
+                    PASSWORD = match.group(1)
+                    break
 
 
 def get_authenticated_session():
@@ -216,9 +228,9 @@ def create_wwos_page(page_name, categories, summary="Page created by script", co
         if content_body:
             content += content_body + "\n\n"
         
-        # Only add {{bop}} if it's not a Category page
+        # Only add {{baseOfPage}} if it's not a Category page
         if not page_name.startswith("Category:"):
-            content += "{{bop}}\n\n"
+            content += "{{baseOfPage}}\n\n"
         
         # Parse and add multiple categories
         category_list = [cat.strip() for cat in categories.split(",") if cat.strip()]
