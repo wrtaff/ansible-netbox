@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/nextcloud/server.py
-Version:        1.3
+Version:        1.5
 Author:         Gemini CLI
-Last Modified:  2026-03-05
+Last Modified:  2026-03-06
 Context:        http://trac.home.arpa/ticket/3154
 
 Purpose:
@@ -13,6 +13,11 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.5 (2026-03-06): Removed If-Match header in update_contact to avoid 412 
+                       errors with flaky CardDAV ETag sync.
+    v1.4 (2026-03-06): Changed update_contact to replace values for multi-value 
+                       fields (EMAIL, TEL, ADR, etc.) instead of appending, 
+                       improving typo correction and single-value updates.
     v1.3 (2026-03-05): Standardized VCard handling: added folding/unfolding,
                        proper property escaping, and unified NOTE handling.
     v1.2 (2026-03-05): Improved VCard handling: escaped/unescaped newlines;
@@ -278,10 +283,10 @@ class NextcloudContactManager:
             
             # 2. Update fields
             if fn: vcard_data['FN'] = [fn]
-            if email: self._append_if_missing(vcard_data, 'EMAIL;TYPE=INTERNET', email)
-            if tel: self._append_if_missing(vcard_data, 'TEL;TYPE=HOME', tel)
-            if categories: self._append_if_missing(vcard_data, 'CATEGORIES', categories)
-            if url: self._append_if_missing(vcard_data, 'URL', url)
+            if email: vcard_data['EMAIL;TYPE=INTERNET'] = [email]
+            if tel: vcard_data['TEL;TYPE=HOME'] = [tel]
+            if categories: vcard_data['CATEGORIES'] = [categories]
+            if url: vcard_data['URL'] = [url]
             
             if note:
                 existing_notes = vcard_data.get('NOTE', [])
@@ -299,14 +304,11 @@ class NextcloudContactManager:
 
             if org: vcard_data['ORG'] = [org]
             if title: vcard_data['TITLE'] = [title]
-            if address:
-                exists = any(address in adr for adr in vcard_data.get('ADR;TYPE=HOME', []) + vcard_data.get('ADR', []))
-                if not exists: vcard_data['ADR;TYPE=HOME'].append(f";;{address};;;;")
+            if address: vcard_data['ADR;TYPE=HOME'] = [f";;{address};;;;"]
             
             # 3. Construct and PUT back
             vcard_str = self._construct_vcard(vcard_data)
             headers = {'Content-Type': 'text/vcard; charset=utf-8'}
-            if etag: headers['If-Match'] = etag
             
             response = self.session.put(vcf_url, data=vcard_str.encode('utf-8'), headers=headers)
             if response.status_code in [200, 201, 204]:
@@ -396,7 +398,7 @@ def update_contact(uid: str, fn: Optional[str] = None, email: Optional[str] = No
                    url: Optional[str] = None, note: Optional[str] = None, 
                    org: Optional[str] = None, title: Optional[str] = None, 
                    categories: Optional[str] = None) -> str:
-    """Update an existing contact in Nextcloud by UID. Appends new values for multi-value fields (EMAIL, TEL, URL, ADR, CATEGORIES)."""
+    """Update an existing contact in Nextcloud by UID. Replaces values for multi-value fields (EMAIL, TEL, URL, ADR, CATEGORIES) if provided."""
     logger.info(f"Updating contact: {uid}")
     try:
         manager = get_manager()

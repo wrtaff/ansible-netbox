@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.15
+Version:        1.16
 Author:         Gemini CLI
-Last Modified:  2026-03-04
-Context:        http://trac.home.arpa/ticket/3080
+Last Modified:  2026-03-06
+Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
     Unified manager for Google Workspace services (Calendar, Tasks, Gmail, Drive, Contacts).
@@ -19,6 +19,7 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.16 (2026-03-06): Defaulted calendar events to America/New_York if TZ is missing; bumped version.
     v1.15 (2026-03-04): Integrated GitHub v1.14 changes; bumped version.
     v1.14 (2026-03-03): Added support for all-day calendar events and updating Google Tasks.
     v1.13 (2026-03-02): Added drive-update support for updating file metadata (e.g. filename).
@@ -43,6 +44,7 @@ Notes:
 """
 
 import datetime
+import zoneinfo
 import os.path
 import sys
 import argparse
@@ -413,6 +415,8 @@ def calendar_create_event(summary, start_time_str, duration_mins=60, description
             }
         else:
             start_time = datetime.datetime.fromisoformat(start_time_str)
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=zoneinfo.ZoneInfo("America/New_York"))
             end_time = start_time + datetime.timedelta(minutes=duration_mins)
             event = {
                 'summary': summary,
