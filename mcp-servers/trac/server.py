@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/trac/server.py
-Version:        1.7
+Version:        1.9
 Author:         Gemini CLI
-Last Modified:  2026-02-27
+Last Modified:  2026-03-09
 Context:        http://trac.home.arpa/ticket/2933
 
 Purpose:
@@ -13,6 +13,8 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.9 (2026-03-09): Added support for updating ticket summary in update_ticket.
+    v1.8 (2026-03-09): Added support for updating ticket description in update_ticket.
     v1.7 (2026-02-27): Added priority validation and support for updating priority.
     v1.6 (2026-02-24): Added ticket comments to get_ticket, URL-encoded password,
                        and added resolution/author/action to update_ticket.
@@ -72,7 +74,7 @@ TRAC_URL = "http://trac.home.arpa/login/xmlrpc"
 TRAC_USER = os.getenv("TRAC_USER", "will")
 TRAC_PASSWORD = get_trac_password()
 
-logger.info(f"Initialized Trac MCP v1.6 with user: {TRAC_USER}")
+logger.info(f"Initialized Trac MCP v1.9 with user: {TRAC_USER}")
 
 def get_proxy():
     """Create and return an XML-RPC proxy."""
@@ -136,7 +138,7 @@ def get_ticket(ticket_id: int) -> str:
         return f"Error fetching ticket #{ticket_id}: {str(e)}"
 
 @mcp.tool(name="trac_update_ticket")
-def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None, resolution: Optional[str] = None, author: str = "gemini", action: Optional[str] = None, priority: Optional[str] = None) -> str:
+def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None, resolution: Optional[str] = None, author: str = "gemini", action: Optional[str] = None, priority: Optional[str] = None, description: Optional[str] = None, summary: Optional[str] = None) -> str:
     """
     Update a Trac ticket with a comment and optional attributes.
     
@@ -150,11 +152,17 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
         author: The author name to use for the update. Defaults to 'gemini'.
         action: The workflow action to perform (e.g., 'resolve').
         priority: Optional new priority (must exist).
+        description: Optional new description text.
+        summary: Optional new summary (title) text.
     """
     logger.info(f"Updating ticket #{ticket_id}")
     try:
         proxy = get_proxy()
         attributes = {}
+        if summary:
+            attributes['summary'] = summary
+        if description:
+            attributes['description'] = description
         if keywords:
             # Enforce space-separated keywords
             attributes['keywords'] = ' '.join(keywords.replace(',', ' ').split())

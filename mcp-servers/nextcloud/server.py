@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/nextcloud/server.py
-Version:        1.5
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-03-06
+Last Modified:  2026-03-07
 Context:        http://trac.home.arpa/ticket/3154
 
 Purpose:
@@ -13,6 +13,10 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.6 (2026-03-07): Improved structured VCard field handling for N and ADR:
+                       - Splitting FN into N components (Last;First)
+                       - Support for semicolon-separated structured addresses
+                       - Prevents double-escaping of separators in structured fields
     v1.5 (2026-03-06): Removed If-Match header in update_contact to avoid 412 
                        errors with flaky CardDAV ETag sync.
     v1.4 (2026-03-06): Changed update_contact to replace values for multi-value 
@@ -220,8 +224,15 @@ class NextcloudContactManager:
         for ver in version:
             lines.append(f"VERSION:{ver}")
         for key, values in vcard_data.items():
+            # Check if this is a structured field
+            base_key = key.split(';')[0]
             for val in values:
-                val_esc = self._escape_vcard_value(val)
+                if base_key in ['N', 'ADR', 'ORG']:
+                    # Structured fields: escape components but keep semicolons
+                    parts = val.split(';')
+                    val_esc = ';'.join(self._escape_vcard_value(p) for p in parts)
+                else:
+                    val_esc = self._escape_vcard_value(val)
                 line = f"{key}:{val_esc}"
                 lines.append(self._fold_vcard_line(line))
         lines.append("END:VCARD")
@@ -248,12 +259,20 @@ class NextcloudContactManager:
         vcard_data = defaultdict(list)
         vcard_data['VERSION'].append("3.0")
         vcard_data['FN'].append(fn)
-        vcard_data['N'].append(f"{fn};;;;")
+        if " " in fn:
+            parts = fn.rsplit(" ", 1)
+            vcard_data['N'].append(f"{parts[1]};{parts[0]};;;")
+        else:
+            vcard_data['N'].append(f"{fn};;;;")
         vcard_data['UID'].append(uid)
         if email: vcard_data['EMAIL;TYPE=WORK'].append(email)
         if tel: vcard_data['TEL;TYPE=CELL'].append(tel)
         if categories: vcard_data['CATEGORIES'].append(categories)
-        if address: vcard_data['ADR;TYPE=HOME'].append(f";;{address};;;;")
+        if address:
+            if ";" in address:
+                vcard_data['ADR;TYPE=HOME'].append(address)
+            else:
+                vcard_data['ADR;TYPE=HOME'].append(f";;{address};;;;")
         if url: vcard_data['URL'].append(url)
         if note: vcard_data['NOTE'].append(note)
         if org: vcard_data['ORG'].append(org)
@@ -282,7 +301,13 @@ class NextcloudContactManager:
             vcard_data = self._parse_vcard_lines(response.text)
             
             # 2. Update fields
-            if fn: vcard_data['FN'] = [fn]
+            if fn:
+                vcard_data['FN'] = [fn]
+                if " " in fn:
+                    parts = fn.rsplit(" ", 1)
+                    vcard_data['N'] = [f"{parts[1]};{parts[0]};;;"]
+                else:
+                    vcard_data['N'] = [f"{fn};;;;"]
             if email: vcard_data['EMAIL;TYPE=INTERNET'] = [email]
             if tel: vcard_data['TEL;TYPE=HOME'] = [tel]
             if categories: vcard_data['CATEGORIES'] = [categories]
@@ -304,7 +329,11 @@ class NextcloudContactManager:
 
             if org: vcard_data['ORG'] = [org]
             if title: vcard_data['TITLE'] = [title]
-            if address: vcard_data['ADR;TYPE=HOME'] = [f";;{address};;;;"]
+            if address:
+                if ";" in address:
+                    vcard_data['ADR;TYPE=HOME'] = [address]
+                else:
+                    vcard_data['ADR;TYPE=HOME'] = [f";;{address};;;;"]
             
             # 3. Construct and PUT back
             vcard_str = self._construct_vcard(vcard_data)
