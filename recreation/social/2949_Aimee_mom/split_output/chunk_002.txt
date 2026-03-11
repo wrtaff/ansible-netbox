@@ -1,0 +1,214 @@
+[00:00:05] **Aimee:** the authorized person on that.
+[00:00:08] **Aimee:** Um, so my information's on it, her information is on it.
+[00:00:13] **Aimee:** All of her asset information is on it.
+[00:00:17] **Aimee:** If anybody got hold of that, that could be catastrophic along with like bank account information, all of that stuff.
+[00:00:26] **Aimee:** So,
+[00:00:27] **Will:** reasonable risk.
+[00:00:30] **Will:** The bank, if somebody gets your bank information and empties your account, the bank is on the hook for that, not you.
+[00:00:38] **Will:** That's that's you getting hacked, that's the bank's fault.
+[00:00:41] **Will:** That's not Amy's fault.
+[00:00:43] **Will:** Um, so it is reasonable.
+[00:00:50] **Will:** It's not risk-free.
+[00:00:51] **Aimee:** Right, right.
+[00:00:51] **Will:** I'm glad you but it is pretty low risk stuff.
+[00:00:55] **Will:** Google encrypts in flight, they encrypt in rest, um, and it's Google.
+[00:01:01] **Will:** Like their server farms are protected by Google.
+[00:01:04] **Aimee:** But what is my responsibility?
+[00:01:10] **Aimee:** Because I don't have a special relationship with Google other than having an account.
+[00:01:15] **Aimee:** So what do I have to do to make sure that it's protected?
+[00:01:19] **Will:** Um, I pay for the Google tier, which means they don't like scan my information for for goodies, but I mean, have you ever emailed a bank statement?
+[00:01:33] **Aimee:** Not that I can recall.
+[00:01:35] **Will:** Okay.
+[00:01:36] **Aimee:** Mhm.
+[00:01:37] **Will:** Um, chances are somebody has emailed.
+[00:01:40] **Aimee:** Yeah, I I don't do a lot of things with.
+[00:01:44] **Will:** But other people have.
+[00:01:46] **Will:** You know what I mean?
+[00:01:47] **Will:** When you give somebody a piece of paper and they're like, we need a copy of your bank.
+[00:01:51] **Will:** First thing they're going to do is scan that and they're going to serve it on their shitty servers.
+[00:01:55] **Will:** Google servers are good servers.
+[00:01:57] **Aimee:** Yeah.
+[00:01:57] **Aimee:** And I understand.
+[00:01:59] **Aimee:** I'm just saying from the perspective of what I used to do at the bank.
+[00:02:03] **Aimee:** There was never anything that we had breaches all the time with vendors.
+[00:02:09] **Aimee:** And the reason that vendors had breaches is because they just assumed that other people were taking care of all the security and not understanding what their responsibility was.
+[00:02:20] **Will:** Well, I'm going to stay here tonight.
+[00:02:22] **Will:** Yeah.
+[00:02:22] **Will:** I'll just like sleep on the couch or something.
+[00:02:24] **Will:** Yep.
+[00:02:25] **Will:** Um, do you need the van tomorrow?
+[00:02:27] **Will:** Cuz I'm off tomorrow, but I would also like to bring my clothes and all this other stuff.
+[00:02:32] **Will:** We'll talk about it in the morning.
+[00:02:34] **Will:** We'll all be here.
+[00:02:35] **Will:** Remind us too cuz it's uh day off.
+[00:02:38] **Will:** See you down there in a bit.
+[00:02:40] **Will:** Yo.
+[00:02:41] **Aimee:** Um, but yeah, again, just just because they didn't understand what their responsibility was.
+[00:02:47] **Aimee:** And they were like, oh yeah, it's just taken care of.
+[00:02:49] **Aimee:** Um, but it's not again, it's not that easy.
+[00:02:53] **Aimee:** So, um, okay.
+[00:02:55] **Aimee:** I just I just again, I just want to make sure this is uncomfortable for me to be uploading my dad's medical, you know, his service stuff out there, you know, all of their documentation, their marriage license, his death certifi I mean, it's just a bunch of stuff that it's like I want to make sure that this is secure.
+[00:03:20] **Will:** Most of that stuff is I can go to the courthouse and get it.
+[00:03:22] **Aimee:** I get it.
+[00:03:23] **Aimee:** But it's it's all going to be in one it's one it's in one place now.
+[00:03:28] **Will:** Right.
+[00:03:29] **Will:** Um, and the military, the DOD and the VA lose data all the time.
+[00:03:38] **Will:** Like you just have to assume all of this is already out there.
+[00:03:42] **Aimee:** I I get it.
+[00:03:43] **Aimee:** But again, when you put if if I if I have a safe and I put all of my shit in that safe, all that anybody needs is that safe.
+[00:03:54] **Will:** Right.
+[00:03:55] **Aimee:** They don't need to go to that safety deposit box and that safety deposit box and that, you know, bank or whatever.
+[00:04:02] **Will:** Yeah, but we're not talking about millions here.
+[00:04:05] **Aimee:** No, I'm talking about the data, not the money.
+[00:04:07] **Aimee:** I'm talking about the assets themselves are now going to be all in a folder in one place instead of, you know, various pieces that are harder for people to triangulate together.
+[00:04:20] **Will:** But that's exactly what we're trying to do is triangulate all together to get it solved.
+[00:04:25] **Aimee:** Right.
+[00:04:25] **Will:** So in doing the risk reward assessment, um, I really think this is reasonable risk.
+[00:04:34] **Aimee:** Okay.
+[00:04:34] **Will:** Um, you know, in fact, we can ask Jim, we can get a third party.
+[00:04:40] **Aimee:** No, that's fine.
+[00:04:41] **Aimee:** I'm I'm fine with it.
+[00:04:42] **Aimee:** I just again, I just I don't I don't have Google is not something that I've I only set up a Google account because of pissed on the board.
+[00:04:53] **Aimee:** I don't I've I've always used Safari and and just had things on my laptop.
+[00:04:58] **Aimee:** So, um, I I've not done a lot of stuff with Google, um, their their cloud stuff.
+[00:05:08] **Aimee:** So I mean, I don't know that much about it.
+[00:05:10] **Will:** Google's cloud, it's fine for hippa, it's I mean, it's got all the search, all the things.
+[00:05:18] **Will:** Um, but we're not even I mean, we're really not talking about that level.
+[00:05:23] **Will:** You know, if I was a bank, you know, I would well, banks also use Google's infrastructure too these days.
+[00:05:30] **Will:** Nobody wants to run their own servers anymore.
+[00:05:32] **Aimee:** Yeah, we used um Amazon.
+[00:05:35] **Will:** Yeah, AWS.
+[00:05:36] **Aimee:** Yep.
+[00:05:37] **Will:** Um, um, so, okay, so I need to um, I need to find marriage license, death certificate, sounds like the letter of incapacity.
+[00:05:51] **Will:** Um, I think you have probably probably taken care of with that form.
+[00:05:56] **Aimee:** Mhm.
+[00:05:57] **Aimee:** Um, what else?
+[00:05:59] **Will:** Uh, is signed by um MP uh at Thrive.
+[00:06:06] **Aimee:** p o a.
+[00:06:07] **Will:** Uh, I mean yes, p o a letter.
+[00:06:15] **Will:** p o a letter.
+[00:06:22] **Will:** Discharge papers.
+[00:06:26] **Will:** Um, yeah, that will be his uh DD 214.
+[00:06:31] **Aimee:** Yep.
+[00:06:46] **Aimee:** Which was typed out um on a typewriter.
+[00:06:50] **Aimee:** It's and it's very like onion skin paper.
+[00:06:53] **Aimee:** It's like, wow.
+[00:06:57] **Aimee:** That's pretty cool.
+[00:06:58] **Will:** Yeah.
+[00:06:59] **Will:** Um, mine was too.
+[00:07:01] **Will:** Uh, so you you just called me old.
+[00:07:04] **Will:** You know, my feelings are hurt.
+[00:07:07] **Will:** So, do you're like this is like a hair ball of pain, emotion.
+[00:07:14] **Aimee:** Yeah.
+[00:07:15] **Will:** Um, I am your counselor, I am often your friend and I'm also like committed to your parents because they're part of the military family.
+[00:07:24] **Will:** And I'm a retired military officer, right?
+[00:07:27] **Will:** So, um, this isn't as big of a deal.
+[00:07:31] **Will:** It it it's just not.
+[00:07:33] **Aimee:** Okay.
+[00:07:33] **Will:** Um, I think we want to get it done as quickly as we can, um, because you might not have a ton of time.
+[00:07:40] **Will:** You know, we just don't know.
+[00:07:42] **Will:** Um, so there's a sense of urgency, but it's not freaking out.
+[00:07:46] **Will:** If your mom passes tomorrow, bless her heart, she's with the Lord.
+[00:07:50] **Aimee:** Yeah.
+[00:07:51] **Will:** But we're still doing this.
+[00:07:53] **Aimee:** Okay.
+[00:07:53] **Will:** Um, you know, they as far as back pay and things like that, you may be eligible to, you know, the as a further on dependent, like.
+[00:08:00] **Will:** So we need to do this no matter what.
+[00:08:02] **Aimee:** Okay.
+[00:08:02] **Will:** You know, and we're not racing the clock.
+[00:08:05] **Will:** You can get that out of your mind.
+[00:08:06] **Will:** We're just doing due diligence with a sense of urgency because we're grown-ups.
+[00:08:10] **Aimee:** Yep.
+[00:08:11] **Will:** Um, so so I'm trying to wrap my head around it.
+[00:08:16] **Will:** Um, do you remember the name of the VSO that you dealt with over there?
+[00:08:20] **Aimee:** I have her business card actually.
+[00:08:23] **Will:** Okay.
+[00:08:24] **Aimee:** Um, so here is the person that filled the paperwork out for me.
+[00:08:30] **Will:** Okay, so things for her.
+[00:08:36] **Aimee:** And she told me that as I get things completed that if I need help with anything, I can email or call her.
+[00:08:42] **Aimee:** So.
+[00:08:43] **Will:** Okay.
+[00:08:44] **Aimee:** So, she was very helpful.
+[00:08:46] **Will:** Let's let's make it so you and I can work together.
+[00:08:49] **Will:** I mean, it's that just looks like crazy people stuff.
+[00:08:53] **Will:** What?
+[00:08:53] **Will:** Pen and paper.
+[00:08:55] **Will:** This is the 21st century.
+[00:08:57] **Will:** You are like a technical person.
+[00:08:59] **Aimee:** Yep.
+[00:08:59] **Aimee:** Um, okay.
+[00:09:00] **Aimee:** Well, not everybody, I'm comfortable with writing stuff down because it reinforces it for me.
+[00:09:07] **Aimee:** When I type it, it doesn't reinforce it for me.
+[00:09:11] **Aimee:** Um, I I get some sort of cognitive benefit when I write things down.
+[00:09:17] **Aimee:** So it just helps me remember stuff better.
+[00:09:19] **Will:** I try to not remember anything.
+[00:09:22] **Will:** That's why I write it down.
+[00:09:24] **Will:** So it's I don't have to remember it.
+[00:09:26] **Aimee:** Yep.
+[00:09:26] **Will:** That's.
+[00:09:27] **Will:** Um, I'm for an ninja human.
+[00:09:30] **Will:** I understand this is this is painful for you.
+[00:09:32] **Aimee:** Yeah, this is hard.
+[00:09:33] **Will:** All right.
+[00:09:33] **Will:** Um, so we need a to-do list.
+[00:09:37] **Aimee:** To-do list.
+[00:09:39] **Aimee:** Yippee.
+[00:09:40] **Will:** And let's see.
+[00:09:42] **Will:** Um, so I'm still unclear on what we're trying to do because are we trying to get stuff together and go back to the VSO and she sets up the account or are we trying to set up the account?
+[00:09:51] **Aimee:** She told me that I have to set an account up because they need in order to finish the paperwork, she's got to get the gross amount of my dad's pension and I don't have that information.
+[00:10:02] **Aimee:** All I have is I can see how much is I can see how much goes into my mom's account every month and that's all I can see and that's an amount.
+[00:10:12] **Aimee:** Um, I would also like to be able to move his direct deposit to another bank.
+[00:10:17] **Aimee:** So I figured that if I get this account set up, I can probably do that as well.
+[00:10:22] **Will:** Also wants to move money.
+[00:10:25] **Will:** Uh or uh.
+[00:10:26] **Aimee:** Yeah, it's she's got it he's got it going into one account and I would like to have it going into the account that we pay her expenses out of.
+[00:10:36] **Will:** Okay.
+[00:10:37] **Will:** So, um, so it doesn't sound like the VSO is going to be able to have us set up on my pay.
+[00:10:41] **Will:** So now we're back to going to Rome.
+[00:10:43] **Will:** So that does answer some of my questions.
+[00:10:45] **Will:** So we are stuck.
+[00:10:48] **Will:** Rome is the DFAS uh customer support code.
+[00:10:53] **Will:** Um, and using uh DFAS for help.
+[00:10:59] **Will:** Okay.
+[00:11:00] **Will:** So let's see, artifacts.
+[00:11:05] **Will:** So you got your POA letter and um DD 214.
+[00:11:12] **Will:** I'll need my mom's um debt ID.
+[00:11:20] **Will:** Um, she's got a 21 you have a 2680 letter of incapacity.
+[00:11:28] **Will:** Um, you have a uh back pay for accrued benefits.
+[00:11:36] **Will:** Uh let's see.
+[00:11:41] **Will:** Uh artifact for later.
+[00:11:46] **Will:** Um, big for her dad.
+[00:11:51] **Will:** Uh service connection for what did your dad do in the Air Force?
+[00:11:56] **Aimee:** He ran the mess hall.
+[00:11:58] **Will:** Okay.
+[00:11:59] **Will:** Um, exposed to Agent Orange.
+[00:12:04] **Will:** That was smart but that that's something that we'll take years.
+[00:12:07] **Aimee:** Yeah, I I doubted it.
+[00:12:08] **Aimee:** I doubted it seriously.
+[00:12:10] **Aimee:** So I mean, I there was never any indication from him that it was related to his military service.
+[00:12:17] **Will:** Okay.
+[00:12:17] **Will:** Um, but we don't know that.
+[00:12:21] **Will:** Um, what other forms you got?
+[00:12:24] **Aimee:** All right.
+[00:12:25] **Aimee:** Um, this was uh in home care, regular and social.
+[00:12:31] **Aimee:** This is a 21p 534 EZ.
+[00:12:35] **Aimee:** This is for the accrued uh benefits.
+[00:12:40] **Aimee:** So I think this goes with something because this is page 16 and 17.
+[00:12:45] **Aimee:** Yeah, she she took these things apart and then stapled some pieces of it together.
+[00:12:53] **Aimee:** And um, and of course they're they're all I mean like see IC4.
+[00:12:59] **Aimee:** I see pages 4 21p 0969.
+[00:13:07] **Aimee:** I don't know what the first that was her social security statement.
+[00:13:12] **Aimee:** So.
+[00:13:13] **Aimee:** Not yeah.
+[00:13:14] **Aimee:** Social stuff.
+[00:13:16] **Aimee:** Mary Bernette is her name.
+[00:13:19] **Aimee:** Berdette.
+[00:13:20] **Will:** Mary Bernette.
+[00:13:22] **Will:** Is your mom's name?
+[00:13:23] **Aimee:** Berdette.
+[00:13:24] **Will:** Berdette.
+[00:13:25] **Aimee:** Yeah, Mary Berdette.
+[00:13:27] **Aimee:** Yes.
+[00:13:27] **Will:** Okay.
+[00:13:27] **Aimee:** Yeah.
+[00:13:31] **Aimee:** Okay, so this is 14.

@@ -1,0 +1,934 @@
+[00:00:00] **TSG**: funds to team up. Yes. So, that's all we can do. You can do it. Switching over. So, it wouldn't be a problem. No. So, just Well, we had business. Okay, so we had well, the business phone. I think phone. I think it's on. Yeah, they're on. Yeah. See, they do that too. They do it through uh RingCentral. Yeah, they partner with RingCentral. See, Spectrum tried to do it themselves, but there's always these other people that do it so well. It's like, just partner. But we just need to get contact the rep. Yes. I'll get that. Yeah, just talk to the rep. But yeah, it's cool how it all works. It's like, like you, I've always been like, have my own gear at the house.
+[00:00:41] **TSG**: And it's like, and I bought a router, you know, I have it. Now I see what we're doing with products. I'm like, I kind of just need to get rid of this one, but you know, what am I going to do with that? I can't sell a used router. I bought it for six years. Nobody's going to buy it.
+[00:01:00] **TSG**: All right. That's in history too. But uh, yeah, it still works, but how eventually I'll get to the, you know, the the Wi-Fi sevens. I don't know if you're familiar with them, but they're they're awesome. Remember how I tell you the spectrum expanded for us and we're going to increase the people. Well, Wi-Fi seven does the same thing. It went up to the 6 gigahertz, but it channel bonds from 2.4 to 6. It literally uses all the carriers at the same time. So you can do about 40 gigs per second.
+[00:01:36] **TSG**: Obviously our internet's not that fast, but um, that's pretty phenomenal. Yeah. And it's it's still when you turn your microwave on, is it going to jam all of it? That's the thing. No, no, no. I've only I've only seen it once. I went to a customer's house. This guy was like, it was in Orlando, Orlando. Um, she's like, she literally called us out there. She's like, Wi-Fi goes out when I have a microwave on. I was like, What?
+[00:02:04] **TSG**: Get rid of the microwave. And she's like, huh? I said, she's like, yeah, let me show you. I said, no, I don't even want to be in the house. I was like, I said, ma'am, everybody has a microwave, okay? Not everybody's Wi-Fi's going out. You're microwave.
+[00:02:24] **TSG**: Yeah. Then I bark like a dog and run around the house. I was like, there's no way until I leave that microwave in this house. She's like, really? I was like, yeah, don't even turn it on. I don't have no part of it. Wow. I said, I'll tell you, everybody has a microwave. I've never seen this issue. I said, no, I don't want no part of that. I was like, you got kids too. They get weird moles.
+[00:02:54] **TSG**: All right. We'll leave that other portion to the side. So, um, well shoot, I I guess one of it is quickly becoming obsolete. So we do have a problem that we are now fixing. So Yes. Um, I was just wondering if if it's worth pulling fiber. That's it. You know, it's not really, you know, it's like is fiber a better product like future proof? 100%.
+[00:03:22] **TSG**: But uh, with everything that I guess Doxis is the one that makes the standard. So they got Doxis 4.0. We're not enrolling that out yet. We're still working on 3.1. And 3.1 is the one that you'll have in 2027. So unless they decide to just do Doxis 4. And if they do Doxis 4, that's 10 gigs up and down easily. So at that point it's like it doesn't make much of a difference. Now, fiber, which we do have in the city that we've been rolling out.
+[00:03:59] **TSG**: The good thing of it is, well, it's also a bad thing for the text. I can run it 2,500 feet away from where it plugs in at. And it just works. Yeah. It loses about a quarter DB of light over 1,000 feet. Yeah. Which is acceptable now. It's a different thing. So but you got to hit 13 poles to get it. And take light off. You got to pull it out. And then when when something breaks it or a squirrel chews it, you got to spend four hours replacing it.
+[00:04:31] **TSG**: So it's like uh, it's cool how it works. Um, I do like it, but cable's still got at least 10, 15 years left. Okay. It's it's they're still competing on speeds and it's like, you know, most fiber will pull 10 and then we'll mux it and go from there, but uh, yeah, we'll be 10 for 2030 for sure. It's just a matter of when they're going to roll out Doxis 4 and Doxis 5 will be around the corner by the time we get there, you know.
+[00:04:59] **TSG**: So. I just wonder if yeah, beyond the building. You got to think 10 years down the road or 20 years down the road. If we're going to be you know, it's going to have to restring coax all the way down through the fiber at some point. Yeah. Like the thing is, you guys still have good coax. Like that looks new. Like I guess well, probably ran it or knowledge probably ran it or you all ran it when you all built the place or we renovated the place.
+[00:05:25] **TSG**: Somebody ran it. That were running away. Yeah, as long as it's not damaged, it just works. The beauty of it, it's got shielding in it and uh, the people that are also trying to save content and save the business is like Harris. Harris says we're going to 60 gigahertz. Um, when are we going to do that? I have no clue. But if you guys ever did want to go fiber, fiber's already available because we have the remote here. So, um, it would just be either running Cat six or running fiber jumpers.
+[00:05:58] **TSG**: Either or. But realistically, you guys are all in you all in little public here, so there's really nothing else to mess with you, which is the beauty of fiber anyway. Um, but you guys already have the fiber product sitting in the building that works like fiber. It's just using coax. Yeah. So it's like it'd be a waste of money or time if you want to do it, but you can do it just to say you have fiber. Yeah. Because some people like fiber.
+[00:06:23] **TSG**: Well, they do. I mean, it's a buzzword and it and It is. Um, we literally get customers that will turn us down because we we tell them it's not fiber. Yeah. They're like, well, they said it was fiber. I was like, it's fiber based product. Yeah. Because we bring it close to the neighborhood with fiber. We don't do like we used to where we just run coax all the way. No, it's like uh, we got fiber on almost every pole in Florida. Just to cut out the amps and put in the nodes.
+[00:06:53] **TSG**: When we finish doing it, everything will be fiber. So it'll be fiber to coax and then it goes to the house because there's really no reason to get rid of that at that point when we bring the the fiber right there and then instead of it floating to the head end to talk and communicate, it's the CMTS what the modem talks to. We're going to put the CMTS out there at the road. So eventually we're going to come in and we're going to swap that one out and we're going to put the CMTS right there. So it'll be full IP right on out.
+[00:07:22] **TSG**: Okay. Whereas right now what it does is it goes to fiber, converts back to light, it goes all the way to the head end in uh, Warren Williams Road, 1349. And then it talks to CMTS, CMTS deciphers what it is and then converts it to IP and then sends it out. So we're going to skip all that 2027. Sorry. And I'll assume there's, you know, lag every time you translate there's nanoseconds. Yeah, it's just nanoseconds. It's just like I asked uh, I asked Paul, he's our high speed.
+[00:07:54] **TSG**: I was like, how much latency you get? He goes to do this. He goes like three, four nanoseconds. All right. So so now how many nanoseconds? It's like All right. It's incredible. Yeah. Okay. The the CMTS itself could be like an AI machine. It's got like 60,000 processors in it. It's like it's meant to work. And we got we got patent. So it's just there'll be more because they're doing that now. We're putting them all upstairs to prep for this 2027 upgrade.
+[00:08:26] **TSG**: Okay. So yeah, it's pretty cool. It's going to be a lot of work for us. Yeah. The only thing we got to do here is just swap them out. Okay. And put that CMTS node in. So and y'all will notice like to goes down but everything else. The main thing is the speed will go up. Yeah. So we're getting, you know, about 300 down now, which nobody's complaining about yet, but they're going to. Um, and and soon, you know, they're going to be looking around at I don't know whether they're pulling at Rapids, but you know, we got competitors in the neighborhood.
+[00:08:59] **TSG**: Yeah. Um, so you think in the next year, what could we reasonably expect out of what we have and and out of Spectrum? I think the biggest thing is since you guys have like a contract, um, you'll have to if you do negotiate a contract with them, uh, negotiate a short term. That way you can get the speed upgrade on terms or at least have it in writing that you get it on your terms. Because it's coming. I just don't know how they're going to fit it into the contract because the thing is if you have a contract that says you get 300 gigs, well you can't break the contract to start giving 600.
+[00:09:35] **TSG**: Even though we can, you know, it's just the contract says you get 300 for you to get free. Um, if you get a contract or renew contract, make sure it says you get a speed upgrade over the next few years or however that works. But the the process is called high split. That's what we're doing. High split? Yeah. So high split upgrade and it's coming. So Yeah. Uh, I would have at least have it in there that says you get the high split upgrade with the upload because the main thing that's going to change right away is the upload. We'll we'll be able to do symmetric.
+[00:10:03] **TSG**: Okay. So yeah, I think that's something everybody benefits from is symmetric. Yeah, it's surprising. The uh, you know, the fiber in the rural areas, um, you know, you get that. It's it's so effective being fiber. I mean it's a big difference. Especially for our gamers and stuff like that where it's going back and forth. Everybody's a streamer now. Yeah, yeah, right, right. So um, that's right. I mean for me when it's like flexing from my YouTube fans.
+[00:10:32] **TSG**: Um, Yeah, I think I like I said with sports and so I'm looking forward to the high split upgrade too. I mean anybody knows anything about bandwidth, the more upload you got, the more seamless the internet can be at on any point. So especially when you got somebody controlling that wants to take a lot of pictures and phone starts uploading and if they are a gamer, it screws the game up. Yeah. But symmetric is good. Um, but we're all down with that, you know, people are starting to bump up against um, because a lot of people are doing IP TV, you know, they're streaming.
+[00:11:10] **TSG**: So um, and at 300 we're banging against that. What can we reasonably expect out of what we have now hardware wise? Right now you all can get 1.2. With what we have now? Yeah. With no no upgrade, no nothing. You can get 1.2 to the unit. To the modem itself. Okay. However many modems you put to the 0.5 modem. So you can put y'all have that in there. Yeah. But the fact that you guys have beyond fiber is like you got a 10 gig circuit just sitting there. So yeah, when we do the upgrade, you can send it.
+[00:11:46] **TSG**: But right now we can do 1.2. Okay. But the upload's going to be uh, it's going to suck until we do the upgrade. Yeah. So if we do the high split upgrade, then see that. Yeah. I'll tell you when the gig is 1.2. We'll reover the gig. So like you say uh, the expert 500 next, we'll run you 700. Just to make sure you get what we had in the original. Yeah. So yeah, so when you agree to a gig, they give you they give you extra 200. Right. So that way when you do a speed test because we realized a long time ago customers diagnose their system with a speed test.
+[00:12:21] **TSG**: You give them more so they don't call. Oh, I'm actually getting 1.2. I know I've seen nothing about that. It's expectation management. I've been doing that for 15 years. I've been doing that for 10 years ago. Like when they first did it, I was like, people won't be lying to us. And he's like, I was asking. I was like, is this right? We're sending up emails trying to question. Just to make sure and they're like, yeah, we're going to do that going forward. So whatever they pay for, we're going to give them more so they don't call.
+[00:12:50] **TSG**: I'm like, that's genius. That's right. Yeah. Decrease the number of customer service reps. Yeah. Yeah. Because well, it's under promising and over delivering. That's like the Disney way. That's actually what they do. So yeah, even our meters are for. So yeah, if you guys sign up for a gig tomorrow, you'll get 1.5. All I have to do is send a new config to the modem and then it just starts. Okay. You guys have that capability. It's just the upload's going to it's going to suck until we do the upgrade.
+[00:13:17] **TSG**: Yeah. We're not getting tons of complaints now, but we're not. But that's good to know that, you know, when we when we do redo the contract, what to ask for. Yeah, ask for that. So we got guaranteed. I think that's the main thing. Any other upgrades while I'm in here to ask for in this contract, man? So I don't I'm not over seeing it. I think we're um, I think we're guaranteed 200 and we're getting 300 more uh, internet and uh, TV bundle. Because nowadays they'll do it like the Zoomo boxes. They can do it with the Zoomo. You get two Zoomos for free.
+[00:13:52] **TSG**: So then you can do it full IP, give them the wireless router for free. You can ask for the Wi-Fi 7 and get the gig. And then that way if they do get Spectrum mobile and you guys get Spectrum mobile, you can hop on any place while you're here. And you'll also get the gig on the cell service too. So basically you just have a bunch of little hotspots that Yeah. It's pretty cool. Yeah, that is cool, man. But I've seen them do that with like HOAs now. They put the internet, the Wi-Fi and the Zoomo boxes in it and they just write the contract out and that's what it costs them.
+[00:14:22] **TSG**: So they're they're really friendly with contracts now because you know, they're all competing. Yeah, yes, yeah, definitely. And you've got a Zoomo box yourself at your house? Yeah. And I have Apple TV as well. Okay. I like the Apple TV a lot. I'm a big buyer. I got an Apple. I mean you can take that one. I used to have a Microsoft phone. I had an Android. I had the HD2. Yeah. I just I I finally I I finally got sick of filling stuff too and Android phones.
+[00:14:54] **TSG**: I know it's better now. But I hopped on an iPhone and uh, yeah, I just stayed on. I I I'm a tech guy. Everybody always said, so much as you know about technology, why do you have an iPhone? I said, well, because I don't have to do nothing. You just want you sitting to work. Yeah, that's right. It's like I don't have to do nothing with it. I was like, and as far as I know, they're the only ones that fight the government when the government asks to unlock it. I was like, I've never seen a case where Google fought the government.
+[00:15:21] **TSG**: I was like, so I'm just saying, you know. It's like Google is the government. That's what I'm. I'm not a huge Apple fan, but I'm just when they were asked to unlock it, they didn't. They said no. My unit's right there. I like we run all this guy shit in the house and yeah, so my wife's all Apple like across the board. So it's all the braces in the house. I'm like, yay, somebody's going to help my wife like you get the fucking. Get out of here. Yeah. Yeah. Terrible. I don't know about her phone. She she has a a MacBook.
+[00:15:54] **TSG**: Oh yeah, I'm still going to marry my wife. I can't. Yeah. I got to learn it, you know. It's like a little bit of Linux to it, you know. It's like I don't know. In all the universities, that's what they're doing. Yep. That's what she got out of school and that's the first thing she said about that. I got to have a. They told they told her. Yeah. She went for her bachelors and they said you got to have a MacBook. I was like, you have to have a MacBook? Yeah. Fortunately the price of the MacBooks was a lot cheaper. It was like 1,000 bucks.
+[00:16:21] **TSG**: It's come down but still didn't have any of the memory and of course she's Microsoft. Yeah. Word or Excel. She had to get that too. It works on. Well, yeah, it does now. Now I will say this though. I got her everything before I did. And she got the most basic model. I'm like, all right. Yeah, good for you. You know, it's like I'm still PC. I'm still PC. I I played with Linux a long time ago like when I needed to restore this for this gateway to do.
+[00:16:51] **TSG**: Man. But uh, had an old school gateway computer back in the day. I used to have a story here. And uh, booted it up one time and said insert startup disc. I was like, I was like, you know, like checking the box and everything. I was like, I was like, you know, I'm playing playing the game. Insert startup disc. I was like, for real. That's awesome. I was like calling them. They were like, yeah, we can mail you one for like 25 bucks. 25 bucks. I was like, yeah, right.
+[00:17:20] **TSG**: So yeah, no, no, you know, no. I was like, well, I went to GameStop at the time because I knew they had one. So I was like, I'm trying to restore this. And they had the restore disc in there and you can't say Linux, but they can say they can say how to how to install it and copy it. Yeah. And that's what they're selling. I was like, cool. So now I'm going to restore it. I was like, what? Melt the hard drive. What do you think I want to do to the hard drive? What do you need? Melt the hard drive.
+[00:17:51] **TSG**: Like, is this not common knowledge? I want to talk to it. Right. I put all my days on it. I was like, hell with that. I'll take it with me. As soon as he's 25 25 bucks. I spent $1,000 on this thing. Now you know why gateway isn't a thing anymore. I got to probably go buy another $200 tool. You got to hire a contractor to cut down. I know, yeah. I know, yeah. I I've done that too. Go buy a bunch of stuff and then go do it. I'm like, I'm like, jeez.
+[00:18:20] **TSG**: We upgraded to this. We go hire a fucking dude and he had done it in 10 minutes. Well, he doesn't know how to talk to my wife. That's the other instruction. I did the same thing with the drain. I bought an endoscope and everything. I was like, I'll just look in there and see what it is. I pushed it down there. I was like, I don't know what I'm looking at. You pay professionals to do that stuff. Yeah, I was like, I had no clue what I'm looking at. It sucks. I grew up doing working on cars. I decided I'm going to change the brakes on my car.
+[00:18:51] **TSG**: 2017. Oh yeah. And I did it, but it took me two days to do it. And my son said, oh, I got a guy that works under the lube place. He'll do it for 200 bucks. I said, why didn't you tell me that? Yeah. I did the same thing. I had a 2017 Acura. I was like, I'm going to upgrade and put some power stop rotors on it and everything. It's like performance parts. I took it out. I was like, what is this? It's time. I'm going to do this.
+[00:19:16] **TSG**: I'm going to go on YouTube and it is, but it still takes time. It still takes. You sit and watch it and it's like, need this tool, need that tool. I was like, what in the world, man? And I called up a buddy who works at Acura. I was like, how much the brakes and rotors going? He said, uh, I had to see. I said, no, I already got them. He said, you didn't try to change it yourself, did you? I said, I took the wheel off. That's as far as I got. I said, I wouldn't have even said that. I wouldn't even messing with what I saw. He started laughing. He goes, yeah, man, you need some tools.
+[00:19:50] **TSG**: I'll bring it to you. As soon as I get this wheel back on and these brakes. I wanted to go to work. One of the guys that worked for me, he said he changed it on the side of the road. I was like, I started the car and it was like all kinds of stuff like that. Oh yeah. It's I mean the I guess the modern cars, it's all tied into the computer. So you got to do some stuff. He said you literally got to reset the computer. It knows the pad changed. It assumes it's a.
+
+
+--- Segment 1 ---
+[00:00:00] You sit around watching it, it's like, need this tool, need this.
+[00:00:03] I'm like, what in the world, man?
+[00:00:06] And I called up a buddy who works at Acura.
+[00:00:08] I said, how much the brakes and rotors going to cost me?
+[00:00:11] Uh, I had to see how much that.
+[00:00:13] No, I already got them.
+[00:00:15] He said, you didn't try to change it yourself, did you?
+[00:00:18] I said, I took the wheel off.
+[00:00:20] That's as far as I got.
+[00:00:22] I said, I wouldn't I wouldn't even mess with what I saw.
+[00:00:25] He started laughing.
+[00:00:26] He goes, yeah, man, you need some tools.
+[00:00:29] I'm trying to get this wheel back on and these brakes.
+[00:00:33] No, I didn't get that far.
+[00:00:35] One of the guys that works for me, he said he changed it on the box.
+[00:00:42] I started the car and I was like, all kinds of stuff like that.
+[00:00:46] Oh, yeah.
+[00:00:47] It's I mean the I guess the modern cars, it's all tied into the computer.
+[00:00:52] So you got to reset.
+[00:00:53] You got to reset the computer because it knows the pad changed.
+[00:00:57] It assumes that somebody malfunctioned.
+[00:00:59] I was like, that sucks.
+[00:01:01] Yeah.
+[00:01:01] 80 body shop, right?
+[00:01:03] We had an accident in 2021.
+[00:01:06] Yeah.
+[00:01:07] And once they got through the water, they got the car going.
+[00:01:11] Mhm.
+[00:01:12] We're talking about.
+[00:01:14] Yeah.
+[00:01:15] So it's it's not a simple task anymore to work on a car.
+[00:01:19] Yeah.
+[00:01:20] Yeah, it ain't for me.
+[00:01:21] I got just enough tools to mess with it a little bit.
+[00:01:24] I realized it's above me.
+[00:01:25] It's like uh Mosley stays on for major roads.
+[00:01:29] He does our work on our fleet credit card.
+[00:01:32] He's like, yeah, I'll probably close up shop.
+[00:01:34] They keep putting any more sensors on sensors.
+[00:01:37] He said, he said he got sensors for sensors for sensors.
+[00:01:41] He goes, I'm trying to find a sensor.
+[00:01:43] He said, I'm working on one of y'all's trucks and there's a sensor for the sensor to detect the sensor is working and that sensor is working.
+[00:01:50] Yeah.
+[00:01:50] And he goes, I'm losing my mind, man.
+[00:01:53] Dude, what another thing is, dude, like now you have like a crystallized ECU.
+[00:01:57] So you're saving another 50 cents per mile on gas.
+[00:02:00] He's not way more efficient because of electronic fuel control.
+[00:02:03] He said, when you have to replace that thing, that's 500 bucks.
+[00:02:06] So all the money you just saved, you now spend it on the ECU part.
+[00:02:09] He said the new Fords that we got, he just lost the transmission.
+[00:02:12] He said, I'm not even going to work until I call Ford to get in the database.
+[00:02:16] I got to connect it.
+[00:02:18] I got a little stick.
+[00:02:19] I got to hook it up.
+[00:02:20] Once it's in the database, it'll load and give me a key specifically for it.
+[00:02:25] He said, upload it to the ECU and it'll work.
+[00:02:28] He said, he said, put it in there and everything.
+[00:02:30] I was like, this damn thing won't even turn on now.
+[00:02:33] I was like, I was talking to my brother-in-law.
+[00:02:36] He's good.
+[00:02:37] He's in charge of maintenance of the brothers in our shop.
+[00:02:42] And he said, it's amazing.
+[00:02:44] Absolutely amazing.
+[00:02:46] They they have the same thing.
+[00:02:47] When they get through with the car, they have to call General Motors.
+[00:02:51] Yeah.
+[00:02:52] Because they can't get them to work.
+[00:02:54] I mean, it's amazing.
+[00:02:56] They get the tech on the tech on the phone and it takes them a whole day for the tech to figure it out sometimes.
+[00:03:00] How to get the car to start.
+[00:03:02] I'm not sure if this is better.
+[00:03:04] No, absolutely not.
+[00:03:05] It's it's like they're making it to where the dealerships do all the work.
+[00:03:09] Yeah.
+[00:03:10] That's the direction they're trying to go.
+[00:03:12] It's supposed to be illegal.
+[00:03:14] But it seems to be slowly getting there.
+[00:03:16] Like a death of a thousand paper cuts.
+[00:03:18] Just a little by little.
+[00:03:20] And the electric cars, he said, don't buy one if you don't want.
+[00:03:23] They have had so many more issues.
+[00:03:26] After years.
+[00:03:27] You know, it's that's basically the car when you replace the battery.
+[00:03:31] It is.
+[00:03:32] Especially when you see I see people posting like $20,000 on like some amazing amazing.
+[00:03:39] I'm going to have to figure this out.
+[00:03:41] I got to be able to pull some batteries out of my grill to get this thing to work.
+[00:03:45] Put some dewalt batteries in there or something.
+[00:03:47] I'm going to make it out of 5,000 D cells.
+[00:03:51] I start I started replacing lights on simple properties.
+[00:03:55] LED lights.
+[00:03:56] And then one of the L said last year, I said, put me a regular socket in there that I can put an LED bulb.
+[00:04:02] Don't give me any more LED sealed system ones.
+[00:04:05] Because they go out.
+[00:04:07] It's like old.
+[00:04:08] It's ridiculous.
+[00:04:10] We've had to go out on so many properties that we just said, no.
+[00:04:14] Man, trying to do it to save a little bit of money.
+[00:04:16] Save a little money and then.
+[00:04:17] I was like, I saw a guy talking about that, the LED bulbs.
+[00:04:21] It's like it's like these things are great.
+[00:04:23] LED bulbs are really bright and everything saves a lot of money.
+[00:04:26] He goes, except, I remember when they said change the incandescent to fluorescent and save a bunch of money.
+[00:04:32] He said, then they said change the fluorescent bulbs to LED bulbs and you save a bunch of money.
+[00:04:36] He said, what the hell is my bill always $300?
+[00:04:39] He said, fluorescent $300.
+[00:04:42] And I've been making so many upgrades.
+[00:04:46] Power company knows.
+[00:04:48] They're more than happy to do that.
+[00:04:50] So you won't notice that increase.
+[00:04:52] He said that I had a thought bubble for a second.
+[00:04:54] He said, that is true.
+[00:04:57] Yeah, your bill would be 600 if you still had on the original.
+[00:05:00] Power companies.
+[00:05:02] I've been watching them for years.
+[00:05:05] They've never gotten me.
+[00:05:06] Well, we still got some here.
+[00:05:08] I'm going to go take a look at that uh the unit you talked about um the note.
+[00:05:13] Yeah, the note.
+[00:05:14] I'm going to take a look at it.
+[00:05:15] Yeah, second floor.
+[00:05:16] Yeah, yeah, yeah.
+[00:05:17] Show me where it is.
+[00:05:18] I don't know.
+[00:05:19] It's going to be in the common room.
+[00:05:21] It's going to be in the common room which sits directly below this one.
+[00:05:24] Yeah.
+[00:05:24] It's second floor.
+[00:05:26] Okay.
+[00:05:26] Is it?
+[00:05:27] Okay.
+[00:05:34] Yeah, we're all up here.
+[00:05:37] So what kind of training you got for the new guys, man?
+[00:05:39] Training?
+[00:05:40] Uh, man, I would say they actually have a lot of on the job training.
+[00:05:45] The um right when I started, I decided to do a full on training program for about six weeks.
+[00:05:51] And uh it was kind of weird because it was new.
+[00:05:54] What they started is they did the history of cable.
+[00:05:57] So you all the stuff that we've been through all the way back since like cable came out.
+[06:00:00] And they say, hey, you got to be able to talk about uh cable.
+[06:03:00] It's kind of something.
+[06:03:02] It's uh cable started out something a little bit different.
+[06:03:06] Loyal our software.
+[06:03:08] So they're already there was mostly the poles belonged to Comcast.
+[06:03:13] All the power poles.
+[06:03:15] Yeah, yeah.
+[06:03:16] And I've been coming coming slowly becoming power poles.
+[06:03:20] Uh because phone was the first company run.
+[06:03:23] So it's just never thought about that.
+[06:03:25] Has it has its own little things where it rains and works through through the phone lines anyway.
+[06:03:30] Just never thought about it.
+[06:03:32] But yeah, let's see if we can dump and make sure it works.
+[06:03:36] How they uh emulate the area and convert the from light to.
+[06:03:42] This is the note.
+[06:03:44] So that's the note.
+[06:03:45] That is the note.
+[06:03:47] So that's what we'll be upgrading next year.
+[06:03:53] And the fiber back line.
+[06:03:56] So from the street, like from the street, that is that's the same fiber that's eventually going to get to the I mean, this is a guess.
+[06:04:04] I'm not going to hold you to this, but um that fiber is going up to the pole out on the street.
+[06:04:08] That's a reasonable guess.
+[06:04:09] So wherever it goes, it could go underground.
+[06:04:12] In this case, it's going through a vault and then eventually hits the poles and then it goes all the way back to 1349 Warren Wedding's Road.
+[06:04:19] Okay.
+[06:04:19] And then from there, uh that's when it talks to the CMTS and that's what the modems are talking to, including the boxes they're talking to.
+[06:04:26] And uh that's where you get the IP.
+[06:04:28] Okay.
+[06:04:29] But nothing in the future, it'll talk to this and then it'll go straight out and it'll wrap to wherever you're asking for what's up.
+[06:04:36] Okay, so it'll be faster.
+[06:04:38] Okay.
+[06:04:39] But there's nothing nothing between that box and Warren Williams in terms of um signal processing.
+[06:04:46] No, that's it.
+[06:04:47] That's it.
+[06:04:48] That's it.
+[06:04:49] Okay.
+[06:04:49] It's light to light.
+[06:04:50] So light to light.
+[06:04:51] Yeah, it's just light to light.
+[06:04:52] So you got a transmitter and a receiver in there.
+[06:04:55] So it's two fibers.
+[06:04:56] Uh there's actually way more in there.
+[06:04:58] I don't know what the count of that one is, but sometimes we buy 160.
+[06:05:01] But there's two fibers, transmit and receive fibers and they just talk all the time.
+[06:05:05] So you're talking directly to Warren Williams.
+[06:05:07] So okay.
+[06:05:08] That's why when originally she asked me about it about problems there, I was like, I pulled it up.
+[06:05:12] I was like, they got their own note.
+[06:05:14] It's like that was hard to believe.
+[06:05:16] I was like, they got their own note.
+[06:05:18] It's like, how are they having problems?
+[06:05:20] And she's like, well, they're still having problems.
+[06:05:22] I was like, they have their own note.
+[06:05:24] I was like, I'm trying to explain to her.
+[06:05:26] She's like, what does that mean?
+[06:05:27] I said, that's like best case scenario.
+[06:05:29] It's like hospitals don't even hotels don't even have their own note.
+[06:05:32] I was like, they have their own note.
+[06:05:34] I was like, I'm looking at it.
+[06:05:36] I was like, oh, they got their own note because they're so far away.
+[06:05:39] You guys are far away from our cable plant.
+[06:05:41] We don't have anything down here cable plant.
+[06:05:44] So so they had to run fiber to get to you.
+[06:05:46] So they just put through the note in the building.
+[06:05:48] I was like, so but so you got no other customers down here with Rapids and what.
+[06:05:53] As far as I know, I didn't see anybody.
+[06:05:55] I didn't see any other cable.
+[06:05:56] If they had fiber in there that I can't see that on the map I'm looking at because I'm looking at cable customers.
+[06:06:01] So I looked at it.
+[06:06:02] It's just y'all and it's your own note.
+[06:06:05] So when you pull it up, it's just y'all.
+[06:06:07] It's literally just just y'all down here.
+[06:06:09] I was like, okay, but I mean we do have customers downtown.
+[06:06:12] We just don't we didn't have anything really.
+[06:06:14] So it's just y'all.
+[06:06:15] And then nobody can nobody can piggy back off it because it's in the building.
+[06:06:20] It's like nobody can get access to it.
+[06:06:22] So that's what I said, you guys are uh you guys kind of have a one off something.
+[06:06:26] Okay.
+[06:06:27] Not that it doesn't work any other way, but this is like the best possible way to get cable.
+[06:06:32] To have the note in the building.
+[06:06:34] Man, I mean, I'm afraid you got to shoot yourself in the foot because we I mean we have several tenants in the building that are dissatisfied with our spectrum service.
+[06:06:42] So hopefully we're getting it fixed today.
+[06:06:44] It doesn't sound like we should have any problems.
+[06:06:46] That's the thing.
+[06:06:47] I mean, I think that's our problem though right now.
+[06:06:49] I don't think people complain.
+[06:06:50] They will be.
+[06:06:51] You are correct.
+[06:06:53] But you know, like it seems like a spectrum gun shot.
+[06:06:57] Because the reason why we have any pandemic problems.
+[06:07:01] It's just the way it was configured.
+[06:07:03] The thing is we don't do it when we have small buildings.
+[06:07:06] We hire contractors.
+[06:07:08] Uh when they're built, uh they're they're supposed to set them all up a certain way.
+[06:07:13] They they should know how to set them up.
+[06:07:15] So somebody just picked up a plate.
+[06:07:17] So I guess they figured it was backwards and they set it up backwards.
+[06:07:21] Setting it up backwards, like I said, it doesn't cause a problem itself, but it could cause a problem when you say a customer all the way down the hall and now you don't have enough signal to push it.
+[06:07:30] So that's like like I was saying, like even if you had like these are what called points.
+[06:07:35] So like anybody that's really far down the hall essentially, just hook them up to the 17.
+[06:07:40] They get three extra signal, three extra DBs.
+[06:07:43] But folks are nuts.
+[06:07:45] There's some text.
+[06:07:47] But yeah, it's it looks like they kind of dropped them all along the way.
+[06:07:50] That's what I said, it would have been nice to know sooner.
+[06:07:53] Sometimes you don't know what you don't know until you know what you don't know.
+[06:07:56] That's great.
+[06:07:57] And then I asked my guys, I was like, oh, cable's fine.
+[07:08:00] The the original request came to me was like, y'all need wiring replaced.
+[07:08:04] I don't know anything about this.
+[07:08:06] I was like, I'm asking my guys.
+[07:08:08] I was like, what's wrong with the wiring there?
+[07:08:09] The wiring's good.
+[07:08:10] Well, why are they saying the wiring needs to be replaced?
+[07:08:13] I don't know, wiring's good.
+[07:08:15] They got good good sales reps that they would be responsible for replacing even wiring.
+[07:08:20] And I think it was her.
+[07:08:22] Yeah, she's she was trying to figure out.
+[07:08:25] So so it kind of got sidetracked.
+[07:08:28] So she went from there to getting John in a construction coordinator.
+[07:08:32] Well, look at it.
+[07:08:33] He comes and looks at the plant map and he goes, why would you want to He's looking he's looking at like somebody's insane.
+[07:08:40] Like, why would you want to replace?
+[07:08:42] Well, Mr. Taylor said that one of the technicians I'm getting, you know, a person tells a person tells a person kind of thing.
+[07:08:47] Signal degradation.
+[07:08:49] That's so that's what she told me too.
+[07:08:51] She said, well, I said, well, I asked them all.
+[07:08:54] I was like, I don't know who who could have said it other than it could have been a contract.
+[07:08:58] Oh, what I think is misunderstood.
+[07:09:00] Yeah.
+[07:09:01] Yeah.
+[07:09:02] So like, yeah, and John thinks about it and he looks at it and he's like, that would be a big waste of money to replace this cable.
+[07:09:07] It's brand new.
+[07:09:08] It's like, you know, whenever somebody ran it, they ran the right cable.
+[07:09:11] Like we would be literally putting in the same cable.
+[07:09:13] So I told her, I said, well, maybe they want fiber.
+[07:09:16] And I was like, she's like, well, they can get fiber out there.
+[07:09:18] I said, fiber's in the building according to the plant map.
+[07:09:21] I said, see if they want fiber.
+[07:09:22] I said, I don't know.
+[07:09:23] I was like, because I said, I'm looking at it.
+[07:09:26] The text are telling me we didn't run the coax.
+[07:09:28] We just ran coax in here.
+[07:09:31] So realistically, yeah, if y'all wanted fiber, the fiber's here too.
+[07:09:34] So it's like, but you would have to have a way to get it to the room.
+[07:09:37] That would be some sort of cat five, which we wouldn't run it, but you could throw it in a contract that says we'll pay somebody to run it to the room.
+[07:09:44] Just individually.
+[07:09:45] Yeah, so either either fiber or uh cat five.
+[07:09:48] But I mean, there's a lot of stuff they do on these contracts.
+[07:09:51] I'm not I've seen them.
+[07:09:53] I don't know what they're actually capable of, but I've seen they they will almost do anything to get you to sign on paper.
+[07:09:59] Uh just because there's no point in y'all going to somebody else when we have both products.
+[07:10:04] We have the fiber product, we have the coax product.
+[07:10:07] We already pulled the fiber in.
+[07:10:09] That's most the cost.
+[07:10:11] Uh this little bit of taps and uh coax that we ran didn't cost that much.
+[07:10:17] But so if you want to talk to them and tell them you want fiber.
+[07:10:20] When did they pull the fiber?
+[07:10:21] I didn't I didn't know they had fiber in here.
+[07:10:23] Uh it's whenever y'all agreed to it.
+[07:10:25] That's that's what's saying.
+[07:10:26] I don't think we ever agreed to fiber.
+[07:10:28] No, they ran the fiber to bring the coax in it.
+[07:10:31] Oh, okay.
+[07:10:32] But it's the same fiber we would use if you wanted fiber to the tenants.
+[07:10:35] They they made some changes.
+[07:10:37] They made it pretty simple while.
+[07:10:39] What was it?
+[07:10:40] Down in the mechanical room.
+[07:10:42] There's some other stuff down there.
+[07:10:44] If you want to take a little field trip, we can go take a look at the mechanical room down there.
+[07:10:47] I got I got free time.
+[07:10:48] But yeah, if you guys ever wanted to go to fiber, do swap that out for fiber.
+[07:10:52] It looks similar.
+[07:10:54] Uh but it's it's a little flatter.
+[07:10:57] And then all the all the fiber modems, they talk the same way kind of like that is.
+[07:11:02] They they talk back to that and then it talks to the head end.
+[07:11:05] It still flows the same route.
+[07:11:06] You're not going to notice much of a difference other than uh the speed is a lot quicker.
+[07:11:11] But it's probably pretty good.
+[07:11:13] Yeah.
+[07:11:14] And they and they for individual units to get fiber, we have to go all in.
+[07:11:19] Yeah, you would have to you need to A, you need cat five.
+[07:11:23] Um we're not going to be able to do it one Z two Zs.
+[07:11:26] We're going to have to get we're saying we got to change our note um and do everything at once.
+[07:11:30] Yeah, you would just switch it all over.
+[07:11:32] So there would be a cut over day.
+[07:11:34] So basically they come in and cut over and then we would have to have uh ONUs or the fiber modems.
+[07:11:40] Each unit would have to get those.
+[07:11:42] And then they would lose cable boxes and go Zuma, which is just the IP box.
+[07:11:47] So but like I said, these contracts can be whatever y'all want to play with.
+[07:11:51] So if you tell them you want you want the wifi setting, you want the modem and you want the Zumas.
+[07:11:56] They they have bundles for that.
+[07:11:58] I've seen them dirt cheap too.
+[07:12:00] Until all like $40 a month includes all that.
+[07:12:03] I'm like, wow.
+[07:12:04] I was like, well, I guess they look at it was if we're not getting nothing or if we're getting something, it's still better than nothing.
+[07:12:10] Yeah.
+[07:12:11] And over the course of the years, you know, customer gets spectrum mobile or something on top of it, you know, you make a little more extra.
+[07:12:16] Yeah.
+[07:12:17] And they're not going to change if they're satisfied with it.
+[07:12:20] I mean, even if they're dissatisfied, those customers are not going to change unless there's a big problem.
+[07:12:25] Because there's a pain in the ass.
+[07:12:26] We typically we got Troy here.
+[07:12:28] Troy's been doing cable since, you know, it came out.
+[07:12:31] He's a perfect cable.
+[07:12:33] We still hear about it.
+[07:12:34] I say he ran the first piece of cable on a horse.
+[07:12:38] He takes his job very serious, but uh he lives this job.
+[07:12:43] It's it's sometimes kind of gross, but he has to know why.
+[07:12:47] He's
+
+--- Segment 2 ---
+Okay, here is the transcript of the audio file, with timestamps and speaker labels:
+
+**0:00** TSG: figure out if you have a signal issue or not. Or do I need to just talk to you about your router?
+
+**0:04** Jesse: Yeah.
+
+**0:04** TSG: Give me your spot router. And if you have a Spectrum router, it tells me everything that's going wrong with it too. It literally tells me if it's working or not.
+
+**0:13** TSG: But it wasn't flagging you here. I mean, it's
+
+**0:15** Jesse: No, it's not. That's that's the thing because your signal, although it could be low, it does say the signal's low on some of yours, but it's clean. And the only reason it's clean is because you got a node right here. So that means
+
+**0:30** TSG: So like if you had a real problem, uh, just say in the real world scenario, it's chewed and smashed and tore up, somebody cut it and pulled it or it's not screwed in all the way. Um, I mean, look at this, it's so clean that when you look at it, it's perfect. It's telling you it's perfect. Like it has the best score you could possibly have. That's because you guys have a node here and not many people are connected to it or you're off.
+
+**0:57** Will: Well, that's great news, but again, we had all these problems. There's some kind of blind spot. It it's uh,
+
+--- Segment 1 ---
+[00:00:00] **TSG**: I need to know if I need to worry about the signal issue or not. Or do I need to just talk to you about your router?
+[00:00:06] **Spectrum**: Yeah.
+[00:00:06] **TSG**: Give me a small router. And if you have a Spectrum router, it tells me everything's going wrong with it too. It literally tells me if it's working or not.
+[00:00:15] **Spectrum**: But it wasn't flagging you here. I mean, it's
+[00:00:18] **TSG**: No, it's not. That's that's the thing because your signal, although it could be low, it does say the signal's low on somebody else, but it's clean. And the only reason it's clean is because you got a node right here. So that means
+[00:00:34] **Spectrum**: So like if you had a really bad cable, so that uh, just say in the real world scenario, it's chewed, it's smashed, it's tore up, somebody cut it, pulled it, or it's not screwed in all the way. Um, I mean, look at this, it's so clean that you when you look at it, it's perfect. It's perfect. Like it has the best score you could possibly have. That's because you guys have a node here and not a lot of people connected to it already off. So
+[00:01:00] **TSG**: Well, that's great news, but again, we had all these problems. There is some kind of blind spot. It it's um, some kind of blind spot.
+[00:01:11] **Spectrum**: Well, the thing is, I couldn't find it. You know, like I I told her the same thing. I said, looking at it, like, okay, we got low signals here, but it's working. And I saw the port modem was working. So, are they having a router?
+[00:01:27] **TSG**: I don't know. She couldn't give me any.
+[00:01:30] **Spectrum**: Yeah. She just said, yeah, they just said some of the tenants were complaining incessantly about it. I said, well, let's get let's get a trouble call and let me let me kind of fine tune. Let's see if it's actually an issue with the hardware or is it an issue with the signal?
+[00:01:47] **TSG**: Yeah.
+[00:01:47] **Spectrum**: Because looking at it, it all looked like the signal.
+[00:01:50] **TSG**: And then, you know, is it operator? You know, I mean, are they do they don't know how to work their own stuff? I know we get some of those too. So I see I see it too. It's not it's not but it's it's part of the business. Yeah. You know, we get it. So it's like is the Ethernet cable working properly? You know, I've seen that too. Get out there and it's only pulling 100 megabytes.
+[00:02:20] **TSG**: That's not pulling full gig.
+[00:02:22] **Spectrum**: Uh, is the the power supply that they sent them for the wireless router, is it the right one? Sometimes it's not.
+[00:02:31] **TSG**: Right.
+[00:02:31] **Spectrum**: It's more it's it's more troubleshooting for us now because, you know, we roll back. So like our process is like if the customer calls here, right? A tech rolls, it's pre-line. He rolls out there, he does what he needs to do. The customer calls right back in, now it's flagged. Instantly. It's flagged. I got a moral report. I go over it. I look at it myself and see why was it why did we call back in? The notes from the customer does call in, AI monitors the call and puts it in there for me. It gives me a synopsis of what they talked about. So I can review it and look at it. I thought, okay, there's still some there. Why I go in there personally. I look at the router. I look at the modem and go from there. And then I send an email back to my tech team. Tell them to dispatch out. They said this, this, this, this. That's why I find it weird when I was telling her, I said, where where are these tenants complaining? Are they just complaining to the building? Because I don't see them online.
+[00:03:43] **TSG**: Right.
+[00:03:43] **Spectrum**: They're saying techs are coming there. It's like, when was it? And she gave me one. I was like, we haven't been there since February of last year.
+[00:03:51] **TSG**: You can see you can see on um, we got a ticket system. Um, you can see every everything that makes it to Spectrum.
+[00:04:03] **Spectrum**: Yeah. All right.
+[00:04:04] **TSG**: Could you give a report to our management company of every complaint that we have from our building?
+[00:04:14] **Spectrum**: I'll ask. I'll ask Joe about that.
+[00:04:16] **TSG**: All right.
+[00:04:17] **Spectrum**: I'll ask. Now, that would be I've made a note that we're going to ask for all their owners if they do have a tech coming visit to let us know the date they came and we get the tech's name.
+[00:04:33] **TSG**: Yeah.
+[00:04:33] **Spectrum**: And then we bang that and then we can bang it off their list. It might help you guys too.
+[00:04:37] **TSG**: Yeah.
+[00:04:37] **Spectrum**: The only thing is I can only talk to her and it's like she's like, well, you need to talk to them. I said, I'll send an email on my phone. I'll send it in. I try to call them. I say, what if you want
+[00:04:47] **TSG**: Good, if we get I mean, we're customers, right? So we're always right. Yes. Um, if we could get a list of all everything that you have, they're like for, you know, like all the open, even the closed ones, man. Um, and then and it might be the sort of thing we could help too because if we're having a problem with one floor or one end of the building, you know, which units are where, then we can um, we have a problem like all my system tells me the unit number.
+[00:05:22] **Spectrum**: Yeah.
+[00:05:22] **TSG**: Now that I knew how it's set up, it's like this each floor. 500 square foot floor.
+[00:05:28] **Spectrum**: But you know, I want the same thing. I want Spectrum's stuff to work. I don't want like complaining homeowners, believe it or not, they don't just blame Spectrum. They blame the management company and the board. It is like we're all in this together.
+[00:05:42] **TSG**: Yeah.
+[00:05:42] **Spectrum**: Um, so yeah.
+[00:05:44] **TSG**: Yeah, we get the drift.
+[00:05:45] **Spectrum**: So it's it's somehow we need to talk to Joe about it, but I mean, that might be worth doing coming together. But I will say this, if you guys did want to go to fiber, um, you see their own router.
+[00:05:59] **TSG**: Yeah.
+[00:05:59] **Spectrum**: Yeah. That's the media. So you have just the modem sometimes and also you got to have that.
+[00:06:05] **TSG**: Yeah.
+[00:06:06] **Spectrum**: But the coax piece is like I'd be more concerned if the coax is over. That's my. I think I don't think everything's going to be resolved until you change the coax out. So today, just because I don't know which one's which. Uh, but we shut them around on the taps to give them a little more what they needed. Um, but I really just get in the mood. So I'd be going in there and pulling, but it's not like I could have like I literally pull up the account. I go in there and put it in the meter system. It shows me the truck rolls. And I'm like, okay, I've been in there since last year and reported this case last year.
+[00:06:58] **TSG**: I'm doing this.
+[00:07:00] **Spectrum**: That's what that's what I did originally when she reached out. I was like, just give me a tenant. It's like there's a lot of people here and it's a lot of copy paste, look, look, click, go in there, see if it's a trouble call or did they get service.
+[00:07:15] **TSG**: Yeah.
+[00:07:15] **Spectrum**: Well, again, I think I think I think something's getting lost between what we see here and what it is. It's probably why we have the issues of miscommunication.
+[00:07:28] **TSG**: But I will say it's real time. Like y'all y'all gave me one to look at. It's real time. I can look at it real time.
+[00:07:33] **Spectrum**: Yeah.
+[00:07:33] **TSG**: Because I think uh, David Tolethan 414, he's been complaining um, on and off for months.
+[00:07:41] **Spectrum**: Okay.
+[00:07:42] **TSG**: And I but I don't know 414, but I don't know the specifics of it. Like this is just really complaining about their Spectrum service. So I don't know if they called anybody. I don't know.
+[00:07:55] **Spectrum**: They didn't let us know about it.
+[00:07:56] **TSG**: Right. Right. But that's the thing, but even if they let y'all know about it, you can call me.
+[00:08:01] **Spectrum**: Yeah, I can just right right right.
+[00:08:03] **TSG**: Yeah, well we got to help because nobody wants to call the nobody wants to call customers.
+[00:08:07] **Spectrum**: Yeah.
+[00:08:07] **TSG**: I don't want to call customers.
+[00:08:09] **Spectrum**: Yeah.
+[00:08:09] **TSG**: Are you willing to do that though?
+[00:08:11] **Spectrum**: Oh, gosh, yeah.
+[00:08:11] **TSG**: Be the intermediary for Spectrum?
+[00:08:14] **Spectrum**: If they have already complained.
+[00:08:16] **TSG**: Well, that's true. That's right. Okay. We just need we need to know so we can we tell folks, you know, you're responsible for your unit, but we will help you resolve any issues. It's just like we tell them, if this unit floods, it's on you to get it fixed. But I'll come over here at 2:00 in the morning. I'll call you guys.
+[00:08:41] **Spectrum**: So these are to get over here and get it solved.
+[00:08:43] **TSG**: Conduct.
+[00:08:44] **Spectrum**: Yeah.
+[00:08:45] **TSG**: So it's easy, you know, we got us, we work for the board, we manage the facilities. So, you know, you got one contact here and I have one contact that I technical board, but I have a whole we need to just text us.
+[00:09:02] **Spectrum**: Yeah.
+[00:09:02] **TSG**: Yeah. Well, I got you in my because all I got to do is we use AI a lot at all the stuff. Yeah, I thought it was going to be running out close to session. All I got to do is pull up the account and send it to AI. AI is going to reach out to them and schedule.
+[00:09:19] **Spectrum**: Yeah.
+[00:09:19] **TSG**: It's super cool.
+[00:09:21] **TSG**: Yeah.
+[00:09:21] **Spectrum**: Or schedule out. Oh. Man, because the city always messes up first about lighting them down. It's like, hey, check to see if this is yours. Got a complaint. It's like today.
+[00:09:36] **TSG**: Yeah.
+[00:09:36] **Spectrum**: We all assist them. Yeah, let the bot deal with it. Let the bot schedule and everything.
+[00:09:42] **TSG**: Yeah.
+[00:09:42] **Spectrum**: And then roll a tech. It's like, let's get some of the next available time on.
+[00:09:46] **TSG**: Let's just put it.
+[00:09:47] **Spectrum**: I just read an article where the bot tells the travel agent, hey, let's book this trip in Australia to this hot spring that didn't exist.
+[00:10:02] **TSG**: You can also have morons working for you though.
+[00:10:05] **Spectrum**: Yeah.
+[00:10:05] **TSG**: I've seen a lot of garbage. Because I'll ask it to do some stuff that'd be really handy for me and it blocks.
+[00:10:12] **TSG**: Yeah.
+[00:10:12] **Spectrum**: Like laws against that. Try to get a job created for a tech to go help another tech. We're not supposed to do that. Tech can just roll over there, but he needs to be available to work. I'm like, let me just see.
+[00:10:26] **TSG**: Do not.
+[00:10:27] **TSG**: I can't take all the information.
+[00:10:29] **TSG**: Device.
+[00:10:30] **TSG**: Do you need anything else?
+[00:10:33] **TSG**: Well, tell me though, and again, man, it's a blessing to have a good alliance. I'm sorry about using so much of your time, but um, we get a lot of complaints about the um, the guide over the set top boxes not working or it drops to like a lower resolution version of the guide. Is that a bandwidth problem?
+[00:10:57] **Spectrum**: That could be a software. It does update overnight. We're doing that. They won't they don't even tell them they're doing it. When it does that, it does delete the guide and it has to reload and it should reload within an hour or so. Uh, lower resolution, no, that that's not.
+[00:11:15] **TSG**: No, I'm saying lower lower resolution. Um, I've seen it on my own box from time to time. It will you'll get the big guide. Um, you'll have more detailed information.
+[00:11:25] **Spectrum**: Yeah, so when you first click it, the mini guide should come on. But if you double click it, it's the big guide.
+[00:11:30] **TSG**: Right.
+[00:11:30] **Spectrum**: Well, but sometimes it can't handle the big guide and and I'm not sure what the why that is and it'll drop to the lower guide. Um, and I've gotten a few other people have talked about the same phenomenon. Is this a software issue? Is this a bandwidth issue?
+[00:11:48] **Spectrum**: That could be a software. I don't I never heard that out of your out of your land.
+[00:11:53] **TSG**: Would be a bandwidth.
+[00:11:55] **Spectrum**: But like I said, the boxes use uh, use the docsis protocol, which is what the modems use.
+[00:12:01] **TSG**: Okay.
+[00:12:01] **Spectrum**: So they talk over that, but the modems actually use a uh, they use 3.1. So the boxes are actually using 3.0. So 3.1 is uh, I'm switching out the picture. It's the OFDA, which is sort of 96 megahertz wide. So that's what the modems use. But they'll piggy back off the other carriers, which the boxes use if they need to. But saying you didn't have enough bandwidth, there's like no way in hell you don't have enough bandwidth here because you have your own fiber.
+[00:12:37] **TSG**: Yeah.
+[00:12:37] **Spectrum**: Um, you even if you told everybody to get a gig and download as fast as possible, you don't have enough modems here to do that. You would not cap it out.
+[00:12:47] **TSG**: Right. I'm going to got to think of bringing more information. Entire portions of the city of Warner use.
+[00:12:55] **Spectrum**: Okay.
+[00:12:55] **TSG**: So and you have one in each here.
+[00:12:58] **Spectrum**: That's why that's why I'm trying to stress to you. It's like, no, you have one here.
+[00:13:02] **TSG**: Yeah.
+[00:13:02] **Spectrum**: Everybody get it.
+[00:13:03] **TSG**: I'm not saying you don't have issues, but I'm saying signal wise, I don't think you really have any signal.
+[00:13:08] **TSG**: Right.
+[00:13:08] **Spectrum**: Maybe equipment, hardware, user experience, different devices. Yeah. If we do have that no matter how I'm willing to concede everything up to that point, kicks ass. Yes. It's just from here to the individual units. And guess what, the part that
+[00:13:26] **TSG**: So I care about next is from here to the units.
+[00:13:29] **Spectrum**: That's where the community that's where the it's like I think I'm I can feel pretty good about that.
+[00:13:36] **TSG**: Yeah.
+[00:13:36] **TSG**: So I feel better.
+[00:13:38] **Spectrum**: And that's why I say if y'all did want to go to a fiber and y'all don't have a contract, then yeah, talk about it. See I'd at least see what they offer. So you got two ways to do it. You say, hey, I want fiber all these tenants and I want I want to see what the package looks like. I want to see what the package looks like with Wi-Fi or without Wi-Fi and go from there. Because it's more beneficial for us to give Wi-Fi to your tenants here just because we use that for ourselves.
+[00:14:12] **TSG**: Right.
+[00:14:12] **Spectrum**: And then we'll and it's just the way it works. It's just there's a lot of things that are beneficial for us to have the Wi-Fi here. So and I've seen that with HOAs, not just buildings, but actual neighborhoods, subdivisions. And they turn the whole thing into a HOA account.
+[00:14:32] **TSG**: Yeah.
+[00:14:32] **Spectrum**: And we'll do Wi-Fi. And we'll get them some boxes and get them in. It's like, maybe even let them stick an antenna on our roof. It's I don't they don't even need that. So it's just uh, the thing is like the coverage on the new routers, I mean, they're great. 1.57. I said if I don't know if you looked them up or not, but it's it's great. But the devices have to catch up now. It's like my iPhone doesn't do 1.57. Your Android probably does. They throw all the newest stuff in there. Let you beta test.
+[00:15:02] **TSG**: Yeah.
+[00:15:02] **TSG**: Probably part of the I hate knowing that.
+[00:15:05] **TSG**: Part of the reason why this guy, you want to run the oldest stuff you possibly can.
+[00:15:09] **TSG**: Oh, yeah.
+[00:15:10] **TSG**: That's okay. Like triple.
+[00:15:13] **TSG**: All right.
+[00:15:13] **Spectrum**: A buddy of mine was in that. That's all the reason I wanted to get into it, but he went later got arrested. So he got up with it. It's a little disorder. You ever get more look up DDoS Mafia. That's what the FBI caught him. That's that's bad. His name was Lee Walker.
+[00:15:40] **TSG**: Yeah.
+[00:15:41] **Spectrum**: He's in New Orleans.
+[00:15:43] **TSG**: Yeah.
+[00:15:44] **TSG**: Any time you can uh, like like the command line with the guy, uh, make a typing error and uh, Pogo wrote his operating system.
+[00:15:55] **TSG**: Yeah.
+[00:15:55] **TSG**: I've seen that one. I was just looking at uh, websites, my URL and stuff like that. Make one little change and then reload the website. Oh, no. What's wrong with this? You go back in there. It's like, what did I mess up? And like visually, everything looks right. Um, but they didn't back in those days, they didn't give you syntax errors to see where the line messed up.
+[00:16:22] **TSG**: Yeah.
+[00:16:22] **Spectrum**: So you just had to comb through the whole thing again. It's like, what was I working on? And it's up being one semicolon that you dropped or some silly shit.
+[00:16:34] **TSG**: Yeah.
+[00:16:34] **Spectrum**: Or deleted a hashtag.
+[00:16:37] **TSG**: Yeah.
+[00:16:39] **TSG**: All right.
+[00:16:40] **TSG**: We'll do this.
+[00:16:40] **Spectrum**: But yeah, it's just I I'll look at on my if y'all want to text me some uh, you know, accounts or call me about some accounts, whatever the case. You got my email too. Maybe we can put a list together.
+[00:16:52] **TSG**: I'll look at them. So I mean, whatever the case is. I can't fix all the problems because I know someone going to be, you know, whatever devices they got. It's just but signal wise, I'm I'm pretty good about signal. I haven't seen those place around that we've reported. They did have the issues where the thing is you you guys wanting to have signal swings here because it's inside the building. The signal does swing outside.
+[00:17:24] **TSG**: Yeah.
+[00:17:24] **Spectrum**: So it's like unless they do actually have an actual issue, but I I need to probably look at it real time when they're actually having an issue. And just go from there and send a guy out here that I trust.
+[00:17:40] **TSG**: Yeah.
+[00:17:40] **Spectrum**: Because they'll send a truck. A trustworthy one. I've been working progress. Always are. Getting going.
+[00:17:48] **TSG**: Okay.
+[00:17:50] **TSG**: No, man.
+[00:17:52] **TSG**: Excuse me.
+[00:17:53] **TSG**: They did like your bag though.
+[00:17:56] **TSG**: Yeah.
+[00:17:57] **TSG**: But yeah, whatever y'all want to do.
+[00:17:59] **TSG**: Okay.
+[00:18:00] **TSG**: I can I can take care of whatever on my end. The contract part of it, I have no I've never I've seen them before. It's been a long time.
+[00:18:11] **TSG**: Yeah.
+[00:18:12] **TSG**: Done. First floor was the only floor that was right.
+[00:18:16] **TSG**: Really?
+[00:18:18] **TSG**: 27.
+[00:18:20] **TSG**: Again, yeah, just see if that see if that improves.
+[00:18:23] **TSG**: Yeah.
+[00:18:24] **TSG**: Hopefully.
+[00:18:26] **TSG**: Maybe maybe that was a whole issue.
+[00:18:29] **TSG**: No, Lord willing, man. Lord willing.
+[00:18:33] **TSG**: I'm going to get out of here.
+[00:18:35] **TSG**: Been a little too real for you.
+[00:18:38] **TSG**: So y'all uh, like actual office you're having the truck all day?
+[00:18:42] **TSG**: No, we got an office. 1349 Moreland's Road.
+[00:18:45] **TSG**: All right. Where the old
+[00:18:47] **TSG**: side office.
+[00:18:48] **TSG**: They used to be a business office there, but they shut that one down.
+[00:18:51] **TSG**: Yeah, they wanted to shut the the customer based portion of it down, but the rest of us still there.
+[00:18:55] **TSG**: Okay.
+[00:18:56] **TSG**: So they don't you don't pick up a modem and all there now?
+[00:18:59] **TSG**: No.
+[00:19:00] **TSG**: Where do you get them?
+[00:19:01] **TSG**: Baker Road store.
+[00:19:02] **TSG**: Baker Road. That's right. Baker Road.
+[00:19:03] **TSG**: That's right. Y'all yeah, used to go to Walmart. That's right. I forgot they changed that. Used to attack. Customer service is not the greatest experience. Well, customer service never is anywhere pretty much nowadays. That's what that's what I'm saying. Especially if you try to call them.
+[00:19:24] **TSG**: Yeah, but the the uh, of course, the individuals are pretty good. But it is just here they say like the fiber that's what I'm talking about.
+[00:19:31] **TSG**: Thanks.
+[00:19:32] **TSG**: Good to meet you.
+[00:19:33] **Spectrum**: It was good to talk to you.
+[00:19:34] **TSG**: That's a lot.
+[00:19:35] **TSG**: Yeah.
+[00:19:35] **TSG**: You have a card?
+[00:19:37] **Spectrum**: Um, that's all right.
+[00:19:40] **TSG**: Okay.
+[00:19:41] **TSG**: That'll do.
+[00:19:42] **TSG**: Card goes fast.
+[00:19:44] **TSG**: Okay.
+[00:19:45] **TSG**: Okay.
+[00:19:46] **Spectrum**: It's uh, 850 583 0733. And if you just want to send me a contact card, I'm never going to contact you about business directly, but I'd like to know your name.
+[00:20:03] **TSG**: Yeah, if you get a chance to send me your name.
+[00:20:05] **TSG**: Yeah, I'll get to you.
+[00:20:06] **TSG**: All right.
+[00:20:08] **TSG**: Let me reach out. I'm salaried, so.
+[00:20:12] **TSG**: All right.
+[00:20:13] **TSG**: I signed up for it.
+[00:20:16] **TSG**: Oh.
+[00:20:17] **TSG**: We still got to pay you up there.
+[00:20:19] **TSG**: No.
+[00:20:20] **TSG**: No, they'll do that.
+[00:20:22] **TSG**: I thought the lowest salaried employees have a certain number of hours that need to get back.
+[00:20:27] **TSG**: You need to look at the state law on that. I ain't seen that. You need to look at the state law on that. I'm going to look at it.
+[00:20:33] **TSG**: The thing is like I'm allowed to come to the house when I want to and my wife.
+[00:20:38] **TSG**: Oh, that's how they probably have you get around it.
+[00:20:40] **TSG**: But see, I got I got a certain point now. We had a point last year. I was like, I'm going to bump pay a little bit, you know. And it's like then they moved it back to seven. I was like, at this point, I I'll take it. It's like because you I'd wake up early when we had 7:00 a.m. shifts all the way up to seven. So I was like it's 12 hours a day, seven days a week. Yeah, it sounds like a good deal. But it used to be two of us. It used to be me and Rick here and he's moved on to something else now. So now I got all seven days. I was just Tuesday through Saturday.
+[00:21:22] **TSG**: Jeez.
+[00:21:22] **TSG**: Anyway, I I like the.
+[00:21:24] **TSG**: Yeah.
+[00:21:24] **TSG**: That's good. Well, if you like what you do, that's that's.
+[00:21:27] **TSG**: Yeah, I don't see. Yeah, like I said, the only thing we're complaining about.
+[00:21:31] **TSG**: It's cool talking.
+[00:21:33] **TSG**: Appreciate it.
+[00:21:34] **TSG**: Have a good one.
+[00:21:35] **TSG**: You have a card?
+[00:21:36] **TSG**: Um, that's all right.
+[00:21:39] **TSG**: Okay.
+[00:21:40] **TSG**: That'll do.
+[00:21:41] **TSG**: Card goes fast.
+[00:21:43
+
+--- Segment 2 ---
+Okay, here is the transcript of the audio file, with timestamps and speaker labels:
+
+**0:00** Speaker 1: back, I'm allowed to sit in the house when I want to and what.
+
+**0:03** Speaker 2: Oh, I should probably have you get a ramp.
+
+**0:05** Speaker 1: But see, I got control now. we had to put in a ramp here. And I was like, I'm going to pay a little bit, you know. It's like then they moved back to seven. I was like, at this point I'll take it. It's like, yeah, because I wake up early and we had 7:00 a.m. shifts all the way up to seven. So I was like, that's 12 hours a day, seven days a week. Yeah, sounds like a good deal.
+
+**0:30** Speaker 1: But it used to be two of us. It used to be me and Rick here. He's moved on to something else now. So now I got all seven days. I was just Tuesday through Saturday.
+
+**0:40** Speaker 2: Jeez.
+
+**0:41** Speaker 1: Anyway, I like the fact that.
+
+**0:43** Speaker 2: Man, that sounds good. That's good. Well, if you like what you do, that's that's.
+
+**0:46** Speaker 1: Yeah, I don't see. Yeah, like I said, they all like a little bit about you. But it's cool talking about.
+
+**0:53** Speaker 2: Appreciate it.
+
+**0:54** Speaker 1: All right.
+
+**0:55** Speaker 2: All right.
+
+**0:56** Speaker 1: All right.
+
+Okay, here is the transcript of the audio file you provided.
+
+**0:00**
+TSG: back. I'm allowed to come to the house when I want to and what.
+**0:03**
+TSG: Oh, I said I'd probably have to get around to it. But see, I got, we had to put in lunch shift.
+**0:10**
+TSG: I was like, I'm going to pay a little bit, you know. It's like, then it moves back to seven. I was like, at this point, I'll take it.
+**0:18**
+TSG: Because I'd wake up early and we had 7:00 AM shifts all the way up to seven. So I was like, that's 12 hours a day, seven days a week. Yeah, sounds like a good deal.
+**0:27**
+TSG: But it used to be two of us. It used to be me and Rick here. He's moved on to something right now.
+**0:33**
+TSG: Now I got all seven days. I wish it was Tuesday through Saturday.
+**0:38**
+TSG: Anyway, I like it.
+**0:40**
+TSG: That's good. I love if you like what you do, that's that's good.
+**0:42**
+TSG: Yeah, I don't need to. Yeah, like I said, they all ain't really working about it.
+**0:47**
+TSG: It's cool talking about it.
+**0:49**
+TSG: Appreciate it.
+**0:52**
+TSG: I don't know why I want to give that to you.
+**0:54**
+TSG: Yeah, that's surprising. He's so willing to give all that information.
+**0:57**
+TSG: He's on the technical side, so he don't give about sales side.
+**1:00**
+TSG: That was interesting. That's very I had no idea we had 500.
+**1:04**
+TSG: That's because you know.
+**1:11**
+TSG: Yeah. I don't think they know.
+**1:13**
+TSG: They apparently know.
+**1:15**
+TSG: So I worked for Xerox.
+**1:19**
+TSG: Sales people made at least twice as much.
+**1:22**
+TSG: Oh yeah.
+**1:22**
+TSG: Oh yeah.
+**1:23**
+TSG: And I knew how to fix anything on the copier, make the copier do a backflip.
+**1:29**
+TSG: They didn't know I knew any of that.
+**1:32**
+TSG: But they made twice as much.
+**1:35**
+TSG: That was rough.
+**1:38**
+TSG: I had a buddy, a buddy of mine worked for software startups in Seattle and he said you always knew the business was doing well because the parking lot was starting to fill up with Porsches.
+**1:48**
+TSG: And I was like, where's your Porsche? He says, that's for the sales guys, not for the engineers.
+**1:52**
+TSG: It really is all about sales.
+**1:55**
+TSG: Let me finish my story with my cousin because you'll find it interesting. So anyway, they come to an area, they got the coordinates, they say the Viet Cong and shelling, they were treating with many troops.
+**2:06**
+TSG: So they said, we'll call in the coordinates. So they did.
+**2:10**
+TSG: And then the order comes, drop 500 feet back into the jungle.
+**2:14**
+TSG: Well, my cousin said, well, if we drop 500 feet back in the jungle, we're going to see what's going on.
+**2:17**
+TSG: So they stayed right there.
+**2:19**
+TSG: USSD Jersey, one shell, about the size of a Volkswagen.
+**2:24**
+TSG: And it hits.
+**2:25**
+TSG: I thought I mean it is the size.
+**2:27**
+TSG: And the concussion knocks them all out.
+**2:31**
+TSG: He said they woke up.
+**2:33**
+TSG: Of course, it knows it's raining. Leaves falling from the trees.
+**2:38**
+TSG: Vietnamese are red coming like little ants. You step in an ant bed and they're going everywhere.
+**2:45**
+TSG: He said it's the biggest mess he ever made.
+**2:48**
+TSG: If he had nine lives, he used up eight of them.
+**2:51**
+TSG: Exactly.
+**2:51**
+TSG: You don't know. That's that's a different kind of thing.
+**2:55**
+TSG: Our military's got some powerful weapons even way back then, just one shell.
+**3:00**
+TSG: It's fire this thing. I don't know if you've ever seen the pictures of those. They would do broadsides and it would actually move the ship like sideways through the water. I mean, you're talking hundreds of thousands of tons of steel just just going right through the water.
+**3:16**
+TSG: That was really good.
+**3:17**
+TSG: He knows his stuff.
+**3:18**
+TSG: I'm glad I had contact.
+**3:20**
+TSG: I wanted his number just in case.
+**3:22**
+TSG: Well, I've got his number and his email. I'll send his email.
+**3:25**
+TSG: I'm never going to call.
+**3:26**
+TSG: Yeah, well.
+**3:29**
+TSG: But I will never call these guys without talking to you.
+**3:32**
+TSG: Um.
+**3:33**
+TSG: Feel free. If you have an issue and I'm gone and don't know about it, it's it's easier just instead of going through me, if you got an issue, call it.
+**3:40**
+TSG: That's a good idea.
+**3:43**
+TSG: To um.
+**3:46**
+TSG: We got some calls.
+**3:49**
+TSG: I don't know.
+**3:50**
+TSG: Because people the reality is the homeowners conflate not knowing how to work their TV.
+**3:57**
+TSG: Well, we're not going to yeah, we won't we don't want to call Spectrum for them, but I think we need to know when they do call Spectrum.
+**4:04**
+TSG: So that we have at least if Spectrum comes and doesn't find can't find an issue or something, then you know because I'll say, okay, here's the report this month.
+**4:15**
+TSG: And being in the maintenance board, it's always said these are the calls and this is the problem they had.
+**4:21**
+TSG: So you're not going to have to go through all the quick.
+**4:24**
+TSG: So at least you know what the problem is.
+**4:26**
+TSG: You know what's happened.
+**4:28**
+TSG: And hopefully they'll get the the name of the technician who came.
+**4:31**
+TSG: And then if we if they haven't got the problem solved, then we can help them by going to this fellow and saying, hey, this is what happened on this day.
+**4:39**
+TSG: Don't know if you got a report, but the problem's still there.
+**4:41**
+TSG: So that's what we'd push out that that um if you contact Spectrum or once you've contacted Spectrum, please let TSG know with the date date and the name of the technician who came out and just a brief description of what he told you and what he did when he service when he serviced your unit.
+**4:59**
+TSG: That's all we need.
+**5:00**
+TSG: Because I don't think he's getting half of what.
+**5:02**
+TSG: Well, again, if that was a obviously he didn't get that report because he said he looked up and there wasn't anything on there.
+**5:09**
+TSG: So he didn't get it from whoever that was.
+**5:11**
+TSG: Right.
+**5:13**
+TSG: Who's supposed to.
+**5:16**
+TSG: Yeah, I mean or just mad.
+**5:18**
+TSG: Just you know, because I've talked to him several times.
+**5:21**
+TSG: Every time he catches me in the hall, he's like, I just called him yesterday, you know, and so forth, man.
+**5:25**
+TSG: I mean he called him 10 times.
+**5:27**
+TSG: So maybe that's what's going on.
+**5:30**
+TSG: But yeah, I'll write down what I heard from him as far as the contract and send it to you and if you have heard something different than what you get with your board, then we can all stay on the same page.
+**5:40**
+TSG: I want to really relook at our contract.
+**5:42**
+TSG: It reminds me to get one gig.
+**5:44**
+TSG: And then a guarantee in the contract that as they push out more it'll come automatically on the contract.
+**5:52**
+TSG: Yeah, I mean plus the water.
+**5:54**
+TSG: Yeah, yeah.
+**5:55**
+TSG: Well, that's the thing.
+**5:57**
+TSG: I don't know if there's any appetite for the.
+**6:00**
+TSG: It won't cost anymore.
+**6:03**
+TSG: And they might even with that door per door fee, they might even agree to rewire everything and fiber to all the units.
+**6:14**
+TSG: See that was 800 6400, 8400 to go up and the door fee comes down.
+**6:20**
+TSG: So if they want to take that fee and rewire everything.
+**6:27**
+TSG: Then then you got.
+**6:28**
+TSG: Nobody can complain then.
+**6:30**
+TSG: Hey, I'm supposed to get a vet's email address from you.
+**6:33**
+TSG: Okay, I'll shoot that to you right now.
+**6:35**
+TSG: Okay.
+**6:36**
+TSG: All right.
+**6:37**
+TSG: Thanks man.
+**6:39**
+TSG: Shoot whatever you mean and still again, three year contract, but then you're guaranteed that you're going to get the increased speed automatically in the contract.
+**6:50**
+TSG: Instead of three year contract with no real guarantees just a 500 was guaranteed thing.
+**6:56**
+TSG: Well, now you're getting minimum one gig plus additional increases as they are provided through your your you know.
+**7:05**
+TSG: I just think I think it's a no brainer for three year.
+**7:07**
+TSG: That way you're not going to be left behind.
+**7:10**
+TSG: You're there.
+**7:12**
+TSG: Right.
+**7:12**
+TSG: Right.
+**7:13**
+TSG: And I always say they're not complaining now, but it's coming.
+**7:16**
+TSG: Because people are going to be looking around and like, why don't we have this?
+**7:19**
+TSG: So okay.
+**7:21**
+TSG: Yeah, I think I think it's a I think it to me it'd be a no brainer because you don't have anything to lose.
+**7:25**
+TSG: Okay.
+**7:27**
+TSG: Right now you're not going to be guaranteed.
+**7:29**
+TSG: I'm sure they'll keep giving you a little bit faster, but they you're not going to ever get to what they got now.
+**7:34**
+TSG: They're not going to get that.
+**7:36**
+TSG: This is the guaranteed minimum gig possibly rewiring everything.
+**7:42**
+TSG: Get the zoom box, get the router included.
+**7:47**
+TSG: You know, plus the package that you got now with the more of the package channel.
+**7:52**
+TSG: Plus, you know, they've been upgrading that.
+**7:54**
+TSG: They're giving all this other little extra package.
+**7:56**
+TSG: They have been.
+**7:57**
+TSG: But you know, they they give it and they take it away.
+**8:01**
+TSG: You know, they'll add something they're often pulling.
+**8:04**
+TSG: Yeah.
+**8:04**
+TSG: Yeah.
+**8:05**
+TSG: I don't see I don't I I have the basics so I don't get any of that extra stuff, but uh that's I I don't think most people even know what they have anyway because you have the sound extra and most people like I run a Google TV or people have an Apple TV.
+**8:20**
+TSG: So so so the download speed is important.
+**8:23**
+TSG: I think that ends up being the long pole in the tent.
+**8:26**
+TSG: I think that's the most important.
+**8:27**
+TSG: Now the symmetric stuff will help that that is cool like they like I said, they almost have it with the fiber and yeah, it'll be a better experience overall, but.
+**8:39**
+TSG: Jeez, this.
+**8:41**
+TSG: Well, I got it.
+
+Hopefully, this is helpful! Let me know if you need anything else.

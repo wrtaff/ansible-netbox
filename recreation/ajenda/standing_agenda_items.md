@@ -1,0 +1,11 @@
+- Review the calendar
+- Review the next day off or long weekend and plans for it
+- Discuss upcoming healthcare appointments
+- Discuss the weekend plan and what we are cooking for church lunch
+- Remember to record our meeting for transcription later
+- Remember those items tagged for discussion in Trac
+- Review the previous meeting
+- Schedule the next meeting
+- Follow up on any tasks
+- Update any Trac tickets discussed
+- Add all items from http://trac.home.arpa/query?keywords=~ajenda&status=!closed to the agenda

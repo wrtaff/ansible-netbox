@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Eagle &amp; Phenix - Dumpster Building</name>
+    <description>Visual boundary for the dumpster building structure.</description>
+    <Style id="buildingStyle">
+      <LineStyle>
+        <color>ff0000ff</color> <!-- Blue outline -->
+        <width>2</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>4d0000ff</color> <!-- Semi-transparent blue fill -->
+      </PolyStyle>
+    </Style>
+    <Placemark>
+      <name>Dumpster Building</name>
+      <styleUrl>#buildingStyle</styleUrl>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              -84.9947849,32.4692443,0
+              -84.9947842,32.4696268,0
+              -84.9948849,32.4696269,0
+              -84.9948849,32.4696753,0
+              -84.9949399,32.4696754,0
+              -84.9950189,32.4696755,0
+              -84.9950190,32.4696180,0
+              -84.9949787,32.4696180,0
+              -84.9949791,32.4694149,0
+              -84.9950479,32.4694150,0
+              -84.9950479,32.4694047,0
+              -84.9950480,32.4693769,0
+              -84.9948337,32.4693766,0
+              -84.9948340,32.4692444,0
+              -84.9947849,32.4692443,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>

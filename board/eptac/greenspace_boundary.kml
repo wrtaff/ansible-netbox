@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Eagle &amp; Phenix - Green Space</name>
+    <description>Visual boundary for the private Green Space / Garden area.</description>
+    <Style id="gardenStyle">
+      <LineStyle>
+        <color>ff00ff00</color> <!-- Green outline -->
+        <width>2</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>4d00ff00</color> <!-- Semi-transparent green fill -->
+      </PolyStyle>
+    </Style>
+    <Placemark>
+      <name>Green Space</name>
+      <styleUrl>#gardenStyle</styleUrl>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              -84.9958454,32.4696256,0
+              -84.9958458,32.4697296,0
+              -84.9955487,32.4697321,0
+              -84.9955484,32.4697035,0
+              -84.9955116,32.4697038,0
+              -84.9955112,32.4696738,0
+              -84.9955061,32.4692556,0
+              -84.9955385,32.4692570,0
+              -84.9955593,32.4692790,0
+              -84.9955922,32.4692951,0
+              -84.9956165,32.4693009,0
+              -84.9956425,32.4693009,0
+              -84.9956615,32.4693009,0
+              -84.9956910,32.4692936,0
+              -84.9957396,32.4692673,0
+              -84.9957638,32.4692336,0
+              -84.9958777,32.4692292,0
+              -84.9958783,32.4694204,0
+              -84.9959134,32.4694203,0
+              -84.9959136,32.4694837,0
+              -84.9958793,32.4694837,0
+              -84.9958793,32.4695046,0
+              -84.9958537,32.4695046,0
+              -84.9958539,32.4695601,0
+              -84.9958452,32.4695602,0
+              -84.9958454,32.4696256,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>
