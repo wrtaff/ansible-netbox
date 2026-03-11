@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.18
+Version:        1.19
 Author:         Gemini CLI
-Last Modified:  2026-03-09
+Last Modified:  2026-03-10
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -13,12 +13,15 @@ Purpose:
 
 Usage:
     python3 google_workspace_manager.py auth [--console]
-    python3 google_workspace_manager.py gmail-list [--query "query"]
-    python3 google_workspace_manager.py drive-search [--query "name contains '...']
+    python3 google_workspace_manager.py gmail-list [--query "query"] [--cite]
+    python3 google_workspace_manager.py drive-search [--query "name contains '...'] [--cite]
+    python3 google_workspace_manager.py drive-get "file_id" [--cite]
     python3 google_workspace_manager.py drive-update "file_id" --name "new_name"
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.19 (2026-03-10): Added --cite flag to Drive and Gmail commands to generate 
+                       WWOS-style citations using wwos_citation.py.
     v1.18 (2026-03-09): Added support for --target-mime in drive-upload to allow 
                        conversion (e.g., to Google Docs).
     v1.17 (2026-03-09): Added support for parent folder ID in drive-upload.
@@ -62,6 +65,25 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
+# Add current script's directory to sys.path to allow importing other scripts
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.append(SCRIPT_DIR)
+
+try:
+    from wwos_citation import format_wwos_citation
+except ImportError:
+    # Fallback in case it's not found
+    def format_wwos_citation(url, title=None, source=None, ref_only=False):
+        from datetime import datetime
+        today = datetime.now().strftime("%Y-%m-%d")
+        display_title = title if title else url
+        link_text = f"[{url} {display_title}]"
+        source_prefix = f"{source}: " if source else ""
+        ref_tag = f"<ref>{source_prefix}{link_text} retrieved {today}</ref>"
+        if ref_only: return ref_tag
+        return f"{link_text} {ref_tag}"
+
 # Scopes required for the unified assistant
 SCOPES = [
     'https://www.googleapis.com/auth/calendar',
@@ -72,9 +94,8 @@ SCOPES = [
 ]
 
 # Paths
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CREDENTIALS_FILE = os.path.join(SCRIPT_DIR, 'credentials.json')
 TOKEN_FILE = os.path.join(SCRIPT_DIR, 'token.pickle')
+CREDENTIALS_FILE = os.path.join(SCRIPT_DIR, 'credentials.json')
 
 def get_creds(port=8080, use_console=False):
     creds = None
@@ -129,7 +150,7 @@ def output(data, format='text'):
 
 # --- GMAIL FUNCTIONS ---
 
-def gmail_list_messages(query='', max_results=10, output_format='text'):
+def gmail_list_messages(query='', max_results=10, output_format='text', cite=False):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
@@ -139,10 +160,14 @@ def gmail_list_messages(query='', max_results=10, output_format='text'):
         full_messages = []
         for msg in messages:
             m = service.users().messages().get(userId='me', id=msg['id'], format='minimal').execute()
-            full_messages.append({
+            msg_data = {
                 'id': m['id'],
                 'snippet': m['snippet']
-            })
+            }
+            if cite:
+                url = f"https://mail.google.com/mail/u/0/#all/{m['id']}"
+                msg_data['wwos_citation'] = format_wwos_citation(url, m['snippet'][:50], source="Gmail")
+            full_messages.append(msg_data)
         
         output(full_messages, output_format)
     except HttpError as error:
@@ -243,7 +268,7 @@ def gmail_get_by_header(header_string, output_format='text'):
     except Exception as error:
         output({'error': str(error)}, output_format)
 
-def gmail_get_message(message_id, output_format='text'):
+def gmail_get_message(message_id, output_format='text', cite=False):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
@@ -277,6 +302,9 @@ def gmail_get_message(message_id, output_format='text'):
                 for p in message['payload'].get('parts', []) if 'attachmentId' in p['body']
             ]
         }
+        if cite:
+            url = f"https://mail.google.com/mail/u/0/#all/{message['id']}"
+            result['wwos_citation'] = format_wwos_citation(url, subject, source="Gmail")
         output(result, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
@@ -353,22 +381,27 @@ def drive_update_file(file_id, name=None, description=None, output_format='text'
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def drive_search(query=None, max_results=10, output_format='text'):
+def drive_search(query=None, max_results=10, output_format='text', cite=False):
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
     try:
         results = service.files().list(
-            q=query, pageSize=max_results, fields="nextPageToken, files(id, name, mimeType)").execute()
+            q=query, pageSize=max_results, fields="nextPageToken, files(id, name, mimeType, webViewLink)").execute()
         items = results.get('files', [])
+        if cite:
+            for item in items:
+                item['wwos_citation'] = format_wwos_citation(item.get('webViewLink'), item.get('name'), source="Google Drive")
         output(items, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def drive_get_file_metadata(file_id, output_format='text'):
+def drive_get_file_metadata(file_id, output_format='text', cite=False):
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
     try:
         file = service.files().get(fileId=file_id, fields='id, name, mimeType, description, webViewLink').execute()
+        if cite:
+            file['wwos_citation'] = format_wwos_citation(file.get('webViewLink'), file.get('name'), source="Google Drive")
         output(file, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
@@ -552,6 +585,7 @@ if __name__ == '__main__':
     parser_gmail_list = subparsers.add_parser('gmail-list', help='List Gmail messages')
     parser_gmail_list.add_argument('--query', default='', help='Gmail search query')
     parser_gmail_list.add_argument('--max', type=int, default=10, help='Max results')
+    parser_gmail_list.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
     parser_gmail_send = subparsers.add_parser('gmail-send', help='Send a Gmail message')
     parser_gmail_send.add_argument('to', help='Recipient email address')
@@ -567,6 +601,7 @@ if __name__ == '__main__':
 
     parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
     parser_gmail_get.add_argument('id', help='Message ID')
+    parser_gmail_get.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
     parser_gmail_header = subparsers.add_parser('gmail-get-by-header', help='Get message details by header string')
     parser_gmail_header.add_argument('header', help='Full email header string')
@@ -574,9 +609,11 @@ if __name__ == '__main__':
     parser_drive_search = subparsers.add_parser('drive-search', help='Search Google Drive')
     parser_drive_search.add_argument('--query', help='Drive query (e.g. "name contains \'resume\'")')
     parser_drive_search.add_argument('--max', type=int, default=10, help='Max results')
+    parser_drive_search.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
     parser_drive_get = subparsers.add_parser('drive-get', help='Get file metadata')
     parser_drive_get.add_argument('id', help='File ID')
+    parser_drive_get.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
     parser_drive_update = subparsers.add_parser('drive-update', help='Update file metadata')
     parser_drive_update.add_argument('id', help='File ID')
@@ -637,19 +674,19 @@ if __name__ == '__main__':
     elif args.command == 'people-create':
         contacts_create_contact(args.given_name, args.family_name, args.job, args.company, args.phone, args.email, args.notes, args.format)
     elif args.command == 'gmail-list':
-        gmail_list_messages(args.query, args.max, args.format)
+        gmail_list_messages(args.query, args.max, args.format, args.cite)
     elif args.command == 'gmail-send':
         gmail_send_message(args.to, args.subject, args.body, args.attachment, args.format)
     elif args.command == 'gmail-create-draft':
         gmail_create_draft(args.to, args.subject, args.body, args.attachment, args.format)
     elif args.command == 'gmail-get':
-        gmail_get_message(args.id, args.format)
+        gmail_get_message(args.id, args.format, args.cite)
     elif args.command == 'gmail-get-by-header':
         gmail_get_by_header(args.header, args.format)
     elif args.command == 'drive-search':
-        drive_search(args.query, args.max, args.format)
+        drive_search(args.query, args.max, args.format, args.cite)
     elif args.command == 'drive-get':
-        drive_get_file_metadata(args.id, args.format)
+        drive_get_file_metadata(args.id, args.format, args.cite)
     elif args.command == 'drive-update':
         drive_update_file(args.id, args.name, args.desc, args.format)
     elif args.command == 'drive-download':

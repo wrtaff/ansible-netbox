@@ -9,6 +9,23 @@ import urllib.parse
 
 # Ensure local imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add project scripts directory
+project_scripts = '/mnt/smb/share/Documents/will/gemini_projects/scripts'
+if project_scripts not in sys.path:
+    sys.path.append(project_scripts)
+
+try:
+    from wwos_citation import format_wwos_citation
+except ImportError:
+    def format_wwos_citation(url, title=None, source=None, ref_only=False):
+        from datetime import datetime
+        today = datetime.now().strftime("%Y-%m-%d")
+        display_title = title if title else url
+        link_text = f"[{url} {display_title}]"
+        source_prefix = f"{source}: " if source else ""
+        ref_tag = f"<ref>{source_prefix}{link_text} retrieved {today}</ref>"
+        if ref_only: return ref_tag
+        return f"{link_text} {ref_tag}"
 
 try:
     from create_wwos_page import create_wwos_page, page_exists, get_page_content
@@ -90,7 +107,7 @@ def get_wikipedia_content(url):
             
     return real_title, content, categories, canonical_url
 
-def format_content(content, url):
+def format_content(content, url, title=None):
     """
     Formats the Wikitext content for WWOS:
     1. Extracts ONLY the first paragraph.
@@ -100,8 +117,7 @@ def format_content(content, url):
     content = re.sub(r'\[\[Category:[^]]+\]\]\n?', '', content, flags=re.IGNORECASE)
     
     # 2. Insert citation after first paragraph
-    today = datetime.now().strftime("%Y-%m-%d")
-    citation = f"<ref>{url} retrieved {today}</ref>"
+    citation = format_wwos_citation(url, title, source="Wikipedia", ref_only=True)
     
     # Heuristic to find end of first paragraph:
     # Scan text, respecting template {{...}} and table {|...|} nesting.
@@ -185,7 +201,7 @@ def main():
         sys.exit(0)
 
     print(f"Processing '{final_title}'...")
-    formatted_content = format_content(raw_content, canonical_url)
+    formatted_content = format_content(raw_content, canonical_url, title)
     
     # Merge user categories with Wikipedia categories for NEW pages too
     user_cats = {cat.strip() for cat in args.category.split(",") if cat.strip()}
