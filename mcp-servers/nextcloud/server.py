@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/nextcloud/server.py
-Version:        1.6
+Version:        1.7
 Author:         Gemini CLI
-Last Modified:  2026-03-07
+Last Modified:  2026-03-09
 Context:        http://trac.home.arpa/ticket/3154
 
 Purpose:
@@ -13,6 +13,8 @@ Purpose:
     directly within AI agent sessions.
 
 Revision History:
+    v1.7 (2026-03-09): Fixed VCard field extraction to support group prefixes 
+                       (e.g., ITEM1.ADR) commonly used by Apple and Google.
     v1.6 (2026-03-07): Improved structured VCard field handling for N and ADR:
                        - Splitting FN into N components (Last;First)
                        - Support for semicolon-separated structured addresses
@@ -174,7 +176,12 @@ class NextcloudContactManager:
     def _extract_field(self, vcard, field_name):
         unfolded = self._unfold_vcard(vcard)
         for line in unfolded.splitlines():
-            if line.startswith(field_name + ":") or line.startswith(field_name + ";"):
+            # Check if line contains a colon
+            if ':' not in line: continue
+            prop_key = line.split(':', 1)[0]
+            # Key might have parameters (semicolon) and groups (dot)
+            base_key = prop_key.split(';', 1)[0]
+            if base_key == field_name or base_key.endswith('.' + field_name):
                 parts = line.split(':', 1)
                 val = parts[1] if len(parts) > 1 else ""
                 return self._unescape_vcard_value(val)
@@ -184,7 +191,10 @@ class NextcloudContactManager:
         values = []
         unfolded = self._unfold_vcard(vcard)
         for line in unfolded.splitlines():
-            if line.startswith(field_name + ":") or line.startswith(field_name + ";"):
+            if ':' not in line: continue
+            prop_key = line.split(':', 1)[0]
+            base_key = prop_key.split(';', 1)[0]
+            if base_key == field_name or base_key.endswith('.' + field_name):
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     values.append(self._unescape_vcard_value(parts[1]))

@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        1.2
+Version:        1.3
 Author:         Gemini CLI
-Last Modified:  2026-03-04
+Last Modified:  2026-03-09
 Context:        http://trac.home.arpa/ticket/3119
 
 Purpose:
@@ -13,6 +13,7 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v1.3 (2026-03-09): Added 'target_mime' support to drive_upload for file conversion.
     v1.2 (2026-03-04): Added People API (Contacts), Drive Update, Drive Export, 
                        and Task Update tools. Support for all-day calendar events.
     v1.1 (2026-03-04): Updated header to WWOS standards; prepared for GitHub push.
@@ -144,14 +145,14 @@ def download_drive_file(file_id: str, output_path: str) -> str:
     return f.getvalue()
 
 @mcp.tool(name="drive_upload")
-def upload_drive_file(file_path: str, mime_type: Optional[str] = None) -> str:
-    """Upload a local file to Google Drive."""
+def upload_drive_file(file_path: str, mime_type: Optional[str] = None, target_mime: Optional[str] = None) -> str:
+    """Upload a local file to Google Drive. Use target_mime='application/vnd.google-apps.document' to convert to a Google Doc."""
     logger.info(f"Drive: Uploading {file_path}")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     with redirect_stdout(f):
-        gwm.drive_upload_file(file_path=file_path, mimetype=mime_type, output_format='json')
+        gwm.drive_upload_file(file_path=file_path, mimetype=mime_type, target_mimetype=target_mime, output_format='json')
     return f.getvalue()
 
 @mcp.tool(name="drive_export")

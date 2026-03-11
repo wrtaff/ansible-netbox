@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.16
+Version:        1.18
 Author:         Gemini CLI
-Last Modified:  2026-03-06
+Last Modified:  2026-03-09
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -19,6 +19,9 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.18 (2026-03-09): Added support for --target-mime in drive-upload to allow 
+                       conversion (e.g., to Google Docs).
+    v1.17 (2026-03-09): Added support for parent folder ID in drive-upload.
     v1.16 (2026-03-06): Defaulted calendar events to America/New_York if TZ is missing; bumped version.
     v1.15 (2026-03-04): Integrated GitHub v1.14 changes; bumped version.
     v1.14 (2026-03-03): Added support for all-day calendar events and updating Google Tasks.
@@ -320,11 +323,15 @@ def drive_download_file(file_id, output_path, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def drive_upload_file(file_path, mimetype=None, output_format='text'):
+def drive_upload_file(file_path, mimetype=None, parent_id=None, target_mimetype=None, output_format='text'):
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
     try:
         file_metadata = {'name': os.path.basename(file_path)}
+        if parent_id:
+            file_metadata['parents'] = [parent_id]
+        if target_mimetype:
+            file_metadata['mimeType'] = target_mimetype
         media = MediaFileUpload(file_path, mimetype=mimetype, resumable=True)
         file = service.files().create(body=file_metadata, media_body=media, fields='id, name').execute()
         output(file, output_format)
@@ -583,6 +590,8 @@ if __name__ == '__main__':
     parser_drive_upload = subparsers.add_parser('drive-upload', help='Upload a file to Drive')
     parser_drive_upload.add_argument('file_path', help='Path to local file')
     parser_drive_upload.add_argument('--mime', help='MIME type')
+    parser_drive_upload.add_argument('--target-mime', help='Target MIME type (e.g., application/vnd.google-apps.document for Docs)')
+    parser_drive_upload.add_argument('--parent', help='Parent folder ID')
 
     parser_drive_export = subparsers.add_parser('drive-export', help='Export a Google Doc')
     parser_drive_export.add_argument('id', help='File ID')
@@ -648,7 +657,7 @@ if __name__ == '__main__':
     elif args.command == 'drive-export':
         drive_export_file(args.id, args.mime, args.out)
     elif args.command == 'drive-upload':
-        drive_upload_file(args.file_path, args.mime, args.format)
+        drive_upload_file(args.file_path, args.mime, args.parent, args.target_mime, args.format)
     elif args.command == 'cal-list':
         calendar_list_events(args.max, args.format)
     elif args.command == 'cal-create':
