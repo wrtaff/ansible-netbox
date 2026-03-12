@@ -90,7 +90,9 @@ SCOPES = [
     'https://www.googleapis.com/auth/tasks',
     'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/contacts'
+    'https://www.googleapis.com/auth/contacts',
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/cloud-billing'
 ]
 
 # Paths
