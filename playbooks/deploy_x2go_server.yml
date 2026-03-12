@@ -1,0 +1,34 @@
+# ------------------------------------------------------------------------------
+# Playbook: deploy_x2go_server.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/deploy_x2go_server.yml
+# Trac Ticket: #3202
+#
+# Revision History:
+#   2026-03-12  v1.0  Gemini  Initial creation for athena (trac #3202)
+#
+# Purpose:
+#   Install and configure X2Go server for remote desktop access.
+#
+# ------------------------------------------------------------------------------
+- name: Deploy X2Go Server
+  hosts: "{{ target_hosts | default('athena') }}"
+  become: yes
+
+  tasks:
+    - name: 1. Install X2Go server packages
+      ansible.builtin.apt:
+        name:
+          - x2goserver
+          - x2goserver-xsession
+        state: present
+        update_cache: yes
+
+    - name: 2. Ensure X2Go server service is enabled and started
+      ansible.builtin.service:
+        name: x2goserver
+        state: started
+        enabled: yes
+
+    - name: 3. Verify SSH is allowed in firewall (assumed by system_common)
+      ansible.builtin.debug:
+        msg: "X2Go utilizes SSH on port 22. Ensure port 22 is open."
