@@ -1,15 +1,26 @@
-# ------------------------------------------------------------------------------
-# Playbook: deploy_x2go_server.yml
-# Path: /opt/netbox/ansible-netbox/playbooks/deploy_x2go_server.yml
-# Trac Ticket: #3202
-#
-# Revision History:
-#   2026-03-12  v1.0  Gemini  Initial creation for athena (trac #3202)
+# ==============================================================================
+# Filename:       deploy_x2go_server.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-03-12
+# Context:        http://trac.home.arpa/ticket/3202
 #
 # Purpose:
-#   Install and configure X2Go server for remote desktop access.
+#    Install and configure X2Go server for remote desktop access.
 #
-# ------------------------------------------------------------------------------
+# Prerequisites:
+#    - Debian/Trixie host (athena)
+#    - Root/Sudo access
+#    - Existing Desktop Environment (e.g., XFCE)
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/deploy_x2go_server.yml -l athena
+#
+# NOTES:
+#    Always "bump" your versions when you make a change to the code, and 
+#    annotate any changes as well.
+# ==============================================================================
+---
 - name: Deploy X2Go Server
   hosts: "{{ target_hosts | default('athena') }}"
   become: yes
