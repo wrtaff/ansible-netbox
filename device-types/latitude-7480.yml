@@ -1,0 +1,18 @@
+---
+manufacturer: "Dell"
+model: "Latitude 7480"
+slug: "latitude-7480"
+part_number: "7480"
+u_height: 0
+is_full_depth: false
+description: "Business Laptop"
+interfaces:
+  - name: "eth0"
+    type: "1000base-t"
+  - name: "wlan0"
+    type: "ieee802.11ac"
+  - name: "bluetooth"
+    type: "bluetooth"
+power-ports:
+  - name: "pwr-in"
+    type: "iec-60320-c6"

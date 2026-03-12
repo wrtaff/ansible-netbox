@@ -1,3 +1,15 @@
+# ------------------------------------------------------------------------------
+# Playbook: bootstrap_will.yml
+# Path: /opt/netbox/ansible-netbox/playbooks/bootstrap_will.yml
+# Trac Ticket: #3198
+#
+# Revision History:
+#   2026-03-12  v1.0  Gemini  Initial version with root SSH key deployment.
+#
+# Purpose:
+#   Configures a Debian host with standard 'will' admin user and root access.
+#
+# ------------------------------------------------------------------------------
 - hosts: debian
   gather_facts: yes
   become: yes
@@ -24,5 +36,11 @@
     - name: 3. Deploy SSH key for the admin user
       ansible.posix.authorized_key:
         user: "{{ admin_user }}"
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+
+    - name: 4. Deploy SSH key for the root user
+      ansible.posix.authorized_key:
+        user: root
         state: present
         key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"

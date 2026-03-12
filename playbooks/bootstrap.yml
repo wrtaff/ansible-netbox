@@ -4,12 +4,16 @@
 # Trac Ticket: #2882
 # Wiki Page: http://192.168.0.99/mediawiki/index.php/Playbooks/bootstrap.yml
 #
+# Revision History:
+#   2026-03-12  v1.1  Gemini  Added task to deploy root SSH key.
+#
 # Purpose:
 #   Bootstraps a fresh Debian installation by:
 #   1. Installing Python3 and sudo (via raw module as root)
 #   2. Creating the standard admin user ('will')
 #   3. Configuring passwordless sudo
 #   4. Deploying the admin SSH key
+#   5. Deploying the root SSH key
 #
 # Prerequisites:
 #   - Root access via SSH password or key
@@ -65,5 +69,11 @@
     - name: 3. Deploy SSH key for the admin user
       ansible.posix.authorized_key:
         user: "{{ admin_user }}"
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+
+    - name: 4. Deploy SSH key for the root user
+      ansible.posix.authorized_key:
+        user: root
         state: present
         key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
