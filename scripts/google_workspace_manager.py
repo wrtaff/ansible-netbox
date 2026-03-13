@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.19
+Version:        1.20
 Author:         Gemini CLI
-Last Modified:  2026-03-10
+Last Modified:  2026-03-13
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -20,6 +20,7 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.20 (2026-03-13): Fixed multipart body extraction in gmail-get and added gmail-download.
     v1.19 (2026-03-10): Added --cite flag to Drive and Gmail commands to generate 
                        WWOS-style citations using wwos_citation.py.
     v1.18 (2026-03-09): Added support for --target-mime in drive-upload to allow 
@@ -279,18 +280,41 @@ def gmail_get_message(message_id, output_format='text', cite=False):
         subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No Subject')
         from_email = next((h['value'] for h in headers if h['name'].lower() == 'from'), 'Unknown')
         
-        body = ""
-        if 'parts' in message['payload']:
-            for part in message['payload']['parts']:
-                if part['mimeType'] == 'text/plain':
-                    data = part['body'].get('data')
-                    if data:
-                        body = base64.urlsafe_b64decode(data).decode()
-                    break
-        else:
-            data = message['payload']['body'].get('data')
-            if data:
-                body = base64.urlsafe_b64decode(data).decode()
+        def get_body(payload):
+            if payload.get('mimeType') == 'text/plain':
+                data = payload['body'].get('data')
+                if data:
+                    return base64.urlsafe_b64decode(data).decode()
+            
+            if 'parts' in payload:
+                for part in payload['parts']:
+                    body = get_body(part)
+                    if body:
+                        return body
+            
+            if payload.get('mimeType') == 'text/html':
+                data = payload['body'].get('data')
+                if data:
+                    html = base64.urlsafe_b64decode(data).decode()
+                    return re.sub('<[^<]+?>', '', html)
+            return ""
+
+        body = get_body(message['payload'])
+
+        def get_attachments(payload):
+            attachments = []
+            if 'parts' in payload:
+                for part in payload['parts']:
+                    attachments.extend(get_attachments(part))
+            if 'attachmentId' in payload.get('body', {}):
+                attachments.append({
+                    'id': payload['body']['attachmentId'],
+                    'filename': payload.get('filename', 'unknown'),
+                    'mimeType': payload.get('mimeType', 'application/octet-stream')
+                })
+            return attachments
+
+        attachments = get_attachments(message['payload'])
 
         result = {
             'id': message['id'],
@@ -299,10 +323,7 @@ def gmail_get_message(message_id, output_format='text', cite=False):
             'snippet': message['snippet'],
             'body': body,
             'internalDate': message['internalDate'],
-            'attachments': [
-                {'id': p['body']['attachmentId'], 'filename': p['filename'], 'mimeType': p['mimeType']}
-                for p in message['payload'].get('parts', []) if 'attachmentId' in p['body']
-            ]
+            'attachments': attachments
         }
         if cite:
             url = f"https://mail.google.com/mail/u/0/#all/{message['id']}"
@@ -321,6 +342,8 @@ def gmail_download_attachment(message_id, attachment_id, filename, output_dir=No
         file_data = base64.urlsafe_b64decode(data.encode('UTF-8'))
         
         if output_dir:
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
             path = os.path.join(output_dir, filename)
         else:
             path = filename
@@ -605,6 +628,12 @@ if __name__ == '__main__':
     parser_gmail_get.add_argument('id', help='Message ID')
     parser_gmail_get.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
+    parser_gmail_download = subparsers.add_parser('gmail-download', help='Download Gmail attachment')
+    parser_gmail_download.add_argument('msg_id', help='Message ID')
+    parser_gmail_download.add_argument('att_id', help='Attachment ID')
+    parser_gmail_download.add_argument('filename', help='Filename')
+    parser_gmail_download.add_argument('--out', help='Output directory')
+
     parser_gmail_header = subparsers.add_parser('gmail-get-by-header', help='Get message details by header string')
     parser_gmail_header.add_argument('header', help='Full email header string')
 
@@ -683,6 +712,10 @@ if __name__ == '__main__':
         gmail_create_draft(args.to, args.subject, args.body, args.attachment, args.format)
     elif args.command == 'gmail-get':
         gmail_get_message(args.id, args.format, args.cite)
+    elif args.command == 'gmail-download':
+        path = gmail_download_attachment(args.msg_id, args.att_id, args.filename, args.out)
+        if path:
+            print(f"Attachment saved to {path}")
     elif args.command == 'gmail-get-by-header':
         gmail_get_by_header(args.header, args.format)
     elif args.command == 'drive-search':
