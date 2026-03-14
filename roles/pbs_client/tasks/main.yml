@@ -1,50 +1,73 @@
 ---
-- name: Install dependencies
-  apt:
+- name: 1. Install dependencies
+  ansible.builtin.apt:
     name:
       - wget
       - gnupg
     state: present
     update_cache: yes
 
-- name: Add Proxmox Backup Client repository key
-  shell: wget -qO - https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg | tee /etc/apt/trusted.gpg.d/proxmox-release-bookworm.gpg > /dev/null
-  args:
-    creates: /etc/apt/trusted.gpg.d/proxmox-release-bookworm.gpg
+- name: 2. Set pbs_repo_release fact
+  ansible.builtin.set_fact:
+    # Use trixie for forky (testing/sid overlap usually works)
+    # or fallback to bookworm if trixie is also problematic.
+    # Given 'trixie' exists in Proxmox dists, we use that for both trixie and forky.
+    pbs_repo_release: "{{ 'trixie' if ansible_distribution_release in ['trixie', 'forky'] else ansible_distribution_release }}"
 
-- name: Add Proxmox Backup Client repository
-  apt_repository:
-    repo: "deb http://download.proxmox.com/debian/pbs-client bookworm main"
+- name: 3. Ensure /etc/apt/keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: 4. Download Proxmox Backup Client repository key
+  ansible.builtin.get_url:
+    url: "https://enterprise.proxmox.com/debian/proxmox-release-{{ pbs_repo_release }}.gpg"
+    dest: "/etc/apt/keyrings/proxmox-release-{{ pbs_repo_release }}.gpg"
+    mode: '0644'
+  register: pbs_key_download
+  ignore_errors: true
+
+- name: 4b. Fallback to bookworm key if release-specific key is missing
+  ansible.builtin.get_url:
+    url: "https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg"
+    dest: "/etc/apt/keyrings/proxmox-release-{{ pbs_repo_release }}.gpg"
+    mode: '0644'
+  when: pbs_key_download is failed
+
+- name: 5. Add Proxmox Backup Client repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/proxmox-release-{{ pbs_repo_release }}.gpg] http://download.proxmox.com/debian/pbs-client {{ pbs_repo_release }} main"
     state: present
     filename: pbs-client
+    update_cache: true
 
-- name: Install Proxmox Backup Client
-  apt:
+- name: 6. Install Proxmox Backup Client
+  ansible.builtin.apt:
     name: proxmox-backup-client
     state: present
-    update_cache: yes
 
-- name: Create backup script
-  template:
+- name: 7. Create backup script
+  ansible.builtin.template:
     src: backup.sh.j2
     dest: "{{ pbs_client_script_path }}"
     mode: '0700'
   notify: Restart backup timer
 
-- name: Create Systemd service
-  template:
+- name: 8. Create Systemd service
+  ansible.builtin.template:
     src: backup.service.j2
     dest: /etc/systemd/system/pbs-backup.service
   notify: Restart backup timer
 
-- name: Create Systemd timer
-  template:
+- name: 9. Create Systemd timer
+  ansible.builtin.template:
     src: backup.timer.j2
     dest: /etc/systemd/system/pbs-backup.timer
   notify: Restart backup timer
 
-- name: Enable and start backup timer
-  systemd:
+- name: 10. Enable and start backup timer
+  ansible.builtin.systemd:
     name: pbs-backup.timer
     state: started
     enabled: yes

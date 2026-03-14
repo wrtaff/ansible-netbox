@@ -1,47 +1,63 @@
 ---
-- name: Ensure rclone is installed
-  become: yes
-  apt:
-    name: rclone
-    state: present
+- name: 1. Check if rclone is installed
+  ansible.builtin.command: which rclone
+  register: rclone_check
+  failed_when: false
+  changed_when: false
 
-- name: Create ~/.config/rclone directory
+- name: 2. Install rclone via official script (if not present)
+  ansible.builtin.shell:
+    cmd: "curl https://rclone.org/install.sh | bash"
+  become: true
+  when: rclone_check.rc != 0
+
+- name: 3. Create ~/.config/rclone directory
   ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/.config/rclone"
+    path: "/home/{{ ansible_user }}/.config/rclone"
     state: directory
     mode: '0700'
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
 
-- name: Check if rclone.conf exists
+- name: 4. Check if rclone.conf exists
   ansible.builtin.stat:
-    path: "{{ ansible_user_dir }}/.config/rclone/rclone.conf"
+    path: "/home/{{ ansible_user }}/.config/rclone/rclone.conf"
   register: rclone_conf_stat
-  become: no
+  become: yes
+  become_user: "{{ ansible_user }}"
 
-- name: Include vault variables
-  include_vars:
-    file: vault.yml
-
-- name: Deploy rclone.conf
+- name: 6. Deploy rclone.conf
   ansible.builtin.template:
     src: rclone.conf.j2
-    dest: "{{ ansible_user_dir }}/.config/rclone/rclone.conf"
+    dest: "/home/{{ ansible_user }}/.config/rclone/rclone.conf"
     mode: '0600'
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  become: no
-  when: not rclone_conf_stat.stat.exists
+  become: yes
+  become_user: "{{ ansible_user }}"
+  when: 
+    - not rclone_conf_stat.stat.exists
+    - rclone_client_id is defined
+    - rclone_token is defined
 
-- name: Create ~/gDrive mount point
+- name: 6.5 Check if ~/gDrive is already mounted
+  ansible.builtin.command: mountpoint -q "/home/{{ ansible_user }}/gDrive"
+  register: gdrive_mountpoint_check
+  failed_when: false
+  changed_when: false
+  become: yes
+  become_user: "{{ ansible_user }}"
+
+- name: 7. Create ~/gDrive mount point
   ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/gDrive"
+    path: "/home/{{ ansible_user }}/gDrive"
     state: directory
     mode: '0755'
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
+  when: gdrive_mountpoint_check.rc != 0
 
-- name: Deploy gdrive-rclone system service
+- name: 8. Deploy gdrive-rclone system service
   become: yes
   ansible.builtin.template:
     src: gdrive-rclone.service.j2
@@ -49,12 +65,18 @@
     mode: '0644'
     owner: root
     group: root
+  when: 
+    - rclone_client_id is defined
+    - rclone_token is defined
   notify: reload systemd
 
-- name: Start and enable gdrive-rclone.service
+- name: 9. Start and enable gdrive-rclone.service
   become: yes
   ansible.builtin.systemd_service:
     name: gdrive-rclone.service
     state: started
     enabled: yes
     daemon_reload: yes
+  when: 
+    - rclone_client_id is defined
+    - rclone_token is defined

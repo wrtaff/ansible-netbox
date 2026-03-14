@@ -23,15 +23,17 @@
     - tailscale_auth_key is defined
     - tailscale_auth_key != ""
     - "'Logged out' in tailscale_status.stdout or tailscale_status.rc != 0"
+  ignore_errors: true
 
 - name: Get Tailscale IPv4 Address
   ansible.builtin.command: tailscale ip -4
   register: tailscale_ipv4
   changed_when: false
+  failed_when: false
 
 - name: Debug Tailscale IP
   ansible.builtin.debug:
-    msg: "Tailscale IP: {{ tailscale_ipv4.stdout }}"
+    msg: "Tailscale IP: {{ tailscale_ipv4.stdout | default('NOT LOGGED IN') }}"
 
 - name: Ensure NetBox Interface 'tailscale0' exists
   netbox.netbox.netbox_device_interface:
@@ -46,7 +48,8 @@
     state: present
   delegate_to: localhost
   become: false
-  ignore_errors: true # Ignore if device doesn't exist in NetBox yet
+  ignore_errors: true 
+  when: tailscale_ipv4.rc == 0
 
 - name: Ensure Tailscale IP is in NetBox
   netbox.netbox.netbox_ip_address:
@@ -61,5 +64,7 @@
     state: present
   delegate_to: localhost
   become: false
-  when: tailscale_ipv4.stdout != ""
+  when: 
+    - tailscale_ipv4.rc == 0
+    - tailscale_ipv4.stdout != ""
   ignore_errors: true

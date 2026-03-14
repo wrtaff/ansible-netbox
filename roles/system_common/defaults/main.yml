@@ -1,0 +1,7 @@
+---
+# roles/system_common/defaults/main.yml
+
+# Controls whether redundant network managers (like NetworkManager or systemd-networkd)
+# are disabled when ifupdown is detected. Set to 'false' for hosts that require
+# NetworkManager (e.g., laptops/desktops).
+system_common_disable_redundant_networks: true

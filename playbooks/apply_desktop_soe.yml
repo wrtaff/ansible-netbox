@@ -1,0 +1,23 @@
+# ==============================================================================
+# Filename:       playbooks/apply_desktop_soe.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-03-14
+# Context:        http://trac.home.arpa/ticket/3214
+#
+# Purpose:
+#   Applies the Desktop Standard Operating Environment (SOE) to target hosts.
+#   Consolidates baseline configuration, network mounts, and standard software.
+#
+# Revision History:
+#   v1.0 (2026-03-14): Initial version consolidating SOE for athena provisioning.
+#   v1.1 (2026-03-14): Included NetworkManager fix via system_common v1.9.
+# ==============================================================================
+---
+- name: Apply Desktop SOE
+  hosts: desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  roles:
+    - desktop_soe

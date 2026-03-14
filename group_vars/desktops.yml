@@ -1,6 +1,13 @@
 ---
+# Standard admin user for desktops
+ansible_user: "will"
+
 # Timezone for Columbus, Georgia
 system_timezone: "America/New_York"
+
+# --- Network Configuration ---
+# Allow NetworkManager on desktops
+system_common_disable_redundant_networks: false
 
 # --- Restic Backup Configuration ---
 restic_mgmt_enabled: true

@@ -1,0 +1,36 @@
+---
+# roles/desktop_soe/tasks/main.yml
+# Trac Ticket: #3214
+# Purpose: Desktop SOE tasks (non-role-based)
+
+- name: 1. Install standard desktop packages
+  ansible.builtin.apt:
+    name:
+      - vlc
+      - screen
+      - python3-venv
+      - neovim
+      - x2goserver
+      - x2goserver-xsession
+    state: present
+    update_cache: yes
+
+- name: 2. Install Claude Code CLI globally via NPM
+  ansible.builtin.npm:
+    name: "@anthropic-ai/claude-code"
+    global: true
+    state: latest
+
+- name: 3. Prevent system sleep/suspend
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/logind.conf
+    regexp: '^{{ item.regexp_prefix }}'
+    line: '{{ item.line_content }}'
+    state: present
+  loop:
+    - { regexp_prefix: '#?HandlePowerKey', line_content: 'HandlePowerKey=ignore' }
+    - { regexp_prefix: '#?HandleSuspendKey', line_content: 'HandleSuspendKey=ignore' }
+    - { regexp_prefix: '#?HandleHibernateKey', line_content: 'HandleHibernateKey=ignore' }
+    - { regexp_prefix: '#?IdleAction', line_content: 'IdleAction=none' }
+    - { regexp_prefix: '#?HandleLidSwitch', line_content: 'HandleLidSwitch=ignore' }
+  notify: Restart systemd-logind

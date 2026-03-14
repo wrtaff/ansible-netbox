@@ -1,0 +1,161 @@
+---
+# roles/github_client/tasks/main.yml
+# Trac Ticket: #3214
+# Standardizes GitHub access and repo synchronization for desktops.
+# Implements "Local-with-SMB-links" structure for cross-fleet project access.
+
+- name: 1. Ensure git is installed
+  ansible.builtin.apt:
+    name: git
+    state: present
+    update_cache: yes
+  become: true
+
+- name: 2. Configure global git identity
+  community.general.git_config:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    scope: global
+  loop:
+    - { key: "user.name", value: "{{ github_user_name }}" }
+    - { key: "user.email", value: "{{ github_user_email }}" }
+    - { key: "init.defaultBranch", value: "main" }
+    - { key: "pull.rebase", value: "true" }
+  become: yes
+  become_user: "{{ ansible_user }}"
+
+- name: 3. Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.ssh"
+    state: directory
+    mode: '0700'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: 4. Deploy GitHub SSH key
+  ansible.builtin.copy:
+    src: "{{ github_ssh_key_src }}"
+    dest: "{{ github_ssh_key_dest }}"
+    mode: '0600'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: 5. Configure SSH client for GitHub
+  ansible.builtin.blockinfile:
+    path: "/home/{{ ansible_user }}/.ssh/config"
+    create: yes
+    mode: '0600'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK FOR GITHUB ACCESS"
+    block: |
+      Host github.com
+        HostName github.com
+        User git
+        IdentityFile {{ github_ssh_key_dest }}
+        IdentitiesOnly yes
+        StrictHostKeyChecking no
+
+- name: 6. Sync standardized repository
+  when: github_sync_repo | bool
+  ansible.builtin.git:
+    repo: "{{ github_repo_url }}"
+    dest: "{{ github_repo_dest }}"
+    accept_hostkey: yes
+    update: yes
+    version: master
+  become: yes
+  become_user: "{{ ansible_user }}"
+
+- name: 7. Standardize Local Projects Directory Structure
+  block:
+    - name: 7a. Check if ~/gemini_projects is currently a symlink
+      ansible.builtin.stat:
+        path: "{{ github_local_projects_dir }}"
+      register: projects_dir_stat
+
+    - name: 7b. Remove legacy ~/gemini_projects symlink (if exists)
+      ansible.builtin.file:
+        path: "{{ github_local_projects_dir }}"
+        state: absent
+      when: projects_dir_stat.stat.islnk | default(false)
+
+    - name: 7c. Create local ~/gemini_projects as a real directory
+      ansible.builtin.file:
+        path: "{{ github_local_projects_dir }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: 7d. Handle legacy bind mounts and ensure symlinks (Migration for Gemini CLI safety)
+      block:
+        - name: 7d-1. Check status of hub directories
+          ansible.builtin.stat:
+            path: "{{ item.dest }}"
+          loop: "{{ github_repo_links }}"
+          register: hub_dir_stats
+
+        - name: 7d-2. Check for active mountpoints
+          ansible.builtin.command: "mountpoint -q {{ item.dest }}"
+          loop: "{{ github_repo_links }}"
+          register: hub_mount_checks
+          failed_when: false
+          changed_when: false
+
+        - name: 7d-3. Ensure legacy bind mounts are unmounted
+          ansible.builtin.mount:
+            path: "{{ item.item.dest }}"
+            state: unmounted
+          loop: "{{ hub_mount_checks.results }}"
+          loop_control:
+            index_var: idx
+          when: item.rc == 0
+          become: true
+
+        - name: 7d-4. Remove legacy bind mounts from fstab
+          ansible.builtin.mount:
+            path: "{{ item.item.dest }}"
+            state: absent
+          loop: "{{ hub_mount_checks.results }}"
+          loop_control:
+            index_var: idx
+          when: item.rc == 0
+          become: true
+          # Note: This might still try to rmdir, but we use ignore_errors or handle it
+          ignore_errors: yes
+
+        - name: 7d-5. Remove legacy directories/files if they are not symlinks
+          ansible.builtin.file:
+            path: "{{ item.dest }}"
+            state: absent
+          loop: "{{ hub_dir_stats.results | map(attribute='item') | list }}"
+          loop_control:
+            index_var: idx
+          when: hub_dir_stats.results[idx].stat.exists and not hub_dir_stats.results[idx].stat.islnk | default(false)
+
+    - name: 7e. Create symlinks for Repo-managed directories into the hub
+      ansible.builtin.file:
+        src: "{{ github_repo_dest }}/{{ item.src }}"
+        dest: "{{ item.dest }}"
+        state: link
+        force: yes
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      loop: "{{ github_repo_links }}"
+
+    - name: 7f. Check if SMB project source exists
+      ansible.builtin.stat:
+        path: "{{ github_smb_projects_src }}"
+      register: smb_src_stat
+
+    - name: 7f. Link SMB-managed project items locally (folders and files)
+      ansible.builtin.file:
+        src: "{{ github_smb_projects_src }}/{{ item }}"
+        dest: "{{ github_local_projects_dir }}/{{ item }}"
+        state: link
+        force: yes
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      loop: "{{ github_smb_links + github_smb_file_links }}"
+      when: smb_src_stat.stat.exists

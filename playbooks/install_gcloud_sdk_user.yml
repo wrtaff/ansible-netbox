@@ -1,0 +1,112 @@
+# ==============================================================================
+# Filename:       install_gcloud_sdk_user.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-03-11
+# Context:        http://trac.gafla.us.com/ticket/3193
+#
+# Purpose:
+#   Installs the Google Cloud SDK (gcloud CLI) to /home/will/google-cloud-sdk
+#   to facilitate deployment and management of GCP resources.
+#
+# Use Case:
+#   Required for Phase 2 and 3 of GAE implementation (ticket #3169).
+#
+# Installation Method:
+#   Manual download of tarball extracted to user home, then install.sh executed.
+#
+# Prerequisites:
+#   - curl, tar, python3
+#   - User 'will' exists with home directory /home/will
+#
+# Configuration:
+#   - Updates ~/.bashrc for PATH and shell completion.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/install_gcloud_sdk_user.yml -l desktops
+#
+# Removal Instructions:
+#   rm -rf /home/will/google-cloud-sdk and manually remove lines from ~/.bashrc.
+#
+# Links:
+#   - Trac #3193: http://trac.gafla.us.com/ticket/3193
+#   - Trac #3169: http://trac.gafla.us.com/ticket/3169
+# ==============================================================================
+---
+- name: Install Google Cloud SDK for user will
+  hosts: desktops
+  become: true
+  become_user: will
+  gather_facts: true
+
+  vars:
+    gcloud_version: "468.0.0"
+    gcloud_tarball: "google-cloud-sdk-{{ gcloud_version }}-linux-x86_64.tar.gz"
+    gcloud_url: "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/{{ gcloud_tarball }}"
+    install_dir: "/home/will"
+    gcloud_dir: "{{ install_dir }}/google-cloud-sdk"
+
+  tasks:
+    - name: 1. Check if gcloud is already installed
+      ansible.builtin.stat:
+        path: "{{ gcloud_dir }}/bin/gcloud"
+      register: gcloud_bin
+
+    - name: 2. Download Google Cloud SDK tarball
+      ansible.builtin.get_url:
+        url: "{{ gcloud_url }}"
+        dest: "/tmp/{{ gcloud_tarball }}"
+        mode: '0644'
+      when: not gcloud_bin.stat.exists
+
+    - name: 3. Extract Google Cloud SDK
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ gcloud_tarball }}"
+        dest: "{{ install_dir }}"
+        remote_src: yes
+        creates: "{{ gcloud_dir }}"
+      when: not gcloud_bin.stat.exists
+
+    - name: 4. Check if gcloud is in .bashrc
+      ansible.builtin.command:
+        cmd: grep -q "google-cloud-sdk/path.bash.inc" /home/will/.bashrc
+      register: gcloud_in_bashrc
+      failed_when: false
+      changed_when: false
+
+    - name: 5. Run gcloud install script
+      ansible.builtin.command:
+        cmd: "{{ gcloud_dir }}/install.sh --usage-reporting false --path-update true --bash-completion true --rc-path ~/.bashrc --quiet"
+      when: gcloud_in_bashrc.rc != 0
+
+    - name: 6. Remove gcloud's auto-added lines at the bottom (if present)
+      ansible.builtin.lineinfile:
+        path: /home/will/.bashrc
+        regexp: "{{ item }}"
+        state: absent
+      loop:
+        - ".*google-cloud-sdk/path.bash.inc.*"
+        - ".*google-cloud-sdk/completion.bash.inc.*"
+
+    - name: 7. Move gcloud configuration to top of .bashrc
+      ansible.builtin.blockinfile:
+        path: /home/will/.bashrc
+        block: |
+          # The next line updates PATH for the Google Cloud SDK.
+          if [ -f '/home/will/google-cloud-sdk/path.bash.inc' ]; then . '/home/will/google-cloud-sdk/path.bash.inc'; fi
+          # The next line enables shell command completion for gcloud.
+          if [ -f '/home/will/google-cloud-sdk/completion.bash.inc' ]; then . '/home/will/google-cloud-sdk/completion.bash.inc'; fi
+        insertbefore: BOF
+        marker: "# {mark} ANSIBLE MANAGED GCLOUD SDK"
+
+    - name: 8. Verify gcloud installation
+      ansible.builtin.command:
+        cmd: "{{ gcloud_dir }}/bin/gcloud --version"
+      register: gcloud_version_output
+      changed_when: false
+      tags: verify
+
+    - name: 9. Show gcloud version
+      ansible.builtin.debug:
+        msg: "gcloud version: {{ gcloud_version_output.stdout }}"
+      when: gcloud_version_output.rc == 0

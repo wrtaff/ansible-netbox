@@ -1,0 +1,7 @@
+---
+# roles/desktop_soe/handlers/main.yml
+
+- name: Restart systemd-logind
+  ansible.builtin.service:
+    name: systemd-logind
+    state: restarted

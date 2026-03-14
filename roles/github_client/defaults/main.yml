@@ -1,0 +1,46 @@
+---
+# roles/github_client/defaults/main.yml
+github_user_name: "wrtaff"
+github_user_email: "wrtaff@gmail.com"
+github_ssh_key_src: "~/.ssh/id_rsa"
+github_ssh_key_dest: "/home/{{ ansible_user }}/.ssh/id_rsa_github"
+github_repo_url: "git@github.com:wrtaff/ansible-netbox.git"
+github_repo_dest: "/home/{{ ansible_user }}/ansible-netbox"
+github_sync_repo: true
+
+# The local "hub" directory for all projects
+github_local_projects_dir: "/home/{{ ansible_user }}/gemini_projects"
+
+# Source of shared project data on SMB
+github_smb_projects_src: "/mnt/smb/share/Documents/will/gemini_projects"
+
+# Standard repo-managed directories to link locally
+github_repo_links:
+  - { src: "scripts", dest: "{{ github_local_projects_dir }}/scripts" }
+  - { src: "mcp-servers", dest: "{{ github_local_projects_dir }}/mcp-servers" }
+
+# Standard SMB-managed directories to link locally
+github_smb_links:
+  - "board"
+  - "health"
+  - "recreation"
+  - "eldercare"
+  - "geeks"
+  - "sysadmin"
+  - "will_jen_family_project"
+  - "maintenance"
+  - "personal-kms"
+
+# Individual files to link from SMB
+github_smb_file_links:
+  - "chatbot_context_files.md"
+  - "church-clerk.skill"
+  - "CLAUDE.md"
+  - "Dell-7480_specs-6H2G3G2.csv"
+  - "gCalBookmarklet.js"
+  - "gemini_key.txt.gpg"
+  - "GEMINI.md"
+  - "need_install_ripgrep!"
+  - "personal-kms.skill"
+  - "requirements.txt"
+  - "vault.yml.gpg"

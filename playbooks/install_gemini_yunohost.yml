@@ -87,7 +87,7 @@
     - name: 5. Create gemini alias
       ansible.builtin.lineinfile:
         path: "/home/{{ gemini_user }}/.bashrc"
-        line: "alias gemini='{{ gemini_base_dir }}/node_modules/.bin/gemini'"
+        line: "alias gemini='/usr/bin/node {{ gemini_base_dir }}/node_modules/.bin/gemini'"
         regexp: "^alias gemini="
         state: present
       tags: configure

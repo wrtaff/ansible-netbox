@@ -1,0 +1,110 @@
+---
+# ==============================================================================
+# Filename:       playbooks/configure_mcp_servers_remote.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-03-14
+# Context:        http://trac.home.arpa/ticket/3214
+#
+# Purpose:
+#   Provisions MCP servers for Gemini CLI on remote desktops.
+#   Sets up the virtual environment, installs dependencies, and configures
+#   the project-level settings.json.
+# ==============================================================================
+
+- name: Configure MCP Servers on Remote Desktops
+  hosts: desktops
+  vars_files:
+    - ../vault.yml
+  vars:
+    gemini_user: "will"
+    repo_path: "/home/{{ gemini_user }}/ansible-netbox"
+    gemini_project_dir: "/home/{{ gemini_user }}/gemini_projects"
+    venv_path: "/home/{{ gemini_user }}/ansible-netbox/.venv"
+    mcp_servers:
+      trac:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/trac/server.py"
+      google-workspace:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/google-workspace/server.py"
+      nextcloud:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/nextcloud/server.py"
+    gemini_context:
+      includeDirectories:
+        - "{{ gemini_project_dir }}"
+        - "{{ repo_path }}"
+        - "/mnt/smb/share/Documents/will/gemini_projects"
+
+  tasks:
+    - name: 1. Ensure Python Venv exists
+      ansible.builtin.command:
+        cmd: "python3 -m venv {{ venv_path }}"
+        creates: "{{ venv_path }}/bin/activate"
+      become: yes
+      become_user: "{{ gemini_user }}"
+
+    - name: 2. Install MCP Python Dependencies
+      ansible.builtin.pip:
+        name: 
+          - fastmcp
+          - requests
+          - google-api-python-client
+          - google-auth-oauthlib
+          - google-auth-httplib2
+        virtualenv: "{{ venv_path }}"
+        state: present
+      become: yes
+      become_user: "{{ gemini_user }}"
+
+    - name: 3. Ensure .gemini directory exists in project
+      ansible.builtin.file:
+        path: "{{ gemini_project_dir }}/.gemini"
+        state: directory
+        mode: '0755'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+
+    - name: 4. Configure Project-Level settings.json
+      ansible.builtin.copy:
+        content: "{{ {'context': gemini_context, 'mcpServers': mcp_servers} | to_nice_json }}"
+        dest: "{{ gemini_project_dir }}/.gemini/settings.json"
+        mode: '0644'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+
+    - name: 5. Deploy MCP Credentials to .bashrc
+      ansible.builtin.blockinfile:
+        path: "/home/{{ gemini_user }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR MCP CREDENTIALS"
+        block: |
+          export TRAC_PASSWORD='{{ vault_trac_user_password_will }}'
+          export NEXTCLOUD_PASSWORD='{{ nextcloud_user_will_pass }}'
+          export NETBOX_TOKEN='664350da3a91fb42a7ae2d0dda5614e869fd50cd'
+          export NETBOX_API='http://netbox1.home.arpa:80'
+      become: yes
+      become_user: "{{ gemini_user }}"
+
+    - name: 5.5 Ensure tmp directory exists in repo
+      ansible.builtin.file:
+        path: "{{ repo_path }}/tmp"
+        state: directory
+        mode: '0755'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+
+    - name: 6. Cache credentials in tmp/
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ repo_path }}/tmp/{{ item.name }}"
+        mode: '0600'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+      loop:
+        - { name: 'trac_pass.txt', content: '{{ vault_trac_user_password_will }}' }
+        - { name: 'nextcloud_pass.txt', content: '{{ nextcloud_user_will_pass }}' }
+      no_log: true

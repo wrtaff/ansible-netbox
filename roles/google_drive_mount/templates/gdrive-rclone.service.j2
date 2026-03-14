@@ -1,0 +1,18 @@
+[Unit]
+Description=RClone Google Drive Mount for {{ ansible_user }}
+AssertPathIsDirectory=/home/{{ ansible_user }}/gDrive
+After=network-online.target
+Wants=network-online.target
+ 
+[Service]
+Type=forking
+User={{ ansible_user }}
+Group={{ ansible_user }}
+Environment="HOME=/home/{{ ansible_user }}"
+ExecStart=/usr/bin/rclone mount --daemon --config=/home/{{ ansible_user }}/.config/rclone/rclone.conf will-gDrive: /home/{{ ansible_user }}/gDrive 
+ExecStop=/bin/fusermount -u /home/{{ ansible_user }}/gDrive 
+Restart=on-failure
+RestartSec=10
+ 
+[Install]
+WantedBy=multi-user.target

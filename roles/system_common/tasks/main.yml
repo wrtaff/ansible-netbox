@@ -1,9 +1,9 @@
 # ==============================================================================
 # Filename:       roles/system_common/tasks/main.yml
-# Version:        1.7
+# Version:        1.9
 # Author:         Gemini CLI
-# Last Modified:  2026-02-27
-# Context:        http://trac.home.arpa/ticket/3032
+# Last Modified:  2026-03-14
+# Context:        http://trac.home.arpa/ticket/3214
 #
 # Revision History:
 #     1.0 - Initial version.
@@ -15,6 +15,10 @@
 #     1.6 - Switched to dummy /bin/true override.
 #     1.7 - Diverted /lib/systemd/systemd-networkd-wait-online binary to 
 #           /bin/true via dpkg-divert for definitive fix.
+#     1.8 - Added system_common_disable_redundant_networks toggle to support 
+#           hosts requiring NetworkManager (e.g. desktops).
+#     1.9 - Added task to ensure NetworkManager is enabled when disable toggle 
+#           is false (fixes #3214).
 #
 # Purpose:
 #     Baseline configuration tasks for all Debian/Ubuntu servers.
@@ -105,7 +109,22 @@
     - NetworkManager
     - NetworkManager-wait-online
   when: 
+    - system_common_disable_redundant_networks | bool
     - ifupdown_config.stat.exists
+    - ansible_facts.services[item + '.service'] is defined
+    - ansible_facts.services[item + '.service'].status != 'not-found'
+    - ansible_facts.services[item + '.service'].state != 'masked'
+
+- name: Ensure required network manager is enabled for desktops/laptops
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - NetworkManager
+    - NetworkManager-wait-online
+  when: 
+    - not (system_common_disable_redundant_networks | bool)
     - ansible_facts.services[item + '.service'] is defined
     - ansible_facts.services[item + '.service'].status != 'not-found'
     - ansible_facts.services[item + '.service'].state != 'masked'
@@ -115,3 +134,4 @@
     path: /etc/systemd/system/systemd-networkd-wait-online.service.d
     state: absent
   notify: Reload systemd
+

@@ -1,0 +1,16 @@
+---
+# roles/desktop_soe/meta/main.yml
+# Trac Ticket: #3214
+# Purpose: Consolidates all baseline desktop configuration roles.
+
+dependencies:
+  - role: system_common
+  - role: admin_user
+  - role: autofs_client
+  - role: gemini_cli
+    vars:
+      gemini_cli_config_user: 'will'
+  - role: google_drive_mount
+  - role: github_client
+  - role: pbs_client
+  - role: tailscale_node
