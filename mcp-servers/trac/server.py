@@ -142,9 +142,13 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
     """
     Update a Trac ticket with a comment and optional attributes.
     
+    IMPORTANT: You MUST use MoinMoin syntax for 'comment' and 'description'.
+    Do NOT use Markdown headers (e.g., '###'). Use MoinMoin headers:
+    '== Header ==' (H2), '=== Header ===' (H3), etc.
+    
     Args:
         ticket_id: The ID of the ticket to update.
-        comment: The comment text to add.
+        comment: The comment text to add (MoinMoin syntax).
         component: Optional new component (must exist).
         keywords: Optional new keywords (space-separated, overwrites existing if provided).
         status: Optional new status (e.g., 'closed', 'reopened').
@@ -152,7 +156,7 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
         author: The author name to use for the update. Defaults to 'gemini'.
         action: The workflow action to perform (e.g., 'resolve').
         priority: Optional new priority (must exist).
-        description: Optional new description text.
+        description: Optional new description text (MoinMoin syntax).
         summary: Optional new summary (title) text.
     """
     logger.info(f"Updating ticket #{ticket_id}")
@@ -204,9 +208,13 @@ def create_ticket(summary: str, description: str, component: str, type: str = "t
     """
     Create a new Trac ticket.
     
+    IMPORTANT: You MUST use MoinMoin syntax for the 'description'.
+    Do NOT use Markdown headers (e.g., '###'). Use MoinMoin headers:
+    '== Header ==' (H2), '=== Header ===' (H3), etc.
+    
     Args:
-        summary: The title of the ticket.
-        description: The body of the ticket.
+        summary: The title of the ticket (Plain text).
+        description: The body of the ticket (MoinMoin syntax).
         component: The Trac component. MUST be an existing component.
         type: Ticket type (task, bug, enhancement). Defaults to 'task'.
         priority: Priority (blocker, critical, major, minor, trivial). Defaults to 'major'.
