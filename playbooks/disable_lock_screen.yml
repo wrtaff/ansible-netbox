@@ -1,0 +1,39 @@
+---
+# ==============================================================================
+# Playbook: disable_lock_screen.yml
+# Version: 1.0.1
+# Description: Disable lock screen and blanking for "always on" monitor.
+# Target: athena (192.168.0.118)
+# Trac Ticket: #3218
+# Changes:
+#   - 2026-03-16: Initial creation (v1.0.0).
+#   - 2026-03-16: Deployed and verified on athena (v1.0.1).
+# ==============================================================================
+
+- name: Disable Lock Screen and Blanking
+  hosts: athena
+  become: no  # Run as the user 'will' to modify their XFCE settings
+  tasks:
+    - name: Disable XFCE Screensaver
+      community.general.xfconf:
+        channel: xfce4-screensaver
+        property: "{{ item.prop }}"
+        value_type: bool
+        value: false
+        state: present
+      loop:
+        - { prop: "/saver/enabled" }
+        - { prop: "/lock-screen/enabled" }
+
+    - name: Configure XFCE Power Manager for Always On
+      community.general.xfconf:
+        channel: xfce4-power-manager
+        property: "{{ item.prop }}"
+        value_type: "{{ item.type }}"
+        value: "{{ item.val }}"
+        state: present
+      loop:
+        - { prop: "/xfce4-power-manager/presentation-mode", type: "bool", val: true }
+        - { prop: "/xfce4-power-manager/blank-on-ac", type: "int", val: 0 }
+        - { prop: "/xfce4-power-manager/dpms-enabled", type: "bool", val: false }
+        - { prop: "/xfce4-power-manager/lock-screen-suspend-hibernate", type: "bool", val: false }

@@ -1,0 +1,45 @@
+'''Playbooks/disable_lock_screen.yml''' disables the lock screen and screen blanking on XFCE workstations, specifically for "always on" monitors.
+
+== Use Case ==
+This playbook is used to configure host 'athena' (and others if needed) for a status monitor display where the screen must not blank or lock, matching the known good configuration of 'venus' and 'zeus'.
+
+== Installation Method ==
+Applied via Ansible targeting the specific host. It uses <code>community.general.xfconf</code> to modify XFCE configuration channels directly in the user's session.
+
+== Prerequisites ==
+* Hosts must have XFCE installed.
+* SSH access for user <code>will</code>.
+* Ansible Vault is NOT strictly required for this playbook as it modifies user-specific XFCE settings.
+
+== Configuration ==
+The following settings are applied:
+
+=== xfce4-screensaver ===
+* <code>/saver/enabled</code>: <code>false</code>
+* <code>/lock-screen/enabled</code>: <code>false</code>
+
+=== xfce4-power-manager ===
+* <code>/xfce4-power-manager/presentation-mode</code>: <code>true</code>
+* <code>/xfce4-power-manager/blank-on-ac</code>: <code>0</code>
+* <code>/xfce4-power-manager/dpms-enabled</code>: <code>false</code>
+* <code>/xfce4-power-manager/lock-screen-suspend-hibernate</code>: <code>false</code>
+
+== Safety & Rollback ==
+=== Verification ===
+Verify the settings after application:
+<code>xfconf-query -c xfce4-power-manager -l -v</code>
+
+=== Rollback Procedure ===
+To re-enable locking:
+# Revert the values manually using <code>xfconf-query</code> or modify the playbook to set values to <code>true</code>.
+# Restart the XFCE session if necessary.
+
+== Usage ==
+Run the playbook from the <code>ansible-netbox</code> directory:
+<code>ansible-playbook -i inventory.ini playbooks/disable_lock_screen.yml --limit athena</code>
+
+== Links ==
+* Trac Ticket: [http://trac.home.arpa/ticket/3218 #3218]
+* NetBox Site: [http://netbox1.home.arpa NetBox]
+
+[[Category: Ansible playbooks]]
