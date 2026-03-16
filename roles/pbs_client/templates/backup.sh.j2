@@ -1,4 +1,20 @@
 #!/bin/bash
+# ==============================================================================
+# Filename:       pbs-backup.sh
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-03-16
+# Context:        http://trac.home.arpa/ticket/2426
+#
+# Purpose:
+#    Backup local directories and databases to Proxmox Backup Server (PBS).
+#    Standardized for use across LXC and VM clients.
+#
+# Revision History:
+#    v1.1 (2026-03-16): Added WWOS source code header and resolved redundant 
+#                       backup job conflict on netbox1.
+#    v1.0 (2026-01-21): Initial implementation.
+# ==============================================================================
 set -e
 
 # Configuration
