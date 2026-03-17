@@ -1,3 +1,20 @@
+# ==============================================================================
+# Filename:       playbooks/onboard_tailscale_lxc.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-03-17
+#
+# Purpose:
+#     Configures Proxmox LXC containers for Tailscale by ensuring TUN device 
+#     access is correctly configured and generating authentication keys.
+#
+# Revision History:
+#     1.0 - Initial deployment script.
+#     1.1 - Added WWOS standard header and standardized variables.
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+# ==============================================================================
 ---
 - name: Configure Proxmox LXC for Tailscale (TUN Device)
   hosts: proxmox

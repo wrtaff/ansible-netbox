@@ -1,3 +1,21 @@
+# ==============================================================================
+# Filename:       playbooks/deploy_tailscale_proxy.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-03-17
+# Context:        http://trac.home.arpa/ticket/3033
+#
+# Purpose:
+#     Configures and enables a persistent Tailscale TCP proxy for YunoHost 
+#     servers to handle port 443 traffic through the Tailscale network.
+#
+# Revision History:
+#     1.0 - Initial deployment script.
+#     1.1 - Added WWOS standard header and standardized variables.
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+# ==============================================================================
 ---
 - name: Configure and Enable Persistent Tailscale TCP Proxy
   hosts: ynh2

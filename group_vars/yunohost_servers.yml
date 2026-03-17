@@ -1,0 +1,17 @@
+# ==============================================================================
+# Filename:       group_vars/yunohost_servers.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-03-17
+#
+# Purpose:
+#     Tailscale certificate configuration for YunoHost servers.
+# ==============================================================================
+---
+tailscale_cert_domain: "ynh2.van-bee.ts.net"
+tailscale_cert_dir: "/etc/yunohost/certs/{{ tailscale_cert_domain }}"
+tailscale_cert_backup_dir: "{{ tailscale_cert_dir }}/self-signed"
+tailscale_cert_owner: "root"
+tailscale_cert_group: "metronome"
+tailscale_cert_mode: "0640"
+tailscale_cert_reload_command: "yunohost service reload nginx"

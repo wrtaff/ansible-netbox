@@ -1,0 +1,111 @@
+# ==============================================================================
+# Filename:       playbooks/update_tailscale_certs.yml
+# Version:        1.2
+# Author:         Gemini CLI
+# Last Modified:  2026-03-17
+# Context:        http://trac.home.arpa/ticket/3033
+#
+# Purpose:
+#     Generates or updates Tailscale TLS certificates for any Tailscale-capable 
+#     host and notifies the central mail relay on success.
+#
+# Revision History:
+#     1.0 - Initial refactor from YNH-specific playbook.
+#     1.1 - Added domain discovery and generic path/permission support.
+#     1.2 - Added WWOS standard header and standardized variables.
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+# ==============================================================================
+---
+- name: Update Tailscale TLS Certificate
+  hosts: "{{ target_hosts | default('tailscale_cert_hosts') }}"
+  become: yes
+
+  vars:
+    # Defaults (can be overridden in group_vars or host_vars)
+    tailscale_cert_domain_override: ""
+    tailscale_cert_dir_base: "/etc/ssl/tailscale"
+    tailscale_cert_owner: "root"
+    tailscale_cert_group: "ssl-cert"
+    tailscale_cert_mode: "0644"
+    tailscale_cert_reload_command: ""
+
+  tasks:
+    - name: Discover Tailscale DNS name
+      ansible.builtin.shell: |
+        tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//'
+      register: tailscale_dns_discovery
+      changed_when: false
+      when: tailscale_cert_domain | default('') == ''
+
+    - name: Set domain variable
+      ansible.builtin.set_fact:
+        tailscale_cert_domain: "{{ tailscale_cert_domain | default(tailscale_dns_discovery.stdout) }}"
+
+    - name: Set dynamic path variables
+      ansible.builtin.set_fact:
+        tailscale_cert_dir: "{{ tailscale_cert_dir | default(tailscale_cert_dir_base + '/' + tailscale_cert_domain) }}"
+        tailscale_cert_backup_dir: "{{ tailscale_cert_backup_dir | default(tailscale_cert_dir_base + '/' + tailscale_cert_domain + '/backup') }}"
+
+    - name: Ensure certificate and backup directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ tailscale_cert_owner }}"
+        group: "{{ tailscale_cert_group }}"
+      loop:
+        - "{{ tailscale_cert_dir }}"
+        - "{{ tailscale_cert_backup_dir }}"
+
+    - name: Find existing certificate files (.pem)
+      ansible.builtin.find:
+        paths: "{{ tailscale_cert_dir }}"
+        patterns: "*.pem"
+        use_regex: no
+        file_type: file
+      register: old_certs
+
+    - name: Back up old certificate files if they exist
+      ansible.builtin.command:
+        cmd: "mv {{ item.path }} {{ tailscale_cert_backup_dir }}/"
+      loop: "{{ old_certs.files }}"
+      when: old_certs.files | length > 0
+      changed_when: true
+
+    - name: Generate new Tailscale certificate
+      ansible.builtin.command:
+        cmd: "tailscale cert --cert-file crt.pem --key-file key.pem {{ tailscale_cert_domain }}"
+        chdir: "{{ tailscale_cert_dir }}"
+        creates: "{{ tailscale_cert_dir }}/crt.pem"
+      register: cert_generation
+      changed_when: "'Wrote public cert' in cert_generation.stdout or cert_generation.rc == 0"
+
+    - name: Set correct permissions on certificate files
+      ansible.builtin.file:
+        path: "{{ tailscale_cert_dir }}/{{ item }}"
+        owner: "{{ tailscale_cert_owner }}"
+        group: "{{ tailscale_cert_group }}"
+        mode: "{{ tailscale_cert_mode }}"
+      loop:
+        - crt.pem
+        - key.pem
+      notify: Reload Target Service
+
+    - name: Flush handlers to ensure service is reloaded before notification
+      ansible.builtin.meta: flush_handlers
+
+    - name: Notify central mail relay of success
+      ansible.builtin.shell: |
+        echo "Tailscale TLS certificate for {{ tailscale_cert_domain }} has been successfully updated on {{ inventory_hostname }}. Service reloaded (if configured)." | mail -s "Tailscale Cert Update Success: {{ tailscale_cert_domain }}" root
+      delegate_to: localhost
+      when: cert_generation.changed
+
+  handlers:
+    - name: Reload Target Service
+      ansible.builtin.command:
+        cmd: "{{ tailscale_cert_reload_command }}"
+      when: tailscale_cert_reload_command | length > 0
+      # We don't want the play to fail if the reload command fails
+      ignore_errors: true

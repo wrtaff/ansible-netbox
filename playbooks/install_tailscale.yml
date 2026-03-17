@@ -1,13 +1,29 @@
-# Name: install_tailscale.yml
-# Path: /opt/netbox/ansible-netbox/playbooks/install_tailscale.yml
-# Purpose: Automates the installation and configuration of Tailscale on Debian-based systems.
+# ==============================================================================
+# Filename:       playbooks/install_tailscale.yml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-03-17
+#
+# Purpose:
+#     Automates the installation and configuration of Tailscale on Debian-based 
+#     systems using the tailscale_node role.
+#
 # Prerequisites: 
-#   - Ansible installed on controller
-#   - Target host accessible via SSH
-#   - Valid Tailscale Auth Key (tskey-auth-...)
+#     - Ansible installed on controller
+#     - Target host accessible via SSH
+#     - Valid Tailscale Auth Key (tskey-auth-...)
+#
 # Usage: 
-#   ansible-playbook playbooks/install_tailscale.yml -l <target_host>
-#   ansible-playbook playbooks/install_tailscale.yml -l <target_host> -e "tailscale_auth_key=<key>"
+#     ansible-playbook playbooks/install_tailscale.yml -l <target_host>
+#     ansible-playbook playbooks/install_tailscale.yml -l <target_host> -e "tailscale_auth_key=<key>"
+#
+# Revision History:
+#     1.0 - Initial deployment script.
+#     1.1 - Added WWOS standard header and standardized documentation.
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+# ==============================================================================
 ---
 - name: Install and Configure Tailscale
   hosts: all
