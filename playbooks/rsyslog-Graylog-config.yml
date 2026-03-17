@@ -15,7 +15,9 @@
 # Purpose:       This Ansible playbook configures rsyslog on target hosts to
 #                forward all logs to a central Graylog server and tags the
 #                host with 'graylog' in NetBox.
-# Version:       1.2.0 (Last Modified: 2026-02-13)
+# Version:       1.2.1 (Last Modified: 2026-03-17)
+# Recent Changes:
+#   - Fixed NetBox tagging logic to append/merge tags instead of overwriting.
 # Prerequisites:
 #   - Ansible control node with Ansible installed.
 #   - SSH access and sudo/root privileges ('become: yes') on target hosts.
@@ -79,17 +81,34 @@
       notify:
         - Restart rsyslog
 
+    - name: Get current VM tags from NetBox
+      set_fact:
+        netbox_vm_tags: "{{ query('netbox.netbox.nb_lookup', 'virtual-machines', api_filter='name=' ~ inventory_hostname, api_endpoint=netbox_url, token=netbox_token) }}"
+      delegate_to: localhost
+      when: ansible_virtualization_role is defined and ansible_virtualization_role == 'guest'
+      ignore_errors: yes
+
     - name: Tag Virtual Machine in NetBox with 'graylogger'
       netbox.netbox.netbox_virtual_machine:
         netbox_url: "{{ netbox_url }}"
         netbox_token: "{{ netbox_token }}"
         data:
           name: "{{ inventory_hostname }}"
-          tags:
-            - slug: graylogger
+          tags: "{{ (netbox_vm_tags[0].value.tags | map(attribute='slug') | list + ['graylogger']) | unique }}"
         state: present
       delegate_to: localhost
-      when: ansible_virtualization_role is defined and ansible_virtualization_role == 'guest'
+      when: 
+        - ansible_virtualization_role is defined 
+        - ansible_virtualization_role == 'guest'
+        - netbox_vm_tags is defined
+        - netbox_vm_tags | length > 0
+      ignore_errors: yes
+
+    - name: Get current Device tags from NetBox
+      set_fact:
+        netbox_device_tags: "{{ query('netbox.netbox.nb_lookup', 'devices', api_filter='name=' ~ inventory_hostname, api_endpoint=netbox_url, token=netbox_token) }}"
+      delegate_to: localhost
+      when: ansible_virtualization_role is not defined or ansible_virtualization_role != 'guest'
       ignore_errors: yes
 
     - name: Tag Physical Device in NetBox with 'graylogger'
@@ -98,11 +117,13 @@
         netbox_token: "{{ netbox_token }}"
         data:
           name: "{{ inventory_hostname }}"
-          tags:
-            - slug: graylogger
+          tags: "{{ (netbox_device_tags[0].value.tags | map(attribute='slug') | list + ['graylogger']) | unique }}"
         state: present
       delegate_to: localhost
-      when: ansible_virtualization_role is not defined or ansible_virtualization_role != 'guest'
+      when: 
+        - (ansible_virtualization_role is not defined or ansible_virtualization_role != 'guest')
+        - netbox_device_tags is defined
+        - netbox_device_tags | length > 0
       ignore_errors: yes
 
   # --- Handlers ---
