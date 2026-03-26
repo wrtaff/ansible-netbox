@@ -1,13 +1,13 @@
 # ==============================================================================
 # Filename:       update_gemini.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini CLI
-# Last Modified:  2026-01-26
-# Context:        http://trac.gafla.us.com/ticket/2802
+# Last Modified:  2026-03-26
+# Context:        http://trac.home.arpa/ticket/2800
 #
 # Purpose:
 #   Updates the Gemini CLI to the latest version on desktops.
-#   Forces the npm package state to 'latest'.
+#   Forces the npm package state to 'latest' and deploys foot information.
 #
 # Dependencies:
 #   - role: gemini_cli

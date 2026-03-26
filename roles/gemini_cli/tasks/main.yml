@@ -1,19 +1,20 @@
 ---
 # ==============================================================================
 # Filename:       tasks/main.yml
-# Version:        1.3
+# Version:        1.4
 # Author:         Gemini CLI
-# Last Modified:  2026-03-14
-# Context:        http://trac.home.arpa/ticket/3214
+# Last Modified:  2026-03-26
+# Context:        http://trac.home.arpa/ticket/2800
 #
 # Purpose:
 #   Installation logic for Gemini CLI.
 #
+#   Update 1.4:
+#   - Added dynamic "Foot Information" (CLI_TITLE and GEMINI.md context).
+#   - Detects Git branch and workspace directory for TUI title.
 #   Update 1.3:
 #   - Dynamically detect gemini binary path.
 #   - Made netbox bin symlink conditional (only for controller).
-#   Update 1.2:
-#   - Implemented 'gemini_package_state' variable to allow updates.
 # ==============================================================================
 
 - name: "PREREQUISITE: Install Node.js (v20+) and NPM"
@@ -51,13 +52,83 @@
   changed_when: false
   tags: install
 
-- name: 5. Check if netbox bin directory exists
+- name: 5. Detect Workspace and Git Branch
+  block:
+    - name: 5a. Identify Workspace Directory
+      ansible.builtin.set_fact:
+        gemini_env_workspace: "{{ item | dirname }}"
+      with_first_found:
+        - files:
+            - "inventory.ini"
+          paths:
+            - "/opt/netbox/ansible-netbox"
+            - "/home/{{ gemini_cli_config_user }}/ansible-netbox"
+            - "/home/{{ gemini_cli_config_user }}/gemini-projects"
+          errors: ignore
+      register: workspace_found
+
+    - name: 5b. Fallback Workspace (Home)
+      ansible.builtin.set_fact:
+        gemini_env_workspace: "/home/{{ gemini_cli_config_user }}"
+      when: workspace_found.skipped | default(false)
+
+    - name: 5c. Get Git branch
+      ansible.builtin.shell:
+        cmd: "git branch --show-current || echo 'no-git'"
+        chdir: "{{ gemini_env_workspace }}"
+      register: git_branch_cmd
+      changed_when: false
+      failed_when: false
+
+    - name: 5d. Set environment facts
+      ansible.builtin.set_fact:
+        gemini_env_branch: "{{ git_branch_cmd.stdout | default('no-git') }}"
+        gemini_env_host: "{{ inventory_hostname }}"
+
+- name: 6. Configure Foot Information (CLI_TITLE in .bashrc)
+  ansible.builtin.lineinfile:
+    path: "/home/{{ gemini_cli_config_user }}/.bashrc"
+    line: 'export CLI_TITLE="[{{ gemini_env_host }}] {{ gemini_env_workspace }} ({{ gemini_env_branch }}) [{{ gemini_model }}]"'
+    regexp: '^export CLI_TITLE='
+    create: true
+    owner: "{{ gemini_cli_config_user }}"
+    group: "{{ gemini_cli_config_user }}"
+    mode: '0644'
+  tags: configure
+
+- name: 7. Manage Context Footer (.gemini/GEMINI.md)
+  block:
+    - name: 7a. Ensure .gemini directory exists
+      ansible.builtin.file:
+        path: "{{ gemini_env_workspace }}/.gemini"
+        state: directory
+        owner: "{{ gemini_cli_config_user }}"
+        group: "{{ gemini_cli_config_user }}"
+        mode: '0755'
+
+    - name: 7b. Update GEMINI.md with Environment Status
+      ansible.builtin.blockinfile:
+        path: "{{ gemini_env_workspace }}/.gemini/GEMINI.md"
+        marker: "<!-- {mark} ANSIBLE MANAGED ENVIRONMENT STATUS -->"
+        create: true
+        owner: "{{ gemini_cli_config_user }}"
+        group: "{{ gemini_cli_config_user }}"
+        mode: '0644'
+        block: |
+          ## Environment Status
+          - **Host:** {{ gemini_env_host }}
+          - **Workspace:** {{ gemini_env_workspace }}
+          - **Branch:** {{ gemini_env_branch }}
+          - **Model:** {{ gemini_model }}
+  tags: configure
+
+- name: 8. Check if netbox bin directory exists
   ansible.builtin.stat:
     path: "/opt/netbox/ansible-netbox/bin"
   register: netbox_bin_dir
   tags: install
 
-- name: 6. Ensure gemini binary is symlinked into venv (Controller Only)
+- name: 9. Ensure gemini binary is symlinked into venv (Controller Only)
   ansible.builtin.file:
     src: "{{ gemini_which.stdout }}"
     dest: "/opt/netbox/ansible-netbox/bin/gemini"

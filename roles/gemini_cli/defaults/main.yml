@@ -1,14 +1,16 @@
 ---
 # ==============================================================================
 # Filename:       defaults/main.yml
-# Version:        1.2
+# Version:        1.3
 # Author:         Gemini CLI
-# Last Modified:  2026-01-26
-# Context:        http://trac.gafla.us.com/ticket/2802
+# Last Modified:  2026-03-26
+# Context:        http://trac.home.arpa/ticket/2800
 #
 # Purpose:
 #   Default variables for the Gemini CLI role.
 #
+#   Update 1.3:
+#   - Added 'gemini_model' to standardize the model name in foot information.
 #   Update 1.2:
 #   - Added 'gemini_package_state' to control update behavior (present/latest).
 # ==============================================================================
@@ -24,6 +26,9 @@ gemini_cli_npm_package: '@google/gemini-cli'
 
 # Package state: 'present' (install only) or 'latest' (update)
 gemini_package_state: 'present'
+
+# Default LLM model for the "Foot Information" display.
+gemini_model: "gemini-2.0-flash"
 
 # API Key Default (Static string to prevent recursion error)
 # This will be overridden by your Vault.
