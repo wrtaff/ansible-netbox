@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       transcribe_audio.py
-Version:        1.6
+Version:        1.7
 Author:         Gemini CLI
-Last Modified:  2026-02-11
+Last Modified:  2026-03-27
 Context:        http://trac.home.arpa/ticket/2988
 
 Purpose:
@@ -12,6 +12,10 @@ Purpose:
     Outputs the transcript to a .txt file in the same directory.
     Supports providing context to improve transcription accuracy.
     Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.7:
+    - Added note that prerequisites are managed by playbooks/standard_debian_desktop_software_config.yml.
+    - Updated dependencies documentation.
 
 Changes in 1.6:
     - Fixed MIME type mismatch by dynamically detecting and passing the correct 
@@ -36,8 +40,9 @@ Usage:
     ./transcribe_audio.py <audio_file_path> [--context "Context text"] [--model "model-name"]
 
 Dependencies:
-    - requests (pip install requests)
+    - requests (pip install requests or python3-requests apt package)
     - ffmpeg (apt install ffmpeg)
+    - Note: Prereqs are managed by playbooks/standard_debian_desktop_software_config.yml
 ================================================================================
 """
 import os
