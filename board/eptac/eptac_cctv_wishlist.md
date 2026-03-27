@@ -28,3 +28,13 @@
 ## 4. Policy & Governance
 *   **Retention Policy:** Implementation of a standardized 30-90 day auto-delete cycle (coordinated with Aimee Sufka).
 *   **Log Auditing:** Training on how to view user logs to ensure system access isn't being abused for personal surveillance.
+*   **Footage Turnover Policy:** Standardize that camera footage is only turned over to homeowners with the express written consent of the Board of Directors or TSG Management (Bill).
+*   **Law Enforcement Policy:** Formalize protocols for footage turnover to law enforcement.
+*   **Contacts:** Amy Sufka and Eric Ebell identified as key resources for policy and implementation alignment.
+
+---
+
+## 5. Historical Context & Analysis (2024-2025 Review)
+*   **System Integrity:** Need to determine if issues (dead cameras, workstation drops) are operator-related, hardware failures, or software misconfiguration.
+*   **Network Stability:** Map and diagram the attendant network with Brannon to identify points of failure.
+*   **Asset Mapping:** Coordinate with Sammy or Vic to create a comprehensive map of all camera locations.

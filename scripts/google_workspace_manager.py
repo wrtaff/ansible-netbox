@@ -391,7 +391,7 @@ def drive_upload_file(file_path, mimetype=None, parent_id=None, target_mimetype=
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def drive_update_file(file_id, name=None, description=None, output_format='text'):
+def drive_update_file(file_id, name=None, description=None, parent_id=None, output_format='text'):
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
     try:
@@ -401,7 +401,22 @@ def drive_update_file(file_id, name=None, description=None, output_format='text'
         if description:
             file_metadata['description'] = description
         
-        file = service.files().update(fileId=file_id, body=file_metadata, fields='id, name').execute()
+        # If moving to a new folder
+        if parent_id:
+            # Retrieve the existing parents to remove
+            file = service.files().get(fileId=file_id, fields='parents').execute()
+            previous_parents = ",".join(file.get('parents', []))
+            # Move the file to the new folder
+            file = service.files().update(
+                fileId=file_id,
+                body=file_metadata,
+                addParents=parent_id,
+                removeParents=previous_parents,
+                fields='id, parents, name'
+            ).execute()
+        else:
+            file = service.files().update(fileId=file_id, body=file_metadata, fields='id, name').execute()
+            
         output(file, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
@@ -646,10 +661,12 @@ if __name__ == '__main__':
     parser_drive_get.add_argument('id', help='File ID')
     parser_drive_get.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
-    parser_drive_update = subparsers.add_parser('drive-update', help='Update file metadata')
+    parser_drive_update = subparsers.add_parser('drive-update', help='Update file metadata in Drive')
     parser_drive_update.add_argument('id', help='File ID')
     parser_drive_update.add_argument('--name', help='New filename')
     parser_drive_update.add_argument('--desc', help='New description')
+    parser_drive_update.add_argument('--parent', help='New parent folder ID to move file to')
+
 
     parser_drive_download = subparsers.add_parser('drive-download', help='Download a file from Drive')
     parser_drive_download.add_argument('id', help='File ID')
@@ -723,7 +740,7 @@ if __name__ == '__main__':
     elif args.command == 'drive-get':
         drive_get_file_metadata(args.id, args.format, args.cite)
     elif args.command == 'drive-update':
-        drive_update_file(args.id, args.name, args.desc, args.format)
+        drive_update_file(args.id, args.name, args.desc, args.parent, args.format)
     elif args.command == 'drive-download':
         drive_download_file(args.id, args.out, args.format)
     elif args.command == 'drive-export':

@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       transcribe_audio.py
-Version:        1.7
+Version:        1.8
 Author:         Gemini CLI
 Last Modified:  2026-03-27
 Context:        http://trac.home.arpa/ticket/2988
@@ -12,6 +12,9 @@ Purpose:
     Outputs the transcript to a .txt file in the same directory.
     Supports providing context to improve transcription accuracy.
     Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.8:
+    - Added robust API key extraction from ~/.bashrc using grep.
 
 Changes in 1.7:
     - Added note that prerequisites are managed by playbooks/standard_debian_desktop_software_config.yml.
@@ -78,8 +81,20 @@ def get_api_key():
         with open(API_KEY_FILE, 'r') as f:
             print(f"Using API key from file: {API_KEY_FILE}")
             return f.read().strip()
+
+    try:
+        print("Checking ~/.bashrc for GEMINI_API_KEY...")
+        # Grep the export line directly from .bashrc to avoid issues with early exits in non-interactive shells
+        cmd = "grep 'export GEMINI_API_KEY=' ~/.bashrc | cut -d'\"' -f2"
+        result = subprocess.run(['bash', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        bashrc_key = result.stdout.strip()
+        if bashrc_key and bashrc_key.startswith("AIza"):
+            print("Using API key from ~/.bashrc.")
+            return bashrc_key
+    except Exception as e:
+        print(f"Warning: Could not extract key from ~/.bashrc: {e}")
     
-    print("Gemini API key not found in environment or file.")
+    print("Gemini API key not found in environment, file, or ~/.bashrc.")
     try:
         api_key = getpass.getpass(prompt="Please enter your Gemini API key: ").strip()
         if api_key:

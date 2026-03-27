@@ -21,5 +21,5 @@ python server.py
 
 *   `get_ticket(ticket_id)`: View ticket details.
 *   `update_ticket(ticket_id, comment, ...)`: Add comments or change status/keywords/priority.
-*   `create_ticket(summary, description, ...)`: Open a new ticket.
+*   `create_ticket(summary, description, ...)`: Open a new ticket. **Note: Trac components are always lowercase.**
 *   `search_tickets(query)`: Search using Trac query syntax.

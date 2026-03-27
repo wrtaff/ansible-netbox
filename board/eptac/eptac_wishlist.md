@@ -34,12 +34,14 @@ The mission of the EPTAC is to leverage the technical skills and expertise of re
     *   *Update (Mar 9, 2026)*: Investigate Georgia Power API for automated usage graphing.
 *   **Stairwell Lighting Modernization**: Replace fluorescents with LEDs.
     *   *Advice (Mar 9, 2026)*: Avoid integrated LED fixtures; use changeable LED bulbs to prevent complete fixture replacement when diodes fail.
+*   **Attendant Network Diagram**: Map the specific network path for the attendant desk to resolve stability and display drop-out issues.
 
 ### Problems
 *   **Geothermal Cage**: The cage hasn't been dived/inspected in years (Brannon 2035 issue).
 *   **5th Floor Cooling**: Inconsistent cooling; 5th floor remains hot.
 *   **Passive Fire Protection/HVAC Boundaries**: COVID-era practice of leaving fire doors open is "trashy," violates code, and disrupts 5th-floor cooling/pressure. Need to enforce closure via letter to homeowners.
 *   **System Blindness**: Lack of historical data; we only know systems fail at the point of failure.
+*   **Attendant Desk Stability (Mar 10, 2026)**: Cameras periodically drop from the display at the workstation; suspected network or workstation hardware issue.
 
 ---
 
@@ -53,20 +55,24 @@ The mission of the EPTAC is to leverage the technical skills and expertise of re
     *   *Update (Mar 9, 2026)*: Contact Donnie with Acom for potential call box upgrades (same hardware as Marina Cove).
 *   **Expanded NVR Use**: Use Digital Watchdog triggers/alarms for proactive security (Jason).
     *   **Individual Logins**: Implement individual user accounts for the NVR to track access and improve accountability.
-*   **PTZ & Night Color Cameras**: Investigate high-quality PTZ (Pan-Tilt-Zoom) and night color cameras to improve identification capabilities after dark.
+    *   **AI Alerts**: Implement line-crossing and motion alerts for proactive attendant notification.
+*   **PTZ & Night Color Cameras**: Investigate high-quality PTZ (Pan-Tilt-Zoom) for the Bay Deck and night color cameras for key entry points.
 *   **Revive Front Door Camera**: Investigate/upgrade the Doorbird or equivalent front door system.
 *   **"Voice of God" Speaker System**: Investigate a loudspeaker/1MC-style system for security announcements in the parking garage (similar to TSYS garage).
 *   **Lobby Egress**: Install "Push to Exit" buttons to prevent residents from being locked in the lobby.
+*   **Smart Search & System Health Training**: Advanced training for Board/Management on drawing motion zones and monitoring the admin health dashboard.
 
 ### RFIs (Requests for Information)
 *   **Attendant Historical Access**: Evaluate the risk/benefit of granting Vic (night attendant) access to historical video footage to assist in immediate incident response. 
     *   *Constraint*: Must be coupled with a confidentiality agreement/NDA to ensure no unauthorized sharing with homeowners.
     *   *Update (Mar 9, 2026)*: Vic is currently restricted from playback to prevent "nosy" behavior; Sammy Watts is the trusted attendant for advanced access.
+*   **Law Enforcement Footage Policy**: Define standardized protocols for turning over footage to local authorities.
 
 ### Problems
 *   **FOB System Discovery**: Lack of understanding of the current access control software/hardware (Will tasked).
 *   **Lobby Beeping**: Constant beeping in the lobby is detrimental to home values.
 *   **Camera Outage (Mar 9, 2026)**: Exterior camera between Mill 1 and the garage is inoperative post-NVR upgrade; likely a wiring/re-routing issue.
+*   **Footage Turnover Request**: Need formal policy to prevent unauthorized sharing with homeowners (require Board/TSG consent).
 
 ---
 
