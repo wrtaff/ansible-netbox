@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        1.3
+Version:        1.4
 Author:         Gemini CLI
-Last Modified:  2026-03-09
+Last Modified:  2026-03-27
 Context:        http://trac.home.arpa/ticket/3119
 
 Purpose:
@@ -13,6 +13,8 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v1.4 (2026-03-27): Improved error handling for GoogleAuthError and set 
+                       non-interactive mode for robust headless operations.
     v1.3 (2026-03-09): Added 'target_mime' support to drive_upload for file conversion.
     v1.2 (2026-03-04): Added People API (Contacts), Drive Update, Drive Export, 
                        and Task Update tools. Support for all-day calendar events.
@@ -38,6 +40,9 @@ if PROJECT_ROOT not in sys.path:
 from mcp.server.fastmcp import FastMCP
 from scripts import google_workspace_manager as gwm
 
+# Set non-interactive mode for Google Workspace Manager
+os.environ["GOOGLE_WORKSPACE_MANAGER_NON_INTERACTIVE"] = "1"
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -50,7 +55,11 @@ logger = logging.getLogger("google-workspace-mcp")
 # Initialize FastMCP server
 mcp = FastMCP("google-workspace-server")
 
-logger.info("Initializing Google Workspace MCP Server v1.2")
+logger.info("Initializing Google Workspace MCP Server v1.4")
+
+def handle_auth_error(e):
+    logger.error(f"Authentication Error: {e}")
+    return f"ERROR: Authentication required. {str(e)}"
 
 # --- GMAIL TOOLS ---
 
@@ -61,9 +70,12 @@ def list_messages(query: str = "", max_results: int = 10) -> str:
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.gmail_list_messages(query=query, max_results=max_results, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.gmail_list_messages(query=query, max_results=max_results, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="gmail_get_message")
 def get_message(message_id: str) -> str:
@@ -72,9 +84,12 @@ def get_message(message_id: str) -> str:
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.gmail_get_message(message_id=message_id, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.gmail_get_message(message_id=message_id, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="gmail_send_message")
 def send_message(to: str, subject: str, body: str, attachment_path: Optional[str] = None) -> str:
@@ -83,9 +98,12 @@ def send_message(to: str, subject: str, body: str, attachment_path: Optional[str
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.gmail_send_message(to=to, subject=subject, body=body, attachment_path=attachment_path, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.gmail_send_message(to=to, subject=subject, body=body, attachment_path=attachment_path, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="gmail_create_draft")
 def create_draft(to: str, subject: str, body: str, attachment_path: Optional[str] = None) -> str:
@@ -94,9 +112,12 @@ def create_draft(to: str, subject: str, body: str, attachment_path: Optional[str
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.gmail_create_draft(to=to, subject=subject, body=body, attachment_path=attachment_path, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.gmail_create_draft(to=to, subject=subject, body=body, attachment_path=attachment_path, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 # --- DRIVE TOOLS ---
 
@@ -107,9 +128,12 @@ def search_drive(query: Optional[str] = None, max_results: int = 10) -> str:
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.drive_search(query=query, max_results=max_results, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_search(query=query, max_results=max_results, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="drive_get_metadata")
 def drive_get_metadata(file_id: str) -> str:
@@ -118,9 +142,12 @@ def drive_get_metadata(file_id: str) -> str:
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.drive_get_file_metadata(file_id=file_id, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_get_file_metadata(file_id=file_id, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="drive_update")
 def drive_update(file_id: str, name: Optional[str] = None, description: Optional[str] = None) -> str:
@@ -129,9 +156,12 @@ def drive_update(file_id: str, name: Optional[str] = None, description: Optional
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.drive_update_file(file_id=file_id, name=name, description=description, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_update_file(file_id=file_id, name=name, description=description, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="drive_download")
 def download_drive_file(file_id: str, output_path: str) -> str:
@@ -140,9 +170,12 @@ def download_drive_file(file_id: str, output_path: str) -> str:
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.drive_download_file(file_id=file_id, output_path=output_path, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_download_file(file_id=file_id, output_path=output_path, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="drive_upload")
 def upload_drive_file(file_path: str, mime_type: Optional[str] = None, target_mime: Optional[str] = None) -> str:
@@ -151,9 +184,12 @@ def upload_drive_file(file_path: str, mime_type: Optional[str] = None, target_mi
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.drive_upload_file(file_path=file_path, mimetype=mime_type, target_mimetype=target_mime, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_upload_file(file_path=file_path, mimetype=mime_type, target_mimetype=target_mime, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="drive_export")
 def drive_export(file_id: str, mime_type: str = "text/plain", output_file: Optional[str] = None) -> str:
@@ -162,9 +198,12 @@ def drive_export(file_id: str, mime_type: str = "text/plain", output_file: Optio
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.drive_export_file(file_id=file_id, mime_type=mime_type, output_file=output_file)
-    return f.getvalue() or "Export initiated."
+    try:
+        with redirect_stdout(f):
+            gwm.drive_export_file(file_id=file_id, mime_type=mime_type, output_file=output_file)
+        return f.getvalue() or "Export initiated."
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 # --- CALENDAR TOOLS ---
 
@@ -175,9 +214,12 @@ def list_calendar_events(max_results: int = 10) -> str:
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.calendar_list_events(max_results=max_results, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.calendar_list_events(max_results=max_results, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="calendar_get_event")
 def calendar_get_event(event_id: str) -> str:
@@ -186,9 +228,12 @@ def calendar_get_event(event_id: str) -> str:
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.calendar_get_event(event_id=event_id, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.calendar_get_event(event_id=event_id, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="calendar_create_event")
 def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60, description: Optional[str] = None, attendees: Optional[str] = None, all_day: bool = False) -> str:
@@ -197,9 +242,12 @@ def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.calendar_create_event(summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, attendees=attendees, all_day=all_day, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.calendar_create_event(summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, attendees=attendees, all_day=all_day, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 # --- TASKS TOOLS ---
 
@@ -210,9 +258,12 @@ def list_tasks(max_results: int = 10) -> str:
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.tasks_list_tasks(max_results=max_results, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.tasks_list_tasks(max_results=max_results, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="tasks_create")
 def create_task(title: str, notes: Optional[str] = None, due_date: Optional[str] = None) -> str:
@@ -221,9 +272,12 @@ def create_task(title: str, notes: Optional[str] = None, due_date: Optional[str]
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.tasks_create_task(title=title, notes=notes, due_date_str=due_date, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.tasks_create_task(title=title, notes=notes, due_date_str=due_date, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 @mcp.tool(name="tasks_update")
 def tasks_update(task_id: str, title: Optional[str] = None, notes: Optional[str] = None, due_date: Optional[str] = None) -> str:
@@ -232,9 +286,12 @@ def tasks_update(task_id: str, title: Optional[str] = None, notes: Optional[str]
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.tasks_update_task(task_id=task_id, title=title, notes=notes, due_date_str=due_date, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.tasks_update_task(task_id=task_id, title=title, notes=notes, due_date_str=due_date, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 # --- CONTACTS (PEOPLE) TOOLS ---
 
@@ -245,9 +302,12 @@ def create_contact(given_name: str, family_name: str, job_title: Optional[str] =
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
-    with redirect_stdout(f):
-        gwm.contacts_create_contact(given_name=given_name, family_name=family_name, job_title=job_title, company=company, phone=phone, email=email, notes=notes, output_format='json')
-    return f.getvalue()
+    try:
+        with redirect_stdout(f):
+            gwm.contacts_create_contact(given_name=given_name, family_name=family_name, job_title=job_title, company=company, phone=phone, email=email, notes=notes, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
 
 if __name__ == "__main__":
     logger.info("Starting Google Workspace MCP server...")

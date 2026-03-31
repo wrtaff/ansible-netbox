@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.20
+Version:        1.21
 Author:         Gemini CLI
-Last Modified:  2026-03-13
+Last Modified:  2026-03-27
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -20,6 +20,8 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.21 (2026-03-27): Added GoogleAuthError and robust get_creds logic to handle 
+                       headless auth and prevent silent failures in MCP.
     v1.20 (2026-03-13): Fixed multipart body extraction in gmail-get and added gmail-download.
     v1.19 (2026-03-10): Added --cite flag to Drive and Gmail commands to generate 
                        WWOS-style citations using wwos_citation.py.
@@ -100,7 +102,11 @@ SCOPES = [
 TOKEN_FILE = os.path.join(SCRIPT_DIR, 'token.pickle')
 CREDENTIALS_FILE = os.path.join(SCRIPT_DIR, 'credentials.json')
 
-def get_creds(port=8080, use_console=False):
+class GoogleAuthError(Exception):
+    """Exception raised for authentication errors in Google Workspace Manager."""
+    pass
+
+def get_creds(port=8080, use_console=False, silent_fail=False):
     creds = None
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, 'rb') as token:
@@ -112,7 +118,9 @@ def get_creds(port=8080, use_console=False):
             try:
                 creds.refresh(Request())
             except Exception as e:
-                print(f"Error refreshing credentials: {e}")
+                # If refresh fails, it's often because the token was revoked
+                if not silent_fail:
+                    print(f"Error refreshing credentials: {e}")
                 creds = None
     else:
         # Scopes have changed or no creds, re-auth required
@@ -120,9 +128,13 @@ def get_creds(port=8080, use_console=False):
 
     if not creds or not creds.valid:
         if not os.path.exists(CREDENTIALS_FILE):
-            print(f"Error: {CREDENTIALS_FILE} not found.")
-            sys.exit(1)
+            raise GoogleAuthError(f"Credentials file {CREDENTIALS_FILE} not found.")
         
+        # If we are NOT in console mode and NOT running as a human (interactive),
+        # we must raise an error so the caller (like an MCP server) can report it.
+        if not use_console and os.getenv("GOOGLE_WORKSPACE_MANAGER_NON_INTERACTIVE"):
+            raise GoogleAuthError("Authentication expired or revoked. Run 'python3 scripts/google_workspace_manager.py auth --console' to re-authenticate.")
+
         if use_console:
             flow = InstalledAppFlow.from_client_secrets_file(
                 CREDENTIALS_FILE, SCOPES, redirect_uri='urn:ietf:wg:oauth:2.0:oob')
@@ -132,8 +144,11 @@ def get_creds(port=8080, use_console=False):
             flow.fetch_token(code=code)
             creds = flow.credentials
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', open_browser=True)
+            try:
+                flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+                creds = flow.run_local_server(host='127.0.0.1', port=port, prompt='consent', open_browser=True)
+            except Exception as e:
+                raise GoogleAuthError(f"Failed to start local auth server: {e}. Use --console for headless environments.")
         
         with open(TOKEN_FILE, 'wb') as token:
             pickle.dump(creds, token)
