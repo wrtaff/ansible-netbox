@@ -215,7 +215,7 @@ def create_ticket(summary: str, description: str, component: str, type: str = "t
     Args:
         summary: The title of the ticket (Plain text).
         description: The body of the ticket (MoinMoin syntax).
-        component: The Trac component. MUST be an existing component.
+        component: The Trac component. MUST be an existing component (Note: Components are always lowercase).
         type: Ticket type (task, bug, enhancement). Defaults to 'task'.
         priority: Priority (blocker, critical, major, minor, trivial). Defaults to 'major'.
         keywords: Space-separated keywords.

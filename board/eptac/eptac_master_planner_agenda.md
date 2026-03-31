@@ -18,17 +18,23 @@ The EPTAC is focused on modernizing building operations ("Brannon 2.0"), improvi
 
 ### B. Security & Surveillance Optimization
 *   **System:** Digital Watchdog (Blackjack NVR).
-*   **Critical Issues:**
+*   **Critical Fixes:**
     *   **Dead Camera:** Corner of parking garage facing Mill 1 entrance is offline. *Update (Mar 9, 2026)*: Likely a wiring/re-routing issue from the NVR upgrade.
-    *   **Blind Spots:** Green Space interior, parking garage intersections, and the vegetation area behind the tower.
-    *   **Attendant Desk Performance:** Cameras reported to shut off periodically at the attendant workstation.
-*   **Proposals:**
-    *   **"Voice of God":** Install speakers in the parking garage for remote verbal warnings to trespassers.
-    *   **AI Alerts:** Implement line-crossing/motion alerts to notify attendants. Will to compile a feature "wish list."
-    *   **Permission Management:** Sammy Watts granted advanced access; Vic Barkus restricted from playback due to boundary issues.
+    *   **Attendant Desk Stability:** Resolve intermittent "shut-off" behavior at the desk workstation where cameras drop from the display.
+    *   **Front Door Camera:** Revive or upgrade the Doorbird (or equivalent) for consistent lobby entry monitoring.
+*   **Advanced Features ("Wish List"):**
+    *   **AI-Driven Alerts:** Implement line-crossing alerts for the garage entrance (e.g., midnight to 4 AM) and motion alerts for blind spots like the vegetation area behind the tower.
+    *   **"Voice of God" System:** Investigate adding speakers to the parking garage for remote verbal warnings to trespassers (similar to TSYS garage).
+    *   **Visual Improvements:** Investigate night color cameras for key entry points and PTZ (Pan-Tilt-Zoom) for the Bay/South Deck areas.
+    *   **Mobile Integrations:** Triggering notifications to attendant mobile devices based on specific camera events.
+*   **Training & Management:**
+    *   **User Management:** Transition to individual logins with specific permission tiers (e.g., Sammy vs. Vic).
+    *   **Remote Access:** Setup and training for Bill Johnson to view/export footage remotely.
+    *   **Advanced Operations:** Training on "Smart Search" (motion zones) and "System Health" dashboard monitoring.
 
 ### C. "Brannon 2.0" (Documentation & Process)
 *   **Objective:** Offload stress from Bill Johnson and Brannon Alford by documenting all procedures and vendor contacts.
+*   **Network Mapping:** Diagram the attendant network with Brannon to ensure stability and clarity of the infrastructure.
 *   **Communication Policy (Mar 9, 2026)**: Bill Johnson insists all project-level communication go through him (Facilities Manager) rather than directly to Brannon to ensure oversight and chain of command.
 *   **IT Asset Management**: Transition the tracking and management of building IT assets (NVRs, switches, AAON controllers) to TSG. Will to perform the initial "heavy lifting" (inventory/tagging) before handoff to Bill.
 *   **Tools:**
@@ -44,6 +50,7 @@ The EPTAC is focused on modernizing building operations ("Brannon 2.0"), improvi
 *   **Rooftop:** AAON Unit Sensors, Weather Station, and Cameras (1-3) connected to a Rooftop Switch.
 *   **Backbone:** Fiber link from Rooftop Switch to Ground Floor Switch.
 *   **Ground Floor:** Connects to Server and Desk Attendant Workstation via Cat5.
+*   **Attendant Network:** Map and diagram the specific network path for the attendant desk to resolve stability issues.
 
 ### Spectrum Cable/Fiber (Mill 3)
 *   **Topology:** Fiber-to-the-Node (FTTN). Optical Node in the **2nd Floor Cabinet**.
@@ -69,7 +76,12 @@ The EPTAC is focused on modernizing building operations ("Brannon 2.0"), improvi
 ## 5. Security Incidents & Safety
 *   **Recent (Mar 7):** Trespasser (black male, black clothing) seen tampering with windows near Mill 1. Vic contacted police; suspect fled towards the river/dumpster area.
 *   **Fire Safety (Critical):** Lobby/hallway doors are *not* automatically unlocking during fire alarms. **Immediate fix required.**
-*   **Liability Policy:** Aimee Sufka to draft video/data retention policy (proposed 30-90 day deletion) and confidentiality agreements for staff.
+*   **CCTV & Footage Policy:**
+    *   **Turnover Policy:** Camera footage will only be turned over to homeowners with the express written consent of the Board of Directors or TSG Management (Bill).
+    *   **Law Enforcement:** Policy for law enforcement requests needs to be formalized (coordinated with Aimee Sufka).
+    *   **Retention:** Implementation of a standardized 30-90 day auto-delete cycle (coordinated with Aimee Sufka).
+    *   **Auditing:** Training for Board/Management on viewing user logs to ensure system access isn't being abused.
+    *   **Contacts:** Amy Sufka and Eric Ebell identified as key resources for policy alignment.
 
 ---
 
@@ -82,10 +94,13 @@ The EPTAC is focused on modernizing building operations ("Brannon 2.0"), improvi
 | Finalize AAON Prism Server (Procure Hard Drive) | Will | New |
 | Resolve Todd Sellers (Unit 522) Internet Intermittency | Will/Spectrum | New |
 | Fix dead Mill 1 entrance camera | Brandon/Jason | New |
+| Resolve Attendant Desk workstation stability | Will/Jason | New |
+| Map camera locations with Sammy or Vic | Will | New |
+| Map attendant network with Brannon and diagram | Will | New |
 | Compile CCTV Feature "Wish List" | Will | New |
+| Draft Video/Data Retention & Law Enforcement Policy | Aimee | Pending |
 | Consult independent electrician for Green Space Override | Bill/Will | New |
 | Update Stairwell LED Lighting specs | Brannon/Will | New |
-| Draft Video/Data Retention Policy | Aimee | Pending |
 
 ---
 
