@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       manage_nextcloud_contacts.py
-Version:        1.7
+Version:        1.8
 Author:         Gemini CLI
-Last Modified:  2026-02-20
+Last Modified:  2026-04-01
 Context:        Nextcloud Contact Management Interface
 
 Purpose:
@@ -14,6 +14,7 @@ Purpose:
     Version 1.5 adds the ability to update a contact from a raw VCard file.
     Version 1.6 adds password caching to avoid repeated vault prompts.
     Version 1.7 adds support for ORG and TITLE fields.
+    Version 1.8 adds validation to disallow multiple or malformed email/phone entries.
 
 Usage:
     # List all contacts
@@ -94,6 +95,21 @@ class NextcloudContactManager:
                 results.append(contact)
         return results
 
+    def _validate_inputs(self, email=None, tel=None):
+        """Validates that email and tel fields contain single, valid entries."""
+        if email:
+            if "," in email or ";" in email:
+                print(f"Error: Multiple email addresses in a single field are not allowed: {email}", file=sys.stderr)
+                return False
+            if "@" not in email:
+                print(f"Error: Invalid email format (missing '@'): {email}", file=sys.stderr)
+                return False
+        if tel:
+            if "," in tel or ";" in tel:
+                print(f"Error: Multiple telephone numbers in a single field are not allowed: {tel}", file=sys.stderr)
+                return False
+        return True
+
     def create_contact(self, fn, email=None, tel=None, categories=None, address=None, url=None, note=None, org=None, title=None):
         """Creates a new contact using a VCard 3.0 template."""
         uid = str(uuid.uuid4())
@@ -137,6 +153,8 @@ class NextcloudContactManager:
         Updates an existing contact. Fetches current VCard, parses to list, appends new values,
         or updates from a raw VCard file.
         """
+        if not self._validate_inputs(email, tel):
+            return False
         href = self.get_contact_href_by_uid(uid)
         if not href:
             print(f"Error: Contact with UID {uid} not found.")
