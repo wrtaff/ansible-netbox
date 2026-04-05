@@ -2,31 +2,33 @@
 """
 ================================================================================
 Filename:       update_trac_ticket.py
-Version:        1.4
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-02-05
-Context:        http://trac.home.arpa/ticket/3028
+Last Modified:  2026-04-02
+Context:        http://trac.home.arpa/ticket/3265
+WWOS:           http://192.168.0.99/mediawiki/index.php/Trac_Wiki_Formatter
 
 Purpose:
     A helper script to update Trac tickets via the XML-RPC API.
 
-    Update 1.4:
-    - Enforced correct line break encoding; forbidden XML entities like '&#10;'.
-    - Switched to standard docstring header format.
-
-    Update 1.3:
-    - Fixed bug causing duplicate ticket updates due to redundant code blocks.
-
-    Update 1.2:
-    - Improved newline handling for CLI-passed comments.
-    - Updated documentation and version.
+    Update 1.6:
+    - Finalized integration with scripts.lib.trac_formatter.
+    Update 1.5:
+    - Integrated scripts.lib.trac_formatter for MoinMoin formatting.
+    - Added --markdown (-m) flag for automated Markdown-to-MoinMoin conversion.
+    - Added automated secret sanitization for all comments and descriptions.
+    - Updated header to WWOS standard with Context and WWOS links.
 ================================================================================
 """
 import xmlrpc.client
 import argparse
 import textwrap
-
 import os
+import sys
+
+# Ensure scripts/lib is in path for imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from lib.trac_formatter import markdown_to_moinmoin, sanitize_content
 
 # --- Configuration ---
 def get_trac_password():
@@ -88,6 +90,7 @@ def main():
     parser.add_argument("-r", "--resolve-as", help="If resolving, the resolution status (e.g., 'fixed', 'wontfix').")
     parser.add_argument("-p", "--priority", help="Update the ticket priority (e.g., 'major', 'minor').")
     parser.add_argument("-k", "--keywords", help="Update the ticket keywords (e.g., 'networking dns'). Commas will be automatically replaced with spaces.")
+    parser.add_argument("-m", "--markdown", action="store_true", help="Convert comment and description from Markdown to MoinMoin syntax.")
     parser.add_argument("--author", default="gemini", help="The author of the comment.")
 
     args = parser.parse_args()
@@ -97,7 +100,6 @@ def main():
         print("Error: Incorrect line break encoding detected in comment. Do not use XML entities like '&#10;'. Use '\\n' for newlines.")
         exit(1)
 
-    # Enforce correct line break encoding for description
     if args.description and '&#10;' in args.description:
         print("Error: Incorrect line break encoding detected in description. Do not use XML entities like '&#10;'. Use '\\n' for newlines.")
         exit(1)
@@ -114,12 +116,21 @@ def main():
         # Replace literal '\n' with actual newline characters
         comment_text = args.comment.replace("\\n", "\n")
 
+    # Apply formatting and sanitization to comment
+    if args.markdown:
+        comment_text = markdown_to_moinmoin(comment_text)
+    comment_text = sanitize_content(comment_text)
+
     attributes = {}
     if args.summary:
         attributes['summary'] = args.summary
     if args.description:
         # Replace literal '\n' with actual newline characters
-        attributes['description'] = args.description.replace("\\n", "\n")
+        desc = args.description.replace("\\n", "\n")
+        if args.markdown:
+            desc = markdown_to_moinmoin(desc)
+        attributes['description'] = sanitize_content(desc)
+
     if args.action:
         attributes['action'] = args.action
     if args.action == 'resolve' and args.resolve_as:
