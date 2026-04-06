@@ -2,27 +2,31 @@
 """
 ================================================================================
 Filename:       create_trac_ticket.py
-Version:        1.3
+Version:        1.4
 Author:         Gemini CLI
-Last Modified:  2026-02-18
-Context:        http://trac.home.arpa/ticket/2965
+Last Modified:  2026-04-02
+Context:        http://trac.home.arpa/ticket/3265
+WWOS:           http://192.168.0.99/mediawiki/index.php/Trac_Wiki_Formatter
 
 Purpose:
     A helper script to create Trac tickets via the XML-RPC API.
     
-    Update 1.3:
-    - Added fallback to retrieve TRAC_PASSWORD from ~/.bashrc.
-    Update 1.2:
-    - Enforced correct line break encoding; forbidden XML entities like '&#10;'.
-
-Usage:
-    ./create_trac_ticket.py --help
+    Update 1.4:
+    - Integrated scripts.lib.trac_formatter for MoinMoin formatting.
+    - Added --markdown (-m) flag for automated Markdown-to-MoinMoin conversion.
+    - Added automated secret sanitization for ticket descriptions.
+    - Updated header to WWOS standard with Context and WWOS links.
+================================================================================
 """
 import xmlrpc.client
 import argparse
 import textwrap
-
 import os
+import sys
+
+# Ensure scripts/lib is in path for imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from lib.trac_formatter import markdown_to_moinmoin, sanitize_content
 
 # --- Configuration ---
 def get_trac_password():
@@ -86,8 +90,8 @@ def main():
     parser.add_argument("-k", "--keywords", default="", help="Space-separated keywords for the ticket (e.g., 'PROV-P1 SCM'). Commas will be automatically replaced with spaces.")
     parser.add_argument("-t", "--type", default=DEFAULT_TYPE, help=f"The type of the ticket. (Default: {DEFAULT_TYPE})")
     parser.add_argument("-p", "--priority", default=DEFAULT_PRIORITY, help=f"The priority of the ticket. (Default: {DEFAULT_PRIORITY})")
-    parser.add_argument("-m", "--milestone", default="", help="The milestone to assign the ticket to.")
     parser.add_argument("-o", "--owner", default="", help="The owner to assign the ticket to.")
+    parser.add_argument("-m", "--markdown", action="store_true", help="Convert description from Markdown to MoinMoin syntax.")
     parser.add_argument("-a", "--cc", default="", help="A comma-separated list of users to CC on the ticket.")
 
     args = parser.parse_args()
@@ -100,6 +104,11 @@ def main():
     # Replace literal '\n' with actual newline characters
     processed_description = args.description.replace('\\n', '\n')
     
+    # Apply formatting and sanitization to description
+    if args.markdown:
+        processed_description = markdown_to_moinmoin(processed_description)
+    processed_description = sanitize_content(processed_description)
+
     # Ensure keywords are space-separated
     processed_keywords = args.keywords.replace(',', ' ')
 
