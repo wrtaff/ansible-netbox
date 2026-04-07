@@ -161,6 +161,7 @@
 *   **Sarah Reno, APRN:** Primary Care (Kentucky).
 *   **Stephanie Heleski, NP:** Preston Family Medicine (Georgia records). (229-297-6294).
 *   **Dr. Amy A. Barko, DPM:** Podiatrist (New as of Sept 2025). 1138 Lexington Rd, Georgetown, KY.
+*   **Dr. Tony Gayle, DPM:** Podiatrist (Warm Springs). Currently seeing all residents at MMC (confirmed Apr 2026).
 *   **Crystal (Last Name TBD):** Psychiatry (Sept 2025).
 *   **Dr. Ryan Breland:** Prescriptions (2024).
 *   **Dr. Pahl:** Ordered CT scan (2024).
@@ -190,7 +191,7 @@
 *   **Latrina Gordon, LPN**
     *   **Role:** LPN (Returning staff).
     *   **Phone:** 229-931-5943, +1 229-942-5813.
-    *   **Notes:** Training/Return expected week of March 16, 2026.
+    *   **Notes:** Training/Return expected week of March 16, 2026. Immuno-compromised double-lung transplant patient. Widower. Will wants to support her staying "in the saddle."
 *   **Nykeria**
     *   **Role:** Staff member (Contact info TBD).
     *   **Notes:** Called Will regarding Rhett's syncope episode on March 9, 2026.

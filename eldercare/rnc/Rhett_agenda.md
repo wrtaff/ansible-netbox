@@ -169,8 +169,30 @@ Another episode of 'Convulsive Syncope' occurred around 08:30 on Monday 2026-03-
   - Suspected dehydration again.
 - **Trac:** Updated [ticket #3184](http://trac.gafla.us.com/ticket/3184) priority to Major.
 
+## **Mar 27, 2026 Status (Tcon Tabitha Salter)**
+- **Condition:** Rhett is doing remarkably well today. He is up and walking all around the facility with his walker by himself. 
+- **Comparison:** Drowsy and using a wheelchair on Wednesday/Thursday, but "different story" today. PT was surprised by his strength/improvement.
+- **Hydration:** Confirmed drinking well; downed two Gatorades (Wednesday/Thursday nights) and another today. 
+- **Medical/Meds:** Discussed stopping **Plavix** and **Statin**. Will wait until Monday to consult with Blaine (NP) before making changes.
+- **Renal/Labs:** Will believes "spells" are clinical dehydration (based on BUN/creatinine ratio) and Stage 3 renal failure, not CVA. Tabitha mentioned he was low in potassium at Putney.
+- **PT Plan:** Scheduled for 3 times a week for 4-6 weeks.
+- **DNR Status:** **DISCREPANCY.** Tabitha cannot find DNR paperwork in his chart. Will confirmed he has it on file but Magnolia Manor requires their own form signed by the Medical Director (Dr. Simone). Will to follow up and sign Magnolia-specific DNR (not before Monday).
+- **Logistics:** Tabitha going on a cruise April 11th (two weeks from tomorrow).
+- **Transcription:** [2026-03-27_mmac_mmc_tabitha_transcription.txt](2026-03-27_mmac_mmc_tabitha_transcription.txt)
+
+## **Apr 2, 2026 Status (Call from Nykeria & Visit)**
+- **Health:** Rhett coming down with a cold. Met new nurse Latrina Gordon, LPN (immuno-compromised double-lung transplant patient, widow). Gave permission to start Rhett on a **Z-pack**.
+- **Foot Health:** Feet look "fantastic"—clean, lotioned, no open wounds. bandage is off left shin; minor scabs on both shins need tracking. Observed feet are healthiest since 2010. Note: Socks were dirty and need more frequent changes.
+- **Hydration:** Delivered another flat of Gatorade to MMC (gave to Lai at front desk). Dad drank 1.5 of the smaller bottles during the visit. Ongoing "dehydration project."
+- **Medical/Meds:** Blaine evaluated Rhett and deprescribed the medications that were added by PPMH.
+- **Podiatry:** Confirmed facility-wide shift to **Dr. Tony Gayle** (Warm Springs).
+- **Strategy:** Will to email Tabitha regarding excellent foot health (hydration/care link) and inquire about reaching out to Dr. Gayle. Considering starting periodic weekend foot washing (equipment in room). Also considering liquid water additives (e.g., MIO) to encourage more intake.
+
 ## **Way ahead**
 - [ ] Inquire with Tabitha about Latrina Gordon (LPN) and how her return/training is going.
+- [ ] Email Tabitha regarding Rhett's improved foot health and Dr. Tony Gayle.
+- [ ] Investigate foot washing equipment for Rhett's room.
+- [ ] Track scabs on Rhett's shins during next visit.
 - [ ] Create recurring Trac ticket for left leg cellulitis/skin care.
 - [ ] Obtain exact diagnosis for left leg issue from Dr. La Russa's SOAP notes.
 - [ ] Arrange follow-on podiatry care.

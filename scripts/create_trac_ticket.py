@@ -95,6 +95,7 @@ def main():
     parser.add_argument("-p", "--priority", default=DEFAULT_PRIORITY, help=f"The priority of the ticket. (Default: {DEFAULT_PRIORITY})")
     parser.add_argument("-i", "--milestone", default="", help="The milestone to assign the ticket to.")
     parser.add_argument("-o", "--owner", default="", help="The owner to assign the ticket to.")
+    parser.add_argument("-l", "--milestone", default="", help="The milestone to assign the ticket to.")
     parser.add_argument("-m", "--markdown", action="store_true", help="Convert description from Markdown to MoinMoin syntax.")
     parser.add_argument("-a", "--cc", default="", help="A comma-separated list of users to CC on the ticket.")
 

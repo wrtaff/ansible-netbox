@@ -145,7 +145,11 @@
     *   **Odor:** Dog urine smell on 1st floor and upstairs. Upstairs carpet may need removal.
     *   **Home Warranty:** Connie has one year left on Choice Home Warranty for major systems.
 *   **Medical & Insurance Transition (As of 2026-03-09):** Connie needs to connect with Alvin Black (City of Tallahassee) at 850-891-8552 to re-establish Florida insurance/doctor network.
-*   **Rhett's Healthcare Gap (As of 2026-03-10):** Dr. LaRussa (Podiatrist) has retired. Tabitha (MMC) is inquiring about **Tony Gayle** as a replacement.
+*   **Rhett's Healthcare Status (As of 2026-04-02):** 
+    *   **Podiatry:** Gap resolved. All residents (including Rhett) are now being seen by **Dr. Tony Gayle**, the podiatrist from Warm Springs.
+    *   **Condition:** Significant improvement; walking well with walker. PT confirmed 3x/week for 4-6 weeks.
+    *   **DNR Status:** Missing in Magnolia Manor chart. Magnolia Manor requires their own form (signed by Dr. Simone). Will to follow up and sign Magnolia-specific form (not before Monday).
+    *   **Hydration:** Ongoing "dehydration project" requires another flat of Gatorade (requested Apr 2).
 *   **Discover Card Fraud / Credit Score (As of 2026-02-22):** Connie's credit score is 604. Likely driven by fraud activity on Discover card + Wells Fargo loan (~$20K). Will paid Discover balance of $6,171.61 on 02/22/2026 (Conf: D32X-Z9Z5-82RQ). 
 *   **Fraud Alerts (As of 2026-02-27):** 
     *   **Wells Fargo Loan:** Recognized as the $19,500 loan for Scott/Debbie's bathrooms (not fraud, but needs recording).
@@ -154,10 +158,14 @@
 *   **TY2025 Taxes (As of 2026-03-05):** Tax organizers for Rhett and Connie received from Mann & Adams. Need to gather 1099s (Guardian, Wakulla Realty).
 
 ## 9. Action Items & Follow-ups
+*   **[x] Medical:** Deliver/Send flat of Gatorade to MMC for "dehydration project" (Delivered Apr 2).
+*   **[ ] Medical:** Investigate liquid water additives (e.g., MIO) to encourage intake.
+*   **[ ] Medical:** Confirm specific medications deprescribed by Blaine (NP) following PPMH stay.
+*   **[ ] Medical:** Follow up on DNR paperwork; sign Magnolia-specific form with Dr. Simone (not before Monday).
 *   **[ ] Medical:** Connect with Alvin Black (City of Tallahassee) regarding Connie's insurance/doctor list in Florida.
 *   **[ ] Medical:** Monitor Connie's right leg; follow up with orthopedic doctor if not improved by Monday (Mar 16).
 *   **[ ] Medical:** Identify Connie's GP/PCM for March 20 appointment (Check TMH portal).
-*   **[ ] Medical:** Secure new podiatrist for Rhett (Inquiry into Tony Gayle ongoing).
+*   **[x] Medical:** Secure new podiatrist for Rhett (Dr. Tony Gayle confirmed).
 *   **[ ] Property:** Set up 3778 management agreement with Karen Williams.
 *   **[ ] Property:** (3790) Repair refrigerator plug and 4 bad smoke detectors (Karen pushing).
 *   **[ ] Property:** (3790) Clear trees that are down (Yard guy).

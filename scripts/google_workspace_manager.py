@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.21
+Version:        1.22
 Author:         Gemini CLI
-Last Modified:  2026-03-27
+Last Modified:  2026-04-03
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -20,6 +20,8 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.22 (2026-04-03): Added bootstrapping mechanism to automatically detect and use 
+                       the project's virtual environment if dependencies are missing.
     v1.21 (2026-03-27): Added GoogleAuthError and robust get_creds logic to handle 
                        headless auth and prevent silent failures in MCP.
     v1.20 (2026-03-13): Fixed multipart body extraction in gmail-get and added gmail-download.
@@ -61,6 +63,31 @@ import pickle
 import json
 import base64
 import re
+
+# --- BOOTSTRAP CHECK ---
+# Ensure we are running in an environment with required dependencies.
+# If not, try to re-exec with the project's .venv.
+def bootstrap():
+    try:
+        import google.auth
+        import google_auth_oauthlib
+        import googleapiclient
+    except ImportError:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        venv_python = os.path.join(project_root, '.venv', 'bin', 'python3')
+        
+        if os.path.exists(venv_python) and sys.executable != venv_python:
+            # Re-execute the script using the virtual environment's Python
+            os.execv(venv_python, [venv_python] + sys.argv)
+        else:
+            print("CRITICAL: Google Workspace dependencies missing and .venv not found.", file=sys.stderr)
+            print("Please run 'pip install -r requirements.txt' in the project root.", file=sys.stderr)
+            sys.exit(1)
+
+bootstrap()
+
+# Now it is safe to import Google modules
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
