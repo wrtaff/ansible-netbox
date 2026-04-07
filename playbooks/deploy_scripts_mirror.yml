@@ -1,13 +1,13 @@
 # ==============================================================================
 # Filename:       playbooks/deploy_scripts_mirror.yml
-# Version:        1.3
+# Version:        1.4
 # Author:         Gemini CLI
-# Last Modified:  2026-02-18
+# Last Modified:  2026-04-07
 # Context:        http://trac.home.arpa/ticket/3085
 #
 # Purpose:
 #    Mirrors the local scripts/ directory and requirements.txt to a remote 
-#    host (limbo-bd). Provides read-only access to the project's utility and 
+#    host (athena). Provides read-only access to the project's utility and 
 #    automation scripts.
 #
 #    Configuration:
@@ -23,11 +23,12 @@
 #
 # Revision History:
 #    v1.3 (2026-02-18) - Added synchronization of requirements.txt
+#    v1.4 (2026-04-07) - Updated target host to athena for ticket #3276.
 # ==============================================================================
 
 
 - name: Mirror Scripts to Remote Hosts
-  hosts: limbo-bd
+  hosts: athena
   gather_facts: false
   become: false  # rsync to user home doesn't need root
   vars_files: [../vault.yml]
