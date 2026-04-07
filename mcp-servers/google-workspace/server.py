@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        1.4
+Version:        1.5
 Author:         Gemini CLI
-Last Modified:  2026-03-27
+Last Modified:  2026-04-07
 Context:        http://trac.home.arpa/ticket/3119
 
 Purpose:
@@ -13,6 +13,7 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v1.5 (2026-04-07): Added location support to create_calendar_event.
     v1.4 (2026-03-27): Improved error handling for GoogleAuthError and set 
                        non-interactive mode for robust headless operations.
     v1.3 (2026-03-09): Added 'target_mime' support to drive_upload for file conversion.
@@ -236,15 +237,15 @@ def calendar_get_event(event_id: str) -> str:
         return handle_auth_error(e)
 
 @mcp.tool(name="calendar_create_event")
-def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60, description: Optional[str] = None, attendees: Optional[str] = None, all_day: bool = False) -> str:
+def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60, description: Optional[str] = None, location: Optional[str] = None, attendees: Optional[str] = None, all_day: bool = False) -> str:
     """Create a calendar event. For normal events, start_time is ISO. For all-day, use YYYY-MM-DD."""
-    logger.info(f"Calendar: Creating event '{summary}' at {start_time}")
+    logger.info(f"Calendar: Creating event '{summary}' at {start_time} (location='{location}')")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.calendar_create_event(summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, attendees=attendees, all_day=all_day, output_format='json')
+            gwm.calendar_create_event(summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, location=location, attendees=attendees, all_day=all_day, output_format='json')
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)

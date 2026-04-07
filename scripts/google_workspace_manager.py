@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.22
+Version:        1.23
 Author:         Gemini CLI
-Last Modified:  2026-04-03
+Last Modified:  2026-04-07
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -20,6 +20,8 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.23 (2026-04-07): Added location support to calendar_create_event and robust ISO 
+                       time zone error handling with America/New_York default.
     v1.22 (2026-04-03): Added bootstrapping mechanism to automatically detect and use 
                        the project's virtual environment if dependencies are missing.
     v1.21 (2026-03-27): Added GoogleAuthError and robust get_creds logic to handle 
@@ -522,27 +524,40 @@ def calendar_list_events(max_results=10, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def calendar_create_event(summary, start_time_str, duration_mins=60, description=None, attendees=None, all_day=False, output_format='text'):
+def calendar_create_event(summary, start_time_str, duration_mins=60, description=None, location=None, attendees=None, all_day=False, output_format='text'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
     try:
         if all_day:
-            start_date = datetime.date.fromisoformat(start_time_str)
+            try:
+                start_date = datetime.date.fromisoformat(start_time_str)
+            except ValueError:
+                # Handle YYYY-MM-DD if fromisoformat fails on some versions or inputs
+                start_date = datetime.datetime.strptime(start_time_str, "%Y-%m-%d").date()
+            
             end_date = start_date + datetime.timedelta(days=1)
             event = {
                 'summary': summary,
                 'description': description,
+                'location': location,
                 'start': {'date': start_date.isoformat()},
                 'end': {'date': end_date.isoformat()},
             }
         else:
-            start_time = datetime.datetime.fromisoformat(start_time_str)
+            try:
+                start_time = datetime.datetime.fromisoformat(start_time_str)
+            except ValueError as e:
+                output({'error': f"Invalid start_time format '{start_time_str}'. Expected ISO format (e.g., YYYY-MM-DDTHH:MM:SS-04:00). Error: {str(e)}"}, output_format)
+                return
+
             if start_time.tzinfo is None:
                 start_time = start_time.replace(tzinfo=zoneinfo.ZoneInfo("America/New_York"))
+            
             end_time = start_time + datetime.timedelta(minutes=duration_mins)
             event = {
                 'summary': summary,
                 'description': description,
+                'location': location,
                 'start': {'dateTime': start_time.isoformat()},
                 'end': {'dateTime': end_time.isoformat()},
             }
@@ -733,6 +748,7 @@ if __name__ == '__main__':
     parser_cal_create.add_argument('start', help='Start time (ISO format)')
     parser_cal_create.add_argument('--duration', type=int, default=60, help='Duration in minutes')
     parser_cal_create.add_argument('--desc', help='Description')
+    parser_cal_create.add_argument('--location', help='Event location')
     parser_cal_create.add_argument('--attendees', help='Comma-separated attendee emails')
     parser_cal_create.add_argument('--all-day', action='store_true', help='Create an all-day event')
 
@@ -792,7 +808,7 @@ if __name__ == '__main__':
     elif args.command == 'cal-list':
         calendar_list_events(args.max, args.format)
     elif args.command == 'cal-create':
-        calendar_create_event(args.summary, args.start, args.duration, args.desc, args.attendees, args.all_day, args.format)
+        calendar_create_event(args.summary, args.start, args.duration, args.desc, args.location, args.attendees, args.all_day, args.format)
     elif args.command == 'cal-get':
         calendar_get_event(args.id, args.format)
     elif args.command == 'cal-delete':
