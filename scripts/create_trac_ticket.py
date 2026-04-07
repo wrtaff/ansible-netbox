@@ -2,16 +2,19 @@
 """
 ================================================================================
 Filename:       create_trac_ticket.py
-Version:        1.4
+Version:        1.5
 Author:         Gemini CLI
-Last Modified:  2026-04-02
+Last Modified:  2026-04-05
 Context:        http://trac.home.arpa/ticket/3265
 WWOS:           http://192.168.0.99/mediawiki/index.php/Trac_Wiki_Formatter
 
 Purpose:
     A helper script to create Trac tickets via the XML-RPC API.
     
-    Update 1.4:
+    Update 1.5 (2026-04-05):
+    - Added missing '--milestone' argument to argparse.
+    
+    Update 1.4 (2026-04-02):
     - Integrated scripts.lib.trac_formatter for MoinMoin formatting.
     - Added --markdown (-m) flag for automated Markdown-to-MoinMoin conversion.
     - Added automated secret sanitization for ticket descriptions.
@@ -90,6 +93,7 @@ def main():
     parser.add_argument("-k", "--keywords", default="", help="Space-separated keywords for the ticket (e.g., 'PROV-P1 SCM'). Commas will be automatically replaced with spaces.")
     parser.add_argument("-t", "--type", default=DEFAULT_TYPE, help=f"The type of the ticket. (Default: {DEFAULT_TYPE})")
     parser.add_argument("-p", "--priority", default=DEFAULT_PRIORITY, help=f"The priority of the ticket. (Default: {DEFAULT_PRIORITY})")
+    parser.add_argument("-i", "--milestone", default="", help="The milestone to assign the ticket to.")
     parser.add_argument("-o", "--owner", default="", help="The owner to assign the ticket to.")
     parser.add_argument("-m", "--markdown", action="store_true", help="Convert description from Markdown to MoinMoin syntax.")
     parser.add_argument("-a", "--cc", default="", help="A comma-separated list of users to CC on the ticket.")
