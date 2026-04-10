@@ -2,14 +2,18 @@
 """
 ================================================================================
 Filename:       create_trac_ticket.py
-Version:        1.5
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-04-05
+Last Modified:  2026-04-10
 Context:        http://trac.home.arpa/ticket/3265
 WWOS:           http://192.168.0.99/mediawiki/index.php/Trac_Wiki_Formatter
 
 Purpose:
     A helper script to create Trac tickets via the XML-RPC API.
+
+    Update 1.6 (2026-04-10):
+    - Removed duplicate --milestone argument that caused argparse conflict on startup.
+    - Updated DEFAULT_COMPONENT to lowercase 'sysadmin' per standard.
     
     Update 1.5 (2026-04-05):
     - Added missing '--milestone' argument to argparse.
@@ -64,7 +68,7 @@ if not TRAC_PASSWORD:
     exit(1)
 
 TRAC_URL = f"http://{TRAC_USER}:{TRAC_PASSWORD}@{TRAC_HOST}{TRAC_PATH}"
-DEFAULT_COMPONENT = "SysAdmin"
+DEFAULT_COMPONENT = "sysadmin"
 DEFAULT_TYPE = "task"
 DEFAULT_PRIORITY = "major"
 NOTIFY = True
