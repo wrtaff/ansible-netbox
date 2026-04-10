@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.23
+Version:        1.24
 Author:         Gemini CLI
-Last Modified:  2026-04-07
+Last Modified:  2026-04-10
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -17,9 +17,12 @@ Usage:
     python3 google_workspace_manager.py drive-search [--query "name contains '...'] [--cite]
     python3 google_workspace_manager.py drive-get "file_id" [--cite]
     python3 google_workspace_manager.py drive-update "file_id" --name "new_name"
+    python3 google_workspace_manager.py cal-update "event_id" --summary "New Title"
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.24 (2026-04-10): Added calendar_update_event functionality to update existing 
+                       calendar events.
     v1.23 (2026-04-07): Added location support to calendar_create_event and robust ISO 
                        time zone error handling with America/New_York default.
     v1.22 (2026-04-03): Added bootstrapping mechanism to automatically detect and use 
@@ -570,6 +573,83 @@ def calendar_create_event(summary, start_time_str, duration_mins=60, description
     except Exception as error:
         output({'error': str(error)}, output_format)
 
+def calendar_update_event(event_id, summary=None, start_time_str=None, duration_mins=None, description=None, location=None, attendees=None, all_day=None, output_format='text'):
+    creds = get_creds()
+    service = build('calendar', 'v3', credentials=creds)
+    try:
+        event = service.events().get(calendarId='primary', eventId=event_id).execute()
+        
+        if summary:
+            event['summary'] = summary
+        if description is not None:
+            event['description'] = description
+        if location is not None:
+            event['location'] = location
+            
+        if all_day is True or (all_day is None and 'date' in event['start']):
+            # It's an all-day event
+            if start_time_str:
+                try:
+                    start_date = datetime.date.fromisoformat(start_time_str)
+                except ValueError:
+                    start_date = datetime.datetime.strptime(start_time_str, "%Y-%m-%d").date()
+                end_date = start_date + datetime.timedelta(days=1)
+                event['start'] = {'date': start_date.isoformat()}
+                event['end'] = {'date': end_date.isoformat()}
+            elif all_day is True and 'dateTime' in event['start']:
+                # Convert timed to all-day
+                start_dt = datetime.datetime.fromisoformat(event['start']['dateTime'])
+                start_date = start_dt.date()
+                end_date = start_date + datetime.timedelta(days=1)
+                event['start'] = {'date': start_date.isoformat()}
+                event['end'] = {'date': end_date.isoformat()}
+        elif all_day is False or (all_day is None and 'dateTime' in event['start']):
+            # It's a timed event
+            if start_time_str or duration_mins:
+                if start_time_str:
+                    try:
+                        start_time = datetime.datetime.fromisoformat(start_time_str)
+                    except ValueError as e:
+                        output({'error': f"Invalid start_time format '{start_time_str}'"}, output_format)
+                        return
+                    if start_time.tzinfo is None:
+                        start_time = start_time.replace(tzinfo=zoneinfo.ZoneInfo("America/New_York"))
+                else:
+                    # Use existing start time or current date if converting from all-day
+                    if 'dateTime' in event['start']:
+                        start_time = datetime.datetime.fromisoformat(event['start']['dateTime'])
+                    else:
+                        start_date = datetime.date.fromisoformat(event['start']['date'])
+                        start_time = datetime.datetime.combine(start_date, datetime.time(9, 0), tzinfo=zoneinfo.ZoneInfo("America/New_York"))
+                
+                if duration_mins:
+                    end_time = start_time + datetime.timedelta(minutes=duration_mins)
+                elif 'end' in event and 'dateTime' in event['end']:
+                    # Keep existing duration if start changed
+                    if start_time_str:
+                        old_start = datetime.datetime.fromisoformat(event['start']['dateTime'])
+                        old_end = datetime.datetime.fromisoformat(event['end']['dateTime'])
+                        duration = old_end - old_start
+                        end_time = start_time + duration
+                    else:
+                        end_time = datetime.datetime.fromisoformat(event['end']['dateTime'])
+                else:
+                    end_time = start_time + datetime.timedelta(minutes=60)
+                
+                event['start'] = {'dateTime': start_time.isoformat()}
+                event['end'] = {'dateTime': end_time.isoformat()}
+
+        if attendees is not None:
+            if attendees == "":
+                event['attendees'] = []
+            else:
+                event['attendees'] = [{'email': email.strip()} for email in attendees.split(',')]
+        
+        updated_event = service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
+        output(updated_event, output_format)
+    except Exception as error:
+        output({'error': str(error)}, output_format)
+
 def calendar_get_event(event_id, output_format='text'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
@@ -752,6 +832,16 @@ if __name__ == '__main__':
     parser_cal_create.add_argument('--attendees', help='Comma-separated attendee emails')
     parser_cal_create.add_argument('--all-day', action='store_true', help='Create an all-day event')
 
+    parser_cal_update = subparsers.add_parser('cal-update', help='Update calendar event')
+    parser_cal_update.add_argument('id', help='Event ID')
+    parser_cal_update.add_argument('--summary', help='Event summary')
+    parser_cal_update.add_argument('--start', help='Start time (ISO format)')
+    parser_cal_update.add_argument('--duration', type=int, help='Duration in minutes')
+    parser_cal_update.add_argument('--desc', help='Description')
+    parser_cal_update.add_argument('--location', help='Event location')
+    parser_cal_update.add_argument('--attendees', help='Comma-separated attendee emails')
+    parser_cal_update.add_argument('--all-day', type=str, choices=['true', 'false'], help='Convert to all-day (true) or timed (false)')
+
     parser_cal_delete = subparsers.add_parser('cal-delete', help='Delete calendar event')
     parser_cal_delete.add_argument('id', help='Event ID')
 
@@ -809,6 +899,11 @@ if __name__ == '__main__':
         calendar_list_events(args.max, args.format)
     elif args.command == 'cal-create':
         calendar_create_event(args.summary, args.start, args.duration, args.desc, args.location, args.attendees, args.all_day, args.format)
+    elif args.command == 'cal-update':
+        all_day_bool = None
+        if args.all_day == 'true': all_day_bool = True
+        elif args.all_day == 'false': all_day_bool = False
+        calendar_update_event(args.id, args.summary, args.start, args.duration, args.desc, args.location, args.attendees, all_day_bool, args.format)
     elif args.command == 'cal-get':
         calendar_get_event(args.id, args.format)
     elif args.command == 'cal-delete':

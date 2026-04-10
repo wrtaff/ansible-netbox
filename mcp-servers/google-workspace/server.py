@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        1.5
+Version:        1.7
 Author:         Gemini CLI
-Last Modified:  2026-04-07
-Context:        http://trac.home.arpa/ticket/3119
+Last Modified:  2026-04-10
+Context:        http://trac.gafla.us.com/ticket/3084
 
 Purpose:
     Model Context Protocol (MCP) server for Google Workspace integration.
@@ -13,6 +13,10 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v1.7 (2026-04-10): Added calendar_update_event tool to update existing 
+                       calendar events.
+    v1.6 (2026-04-10): Added optional trac_ticket parameter to Gmail tools 
+                       to automatically append email details to Trac tickets.
     v1.5 (2026-04-07): Added location support to create_calendar_event.
     v1.4 (2026-03-27): Improved error handling for GoogleAuthError and set 
                        non-interactive mode for robust headless operations.
@@ -30,6 +34,9 @@ Notes:
 import os
 import sys
 import logging
+import json
+import re
+import subprocess
 from typing import Optional
 
 # Add project root to path to allow importing from scripts
@@ -56,11 +63,68 @@ logger = logging.getLogger("google-workspace-mcp")
 # Initialize FastMCP server
 mcp = FastMCP("google-workspace-server")
 
-logger.info("Initializing Google Workspace MCP Server v1.4")
+logger.info("Initializing Google Workspace MCP Server v1.6")
 
 def handle_auth_error(e):
     logger.error(f"Authentication Error: {e}")
     return f"ERROR: Authentication required. {str(e)}"
+
+def parse_ticket_id(trac_ticket: str) -> Optional[str]:
+    """Extract numeric ticket ID from string or URL."""
+    if not trac_ticket:
+        return None
+    # Check for URL (e.g., http://trac.gafla.us.com/ticket/3084)
+    match = re.search(r'ticket/(\d+)', trac_ticket)
+    if match:
+        return match.group(1)
+    # Check for #1234 or just 1234
+    match = re.search(r'#?(\d+)', trac_ticket)
+    if match:
+        return match.group(1)
+    return None
+
+def append_to_trac(ticket_id: str, comment: str, author: str = "jimmy") -> bool:
+    """Execute update_trac_ticket.py via subprocess to append comment."""
+    script_path = os.path.join(PROJECT_ROOT, "scripts/update_trac_ticket.py")
+    cmd = [
+        sys.executable,
+        script_path,
+        "--ticket-id", ticket_id,
+        "--comment", comment,
+        "--author", author
+    ]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        logger.info(f"Successfully appended email to Trac ticket #{ticket_id}")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to update Trac ticket {ticket_id}: {e.stderr}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error updating Trac ticket {ticket_id}: {e}")
+        return False
+
+def format_gmail_for_trac(msg_data: dict, type: str = "Fetched") -> str:
+    """Format Gmail message data for a Trac comment (MoinMoin)."""
+    subject = msg_data.get('subject', 'No Subject')
+    from_email = msg_data.get('from', 'Unknown')
+    to_email = msg_data.get('to', 'Unknown')
+    body = msg_data.get('body', '')
+    msg_id = msg_data.get('id', 'Unknown')
+    
+    report = [f"== {type} Email (via Gmail) =="]
+    if type == "Fetched":
+        report.append(f"'''From:''' {from_email}")
+    else:
+        report.append(f"'''To:''' {to_email}")
+        
+    report.append(f"'''Subject:''' {subject}")
+    report.append(f"'''Gmail ID:''' [https://mail.google.com/mail/u/0/#all/{msg_id} {msg_id}]")
+    report.append("\n{{{")
+    report.append(body.strip())
+    report.append("}}}")
+    
+    return "\n".join(report)
 
 # --- GMAIL TOOLS ---
 
@@ -79,8 +143,8 @@ def list_messages(query: str = "", max_results: int = 10) -> str:
         return handle_auth_error(e)
 
 @mcp.tool(name="gmail_get_message")
-def get_message(message_id: str) -> str:
-    """Get full details of a Gmail message by its ID."""
+def get_message(message_id: str, trac_ticket: Optional[str] = None) -> str:
+    """Get full details of a Gmail message by its ID. Optionally append to a Trac ticket."""
     logger.info(f"Gmail: Get message {message_id}")
     import io
     from contextlib import redirect_stdout
@@ -88,13 +152,26 @@ def get_message(message_id: str) -> str:
     try:
         with redirect_stdout(f):
             gwm.gmail_get_message(message_id=message_id, output_format='json')
-        return f.getvalue()
+        result_json = f.getvalue()
+        
+        if trac_ticket:
+            try:
+                msg_data = json.loads(result_json)
+                if 'id' in msg_data and 'body' in msg_data:
+                    ticket_id = parse_ticket_id(trac_ticket)
+                    if ticket_id:
+                        comment = format_gmail_for_trac(msg_data, type="Fetched")
+                        append_to_trac(ticket_id, comment)
+            except Exception as e:
+                logger.error(f"Failed to append fetched email to Trac: {e}")
+                
+        return result_json
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 
 @mcp.tool(name="gmail_send_message")
-def send_message(to: str, subject: str, body: str, attachment_path: Optional[str] = None) -> str:
-    """Send an email message, optionally with an attachment."""
+def send_message(to: str, subject: str, body: str, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None) -> str:
+    """Send an email message, optionally with an attachment. Optionally append to a Trac ticket."""
     logger.info(f"Gmail: Sending message to {to}")
     import io
     from contextlib import redirect_stdout
@@ -102,13 +179,32 @@ def send_message(to: str, subject: str, body: str, attachment_path: Optional[str
     try:
         with redirect_stdout(f):
             gwm.gmail_send_message(to=to, subject=subject, body=body, attachment_path=attachment_path, output_format='json')
-        return f.getvalue()
+        result_json = f.getvalue()
+        
+        if trac_ticket:
+            try:
+                res_data = json.loads(result_json)
+                msg_id = res_data.get('id')
+                if msg_id:
+                    ticket_id = parse_ticket_id(trac_ticket)
+                    if ticket_id:
+                        comment = format_gmail_for_trac({
+                            'to': to, 
+                            'subject': subject, 
+                            'body': body, 
+                            'id': msg_id
+                        }, type="Sent")
+                        append_to_trac(ticket_id, comment)
+            except Exception as e:
+                logger.error(f"Failed to append sent email to Trac: {e}")
+                
+        return result_json
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 
 @mcp.tool(name="gmail_create_draft")
-def create_draft(to: str, subject: str, body: str, attachment_path: Optional[str] = None) -> str:
-    """Create a draft email, optionally with an attachment."""
+def create_draft(to: str, subject: str, body: str, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None) -> str:
+    """Create a draft email, optionally with an attachment. Optionally append to a Trac ticket."""
     logger.info(f"Gmail: Creating draft for {to}")
     import io
     from contextlib import redirect_stdout
@@ -116,7 +212,28 @@ def create_draft(to: str, subject: str, body: str, attachment_path: Optional[str
     try:
         with redirect_stdout(f):
             gwm.gmail_create_draft(to=to, subject=subject, body=body, attachment_path=attachment_path, output_format='json')
-        return f.getvalue()
+        result_json = f.getvalue()
+        
+        if trac_ticket:
+            try:
+                res_data = json.loads(result_json)
+                # Draft creation returns { "id": "...", "message": { "id": "...", "threadId": "..." } }
+                draft_id = res_data.get('id')
+                msg_id = res_data.get('message', {}).get('id')
+                if draft_id:
+                    ticket_id = parse_ticket_id(trac_ticket)
+                    if ticket_id:
+                        comment = format_gmail_for_trac({
+                            'to': to, 
+                            'subject': subject, 
+                            'body': body, 
+                            'id': msg_id or draft_id
+                        }, type="Drafted")
+                        append_to_trac(ticket_id, comment)
+            except Exception as e:
+                logger.error(f"Failed to append draft email to Trac: {e}")
+                
+        return result_json
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 
@@ -249,6 +366,22 @@ def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
+
+@mcp.tool(name="calendar_update_event")
+def update_calendar_event(event_id: str, summary: Optional[str] = None, start_time: Optional[str] = None, duration_mins: Optional[int] = None, description: Optional[str] = None, location: Optional[str] = None, attendees: Optional[str] = None, all_day: Optional[bool] = None) -> str:
+    """Update an existing calendar event. all_day is optional boolean."""
+    logger.info(f"Calendar: Updating event {event_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.calendar_update_event(event_id=event_id, summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, location=location, attendees=attendees, all_day=all_day, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
 # --- TASKS TOOLS ---
 
