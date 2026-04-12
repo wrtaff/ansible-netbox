@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/trac/server.py
-Version:        1.9
+Version:        2.0
 Author:         Gemini CLI
-Last Modified:  2026-03-09
+Last Modified:  2026-04-12
 Context:        http://trac.home.arpa/ticket/2933
 
 Purpose:
@@ -12,7 +12,16 @@ Purpose:
     Provides tools for ticket management (get, update, create, search)
     directly within AI agent sessions.
 
+Notes:
+    Always bump version and annotate changes in Revision History below.
+
 Revision History:
+    v2.0 (2026-04-12): Improved update_ticket docstring to clarify ticket
+                        closing workflow (action='resolve' + resolution).
+                        Added auto-correction: if status='closed' is passed
+                        without action='resolve', the server now auto-sets
+                        the action and resolution to avoid silent failures.
+                        Ref: Trac #3296 — agent retry loop caused by unclear docs.
     v1.9 (2026-03-09): Added support for updating ticket summary in update_ticket.
     v1.8 (2026-03-09): Added support for updating ticket description in update_ticket.
     v1.7 (2026-02-27): Added priority validation and support for updating priority.
@@ -74,7 +83,7 @@ TRAC_URL = "http://trac.home.arpa/login/xmlrpc"
 TRAC_USER = os.getenv("TRAC_USER", "will")
 TRAC_PASSWORD = get_trac_password()
 
-logger.info(f"Initialized Trac MCP v1.9 with user: {TRAC_USER}")
+logger.info(f"Initialized Trac MCP v2.0 with user: {TRAC_USER}")
 
 def get_proxy():
     """Create and return an XML-RPC proxy."""
@@ -146,15 +155,23 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
     Do NOT use Markdown headers (e.g., '###'). Use MoinMoin headers:
     '== Header ==' (H2), '=== Header ===' (H3), etc.
     
+    CLOSING A TICKET: To close a ticket, pass action='resolve' with a
+    resolution value (e.g., resolution='fixed'). Do NOT set status='closed'
+    directly — Trac uses workflow actions, not direct status assignment.
+    If you pass status='closed' without action='resolve', the server will
+    auto-correct by setting action='resolve' for you.
+    
     Args:
         ticket_id: The ID of the ticket to update.
         comment: The comment text to add (MoinMoin syntax).
         component: Optional new component (must exist).
         keywords: Optional new keywords (space-separated, overwrites existing if provided).
-        status: Optional new status (e.g., 'closed', 'reopened').
+        status: Optional new status (e.g., 'reopened'). NOTE: Do NOT use status='closed'
+            to close a ticket — use action='resolve' with a resolution instead.
         resolution: Optional resolution (e.g., 'fixed', 'invalid', 'periodic hold').
+            Required when action='resolve'.
         author: The author name to use for the update. Defaults to 'gemini'.
-        action: The workflow action to perform (e.g., 'resolve').
+        action: The workflow action to perform. Use 'resolve' to close a ticket.
         priority: Optional new priority (must exist).
         description: Optional new description text (MoinMoin syntax).
         summary: Optional new summary (title) text.
@@ -190,10 +207,20 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
             attributes['resolution'] = resolution
         if action:
             attributes['action'] = action
-            if action == 'resolve' and resolution:
-                attributes['action_resolve_resolve_as'] = resolution
-        elif status == 'closed' and not resolution:
-            attributes['resolution'] = 'fixed' # Default to fixed if closing without resolution
+            if action == 'resolve':
+                res = resolution or 'fixed'
+                attributes['resolution'] = res
+                attributes['action_resolve_resolve_as'] = res
+        elif status == 'closed':
+            # Auto-correct: agent passed status='closed' without action='resolve'.
+            # Trac requires a workflow action, not direct status assignment.
+            logger.info(f"Auto-correcting: status='closed' → action='resolve' for ticket #{ticket_id}")
+            res = resolution or 'fixed'
+            attributes['action'] = 'resolve'
+            attributes['resolution'] = res
+            attributes['action_resolve_resolve_as'] = res
+            # Remove direct status assignment — the action handles it
+            del attributes['status']
         
         # update(id, comment, attributes, notify=True, author=author)
         proxy.ticket.update(ticket_id, comment, attributes, True, author)
