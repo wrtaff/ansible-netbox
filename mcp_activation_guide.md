@@ -26,6 +26,33 @@ The Trac server provides these tools:
 
 **Note:** Trac components are always lowercase in this implementation.
 
+## For Your New NetBox MCP Server
+
+Your NetBox MCP server is located at:
+`/home/will/ansible-netbox/mcp-servers/netbox/`
+
+### Prerequisite: Start the NetBox Server
+First, you need to run the NetBox server as a standalone process:
+
+```bash
+cd /home/will/ansible-netbox/mcp-servers/netbox/
+export NETBOX_TOKEN="your_token"
+python server.py
+```
+
+### Available Tools
+The NetBox server provides these tools:
+- `netbox_ping()`: Test connectivity to NetBox.
+- `netbox_get_vm(name)`: Retrieve full details for a Virtual Machine by name.
+- `netbox_get_device(name)`: Retrieve full details for a physical Device by name.
+- `netbox_search_vms(query)`: Search for Virtual Machines using a query string.
+- `netbox_search_devices(query)`: Search for physical Devices using a query string.
+- `netbox_update_vm(name, ...)`: Update fields on a Virtual Machine.
+- `netbox_update_device(name, ...)`: Update fields on a physical Device.
+- `netbox_get_interfaces(device_name/vm_name)`: Retrieve interfaces.
+- `netbox_get_ip_addresses(query/device_name/vm_name)`: Retrieve IP addresses.
+- `netbox_get_services(device_name/vm_name)`: Retrieve services.
+
 ## General MCP Server Activation Steps
 
 1. **MCP Server Execution**:  

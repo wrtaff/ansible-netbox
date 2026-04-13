@@ -1,9 +1,9 @@
 ---
 # ==============================================================================
 # Filename:       playbooks/configure_mcp_servers_remote.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini CLI
-# Last Modified:  2026-03-14
+# Last Modified:  2026-04-10
 # Context:        http://trac.home.arpa/ticket/3214
 #
 # Purpose:
@@ -34,6 +34,18 @@
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/nextcloud/server.py"
+      wwos:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/wwos/server.py"
+      porkbun:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/porkbun/server.py"
+      netbox:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/netbox/server.py"
     gemini_context:
       includeDirectories:
         - "{{ gemini_project_dir }}"
@@ -84,6 +96,7 @@
         block: |
           export TRAC_PASSWORD='{{ vault_trac_user_password_will }}'
           export NEXTCLOUD_PASSWORD='{{ nextcloud_user_will_pass }}'
+          export WWOS_PASSWORD='{{ vault_wwos_password }}'
           export NETBOX_TOKEN='664350da3a91fb42a7ae2d0dda5614e869fd50cd'
           export NETBOX_API='http://netbox1.home.arpa:80'
       become: yes
@@ -107,4 +120,5 @@
       loop:
         - { name: 'trac_pass.txt', content: '{{ vault_trac_user_password_will }}' }
         - { name: 'nextcloud_pass.txt', content: '{{ nextcloud_user_will_pass }}' }
+        - { name: 'wwos_pass.txt', content: '{{ vault_wwos_password }}' }
       no_log: true
