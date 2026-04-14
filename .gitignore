@@ -10,6 +10,13 @@ lib64
 #because these get big and break shit
 backups/
 
+# Audio and video files — never commit; archive to Google Drive instead
+*.mp3
+*.mp4
+*.m4a
+*.wav
+*.mov
+
 
 # Ansible Vault files
 group_vars/vault.yml
