@@ -519,6 +519,26 @@ def drive_create_folder(name, parent_id=None, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
+def drive_create_shortcut(target_id, parent_id, name=None, output_format='text'):
+    """Create a shortcut to a Drive file/folder inside a specified parent folder."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        # Resolve name from target if not provided
+        if not name:
+            target = service.files().get(fileId=target_id, fields='name').execute()
+            name = target['name']
+        file_metadata = {
+            'name': name,
+            'mimeType': 'application/vnd.google-apps.shortcut',
+            'shortcutDetails': {'targetId': target_id},
+            'parents': [parent_id],
+        }
+        shortcut = service.files().create(body=file_metadata, fields='id, name, webViewLink').execute()
+        output(shortcut, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
 def drive_export_file(file_id, mime_type='text/plain', output_file=None):
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)

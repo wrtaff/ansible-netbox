@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        1.8
+Version:        1.9
 Author:         Gemini CLI
 Last Modified:  2026-04-14
 Context:        http://trac.gafla.us.com/ticket/3084
@@ -13,6 +13,7 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v1.9 (2026-04-14): Added drive_create_shortcut tool.
     v1.8 (2026-04-14): Added drive_create_folder tool (with existence check).
                        Fixed drive_upload parent_id parameter bug.
     v1.7 (2026-04-10): Added calendar_update_event tool to update existing
@@ -322,6 +323,20 @@ def drive_export(file_id: str, mime_type: str = "text/plain", output_file: Optio
         with redirect_stdout(f):
             gwm.drive_export_file(file_id=file_id, mime_type=mime_type, output_file=output_file)
         return f.getvalue() or "Export initiated."
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+
+@mcp.tool(name="drive_create_shortcut")
+def drive_create_shortcut(target_id: str, parent_id: str, name: Optional[str] = None) -> str:
+    """Create a shortcut to a Drive file or folder inside a specified parent folder. Name defaults to the target's name if not provided."""
+    logger.info(f"Drive: Creating shortcut to {target_id} in {parent_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_create_shortcut(target_id=target_id, parent_id=parent_id, name=name, output_format='json')
+        return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 
