@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        1.7
+Version:        1.8
 Author:         Gemini CLI
-Last Modified:  2026-04-10
+Last Modified:  2026-04-14
 Context:        http://trac.gafla.us.com/ticket/3084
 
 Purpose:
@@ -13,7 +13,9 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
-    v1.7 (2026-04-10): Added calendar_update_event tool to update existing 
+    v1.8 (2026-04-14): Added drive_create_folder tool (with existence check).
+                       Fixed drive_upload parent_id parameter bug.
+    v1.7 (2026-04-10): Added calendar_update_event tool to update existing
                        calendar events.
     v1.6 (2026-04-10): Added optional trac_ticket parameter to Gmail tools 
                        to automatically append email details to Trac tickets.
@@ -268,15 +270,15 @@ def drive_get_metadata(file_id: str) -> str:
         return handle_auth_error(e)
 
 @mcp.tool(name="drive_update")
-def drive_update(file_id: str, name: Optional[str] = None, description: Optional[str] = None) -> str:
-    """Update a file's name or description."""
+def drive_update(file_id: str, name: Optional[str] = None, description: Optional[str] = None, parent: Optional[str] = None) -> str:
+    """Update a file's name, description, or parent folder."""
     logger.info(f"Drive: Updating file {file_id}")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.drive_update_file(file_id=file_id, name=name, description=description, output_format='json')
+            gwm.drive_update_file(file_id=file_id, name=name, description=description, parent=parent, output_format='json')
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
@@ -296,7 +298,7 @@ def download_drive_file(file_id: str, output_path: str) -> str:
         return handle_auth_error(e)
 
 @mcp.tool(name="drive_upload")
-def upload_drive_file(file_path: str, mime_type: Optional[str] = None, target_mime: Optional[str] = None) -> str:
+def upload_drive_file(file_path: str, mime_type: Optional[str] = None, target_mime: Optional[str] = None, parent: Optional[str] = None) -> str:
     """Upload a local file to Google Drive. Use target_mime='application/vnd.google-apps.document' to convert to a Google Doc."""
     logger.info(f"Drive: Uploading {file_path}")
     import io
@@ -304,7 +306,7 @@ def upload_drive_file(file_path: str, mime_type: Optional[str] = None, target_mi
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.drive_upload_file(file_path=file_path, mimetype=mime_type, target_mimetype=target_mime, output_format='json')
+            gwm.drive_upload_file(file_path=file_path, mimetype=mime_type, parent_id=parent, target_mimetype=target_mime, output_format='json')
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
@@ -320,6 +322,20 @@ def drive_export(file_id: str, mime_type: str = "text/plain", output_file: Optio
         with redirect_stdout(f):
             gwm.drive_export_file(file_id=file_id, mime_type=mime_type, output_file=output_file)
         return f.getvalue() or "Export initiated."
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+
+@mcp.tool(name="drive_create_folder")
+def drive_create_folder(name: str, parent_id: Optional[str] = None) -> str:
+    """Create a folder in Google Drive. If a folder with the same name already exists in the parent, returns the existing folder instead of creating a duplicate. Returns id, name, webViewLink, and status ('created' or 'already_exists')."""
+    logger.info(f"Drive: Creating folder '{name}' in parent '{parent_id}'")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_create_folder(name=name, parent_id=parent_id, output_format='json')
+        return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 

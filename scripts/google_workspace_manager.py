@@ -493,6 +493,32 @@ def drive_get_file_metadata(file_id, output_format='text', cite=False):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
+def drive_create_folder(name, parent_id=None, output_format='text'):
+    """Create a folder in Google Drive. Returns existing folder if one with the same name already exists in the parent."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        # Check if folder already exists in the parent
+        query = f"name = '{name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+        if parent_id:
+            query += f" and '{parent_id}' in parents"
+        results = service.files().list(q=query, fields="files(id, name, webViewLink)").execute()
+        existing = results.get('files', [])
+        if existing:
+            result = existing[0]
+            result['status'] = 'already_exists'
+            output(result, output_format)
+            return
+        # Create new folder
+        folder_metadata = {'name': name, 'mimeType': 'application/vnd.google-apps.folder'}
+        if parent_id:
+            folder_metadata['parents'] = [parent_id]
+        folder = service.files().create(body=folder_metadata, fields='id, name, webViewLink').execute()
+        folder['status'] = 'created'
+        output(folder, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
 def drive_export_file(file_id, mime_type='text/plain', output_file=None):
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
