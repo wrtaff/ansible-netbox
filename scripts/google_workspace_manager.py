@@ -210,8 +210,13 @@ def gmail_list_messages(query='', max_results=10, output_format='text', cite=Fal
         full_messages = []
         for msg in messages:
             m = service.users().messages().get(userId='me', id=msg['id'], format='minimal').execute()
+            from datetime import datetime, timezone
+            ts_ms = int(m.get('internalDate', 0))
+            dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
             msg_data = {
                 'id': m['id'],
+                'date': dt.strftime('%Y-%m-%d %H:%M:%S UTC'),
+                'internalDate': m.get('internalDate'),
                 'snippet': m['snippet']
             }
             if cite:

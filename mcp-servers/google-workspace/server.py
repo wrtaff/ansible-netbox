@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        1.9
+Version:        2.0
 Author:         Gemini CLI
-Last Modified:  2026-04-14
+Last Modified:  2026-04-15
 Context:        http://trac.gafla.us.com/ticket/3084
 
 Purpose:
@@ -13,6 +13,10 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v2.0 (2026-04-15): gmail_get_message now accepts optional drive_parent to
+                       auto-download non-image attachments and upload them to
+                       Drive, folding links into the Trac comment. Added
+                       internalDate/date fields to gmail_list_messages output.
     v1.9 (2026-04-14): Added drive_create_shortcut tool.
     v1.8 (2026-04-14): Added drive_create_folder tool (with existence check).
                        Fixed drive_upload parent_id parameter bug.
@@ -66,7 +70,7 @@ logger = logging.getLogger("google-workspace-mcp")
 # Initialize FastMCP server
 mcp = FastMCP("google-workspace-server")
 
-logger.info("Initializing Google Workspace MCP Server v1.6")
+logger.info("Initializing Google Workspace MCP Server v2.0")
 
 def handle_auth_error(e):
     logger.error(f"Authentication Error: {e}")
@@ -107,27 +111,67 @@ def append_to_trac(ticket_id: str, comment: str, author: str = "jimmy") -> bool:
         logger.error(f"Unexpected error updating Trac ticket {ticket_id}: {e}")
         return False
 
-def format_gmail_for_trac(msg_data: dict, type: str = "Fetched") -> str:
+def format_gmail_for_trac(msg_data: dict, type: str = "Fetched", drive_attachments: Optional[list] = None) -> str:
     """Format Gmail message data for a Trac comment (MoinMoin)."""
     subject = msg_data.get('subject', 'No Subject')
     from_email = msg_data.get('from', 'Unknown')
     to_email = msg_data.get('to', 'Unknown')
     body = msg_data.get('body', '')
     msg_id = msg_data.get('id', 'Unknown')
-    
+
     report = [f"== {type} Email (via Gmail) =="]
     if type == "Fetched":
         report.append(f"'''From:''' {from_email}")
     else:
         report.append(f"'''To:''' {to_email}")
-        
+
     report.append(f"'''Subject:''' {subject}")
     report.append(f"'''Gmail ID:''' [https://mail.google.com/mail/u/0/#all/{msg_id} {msg_id}]")
     report.append("\n{{{")
     report.append(body.strip())
     report.append("}}}")
-    
+
+    if drive_attachments:
+        report.append("\n=== Attachments (Drive) ===")
+        for att in drive_attachments:
+            report.append(f" * [[https://drive.google.com/open?id={att['drive_id']}|{att['filename']}]]")
+
     return "\n".join(report)
+
+
+def upload_gmail_attachments_to_drive(message_id: str, attachments: list, drive_parent_id: str) -> list:
+    """Download non-image Gmail attachments and upload them to Drive. Returns list of {filename, drive_id, drive_link}."""
+    import tempfile
+    results = []
+    for att in attachments:
+        if att.get('mimeType', '').startswith('image/'):
+            continue
+        filename = att.get('filename', 'unknown')
+        att_id = att.get('id')
+        if not att_id:
+            continue
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                local_path = gwm.gmail_download_attachment(message_id, att_id, filename, output_dir=tmpdir)
+                if not local_path:
+                    logger.warning(f"Failed to download attachment: {filename}")
+                    continue
+                import io as _io
+                from contextlib import redirect_stdout
+                f = _io.StringIO()
+                with redirect_stdout(f):
+                    gwm.drive_upload_file(file_path=local_path, mimetype=att.get('mimeType'), parent_id=drive_parent_id, output_format='json')
+                upload_result = json.loads(f.getvalue())
+                drive_id = upload_result.get('id')
+                if drive_id:
+                    results.append({
+                        'filename': filename,
+                        'drive_id': drive_id,
+                        'drive_link': f"https://drive.google.com/open?id={drive_id}"
+                    })
+        except Exception as e:
+            logger.error(f"Failed to upload attachment {filename}: {e}")
+    return results
 
 # --- GMAIL TOOLS ---
 
@@ -146,8 +190,11 @@ def list_messages(query: str = "", max_results: int = 10) -> str:
         return handle_auth_error(e)
 
 @mcp.tool(name="gmail_get_message")
-def get_message(message_id: str, trac_ticket: Optional[str] = None) -> str:
-    """Get full details of a Gmail message by its ID. Optionally append to a Trac ticket."""
+def get_message(message_id: str, trac_ticket: Optional[str] = None, drive_parent: Optional[str] = None) -> str:
+    """Get full details of a Gmail message by its ID. Optionally append to a Trac ticket.
+    If drive_parent (Drive folder ID) is provided, non-image attachments are automatically
+    downloaded from Gmail and uploaded to that Drive folder; links are included in the
+    Trac comment when trac_ticket is also provided."""
     logger.info(f"Gmail: Get message {message_id}")
     import io
     from contextlib import redirect_stdout
@@ -156,18 +203,31 @@ def get_message(message_id: str, trac_ticket: Optional[str] = None) -> str:
         with redirect_stdout(f):
             gwm.gmail_get_message(message_id=message_id, output_format='json')
         result_json = f.getvalue()
-        
-        if trac_ticket:
+
+        drive_attachments = []
+        try:
+            msg_data = json.loads(result_json)
+        except Exception:
+            msg_data = {}
+
+        if drive_parent and msg_data.get('attachments'):
+            drive_attachments = upload_gmail_attachments_to_drive(
+                message_id, msg_data['attachments'], drive_parent
+            )
+            if drive_attachments:
+                msg_data['drive_attachments'] = drive_attachments
+                result_json = json.dumps(msg_data)
+
+        if trac_ticket and msg_data.get('id') and msg_data.get('body'):
             try:
-                msg_data = json.loads(result_json)
-                if 'id' in msg_data and 'body' in msg_data:
-                    ticket_id = parse_ticket_id(trac_ticket)
-                    if ticket_id:
-                        comment = format_gmail_for_trac(msg_data, type="Fetched")
-                        append_to_trac(ticket_id, comment)
+                ticket_id = parse_ticket_id(trac_ticket)
+                if ticket_id:
+                    comment = format_gmail_for_trac(msg_data, type="Fetched",
+                                                    drive_attachments=drive_attachments or None)
+                    append_to_trac(ticket_id, comment)
             except Exception as e:
                 logger.error(f"Failed to append fetched email to Trac: {e}")
-                
+
         return result_json
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
