@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
-# -----------------------------------------------------------------------------
-# Script Name: create_trac_from_vikunja.py
-# Description: Creates a Trac ticket based on a Vikunja task and links them.
-# Author/Maintainer: Gemini CLI
-# Trac Ticket: http://trac.home.arpa/ticket/2964
-# -----------------------------------------------------------------------------
+"""
+================================================================================
+Filename:       create_trac_from_vikunja.py
+Version:        1.1
+Author:         Gemini CLI
+Last Modified:  2026-04-16
+Context:        http://trac.home.arpa/ticket/3321
+
+Purpose:
+    Creates a Trac ticket based on a Vikunja task and links them.
+
+    Update 1.1 (2026-04-16):
+    - Refactored functions to raise exceptions instead of calling sys.exit(1)
+      to support integration into MCP servers.
+    - Updated header to standard WWOS format and included Trac ticket link.
+================================================================================
+"""
 import argparse
 import requests
 import json
@@ -61,8 +72,7 @@ def get_vikunja_task(task_id):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching Vikunja task {task_id}: {e}")
-        sys.exit(1)
+        raise Exception(f"Error fetching Vikunja task {task_id}: {e}")
 
 def update_vikunja_task(task_id, description_with_link):
     headers = {
@@ -76,7 +86,7 @@ def update_vikunja_task(task_id, description_with_link):
         response.raise_for_status()
         print(f"Successfully updated Vikunja Task {task_id} description with Trac link.")
     except requests.exceptions.RequestException as e:
-        print(f"Error updating Vikunja task {task_id}: {e}")
+        raise Exception(f"Error updating Vikunja task {task_id}: {e}")
 
 def create_trac_ticket_xml(summary, description, component, priority, keywords):
     # Construct XML payload manually to ensure correct structure for Trac XML-RPC
@@ -141,9 +151,7 @@ def send_to_trac(xml_content):
         result = subprocess.run(curl_cmd, capture_output=True, text=True, check=True)
         return result.stdout
     except subprocess.CalledProcessError as e:
-        print(f"Error sending to Trac: {e}")
-        print(f"Stderr: {e.stderr}")
-        sys.exit(1)
+        raise Exception(f"Error sending to Trac: {e}\nStderr: {e.stderr}")
 
 def main():
     parser = argparse.ArgumentParser(description="Create Trac ticket from Vikunja task")
@@ -155,59 +163,63 @@ def main():
 
     args = parser.parse_args()
 
-    # 1. Fetch Vikunja Task
-    task = get_vikunja_task(args.task_id)
-    print(f"Found Vikunja Task: {task.get('title')}")
+    try:
+        # 1. Fetch Vikunja Task
+        task = get_vikunja_task(args.task_id)
+        print(f"Found Vikunja Task: {task.get('title')}")
 
-    # 2. Prepare Trac Data
-    summary = task.get('title')
-    
-    # Check for empty description
-    vikunja_desc = task.get('description', '')
-    vikunja_link = f"http://todo.gafla.us.com/tasks/{args.task_id}"
-    
-    description = f"Refers to Vikunja Task: {vikunja_link}\n\n{vikunja_desc}"
-    
-    keywords = args.keywords
-    if args.add_keywords:
-        keywords += f", {args.add_keywords}"
+        # 2. Prepare Trac Data
+        summary = task.get('title')
+        
+        # Check for empty description
+        vikunja_desc = task.get('description', '')
+        vikunja_link = f"http://todo.gafla.us.com/tasks/{args.task_id}"
+        
+        description = f"Refers to Vikunja Task: {vikunja_link}\n\n{vikunja_desc}"
+        
+        keywords = args.keywords
+        if args.add_keywords:
+            keywords += f", {args.add_keywords}"
 
-    # 3. Create XML Payload
-    xml_payload = create_trac_ticket_xml(summary, description, args.component, args.priority, keywords)
-    
-    # 4. Send to Trac
-    print("Creating Trac ticket...")
-    response_xml = send_to_trac(xml_payload)
-    
-    # 5. Parse Response (Simple extraction)
-    if "<int>" in response_xml:
-        try:
-            ticket_id = response_xml.split("<int>")[1].split("</int>")[0]
-            print(f"Successfully created Trac Ticket #{ticket_id}")
-            
-            trac_public_url = f"{TRAC_PUBLIC_URL_BASE}/{ticket_id}"
-            print(f"URL: {trac_public_url}")
-
-            # 6. Update Vikunja Task
-            print("Linking Trac ticket in Vikunja task...")
-            
-            # Avoid duplicating the link if it already exists
-            if trac_public_url not in vikunja_desc:
-                new_desc = vikunja_desc
-                if new_desc:
-                    new_desc += "<br><br>"
-                new_desc += f'<a href="{trac_public_url}">Trac Ticket #{ticket_id}: {summary}</a>'
+        # 3. Create XML Payload
+        xml_payload = create_trac_ticket_xml(summary, description, args.component, args.priority, keywords)
+        
+        # 4. Send to Trac
+        print("Creating Trac ticket...")
+        response_xml = send_to_trac(xml_payload)
+        
+        # 5. Parse Response (Simple extraction)
+        if "<int>" in response_xml:
+            try:
+                ticket_id = response_xml.split("<int>")[1].split("</int>")[0]
+                print(f"Successfully created Trac Ticket #{ticket_id}")
                 
-                update_vikunja_task(args.task_id, new_desc)
-            else:
-                print("Vikunja task already has this Trac ticket linked.")
+                trac_public_url = f"{TRAC_PUBLIC_URL_BASE}/{ticket_id}"
+                print(f"URL: {trac_public_url}")
 
-        except IndexError:
-            print("Ticket created but couldn't parse ID from response.")
+                # 6. Update Vikunja Task
+                print("Linking Trac ticket in Vikunja task...")
+                
+                # Avoid duplicating the link if it already exists
+                if trac_public_url not in vikunja_desc:
+                    new_desc = vikunja_desc
+                    if new_desc:
+                        new_desc += "<br><br>"
+                    new_desc += f'<a href="{trac_public_url}">Trac Ticket #{ticket_id}: {summary}</a>'
+                    
+                    update_vikunja_task(args.task_id, new_desc)
+                else:
+                    print("Vikunja task already has this Trac ticket linked.")
+
+            except IndexError:
+                print("Ticket created but couldn't parse ID from response.")
+                print(response_xml)
+        else:
+            print("Failed to create ticket. Response:")
             print(response_xml)
-    else:
-        print("Failed to create ticket. Response:")
-        print(response_xml)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

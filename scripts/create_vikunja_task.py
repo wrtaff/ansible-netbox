@@ -2,15 +2,21 @@
 """
 ================================================================================
 Filename:       create_vikunja_task.py
-Version:        1.4
+Version:        1.5
 Author:         Gemini CLI
-Last Modified:  2026-03-03
+Last Modified:  2026-04-16
+Context:        http://trac.home.arpa/ticket/3321
 
 Purpose:
     Creates a new task in a Vikunja instance. This script is designed to be 
     portable and can be used locally or on remote hosts with Gemini CLI. It 
     supports setting the task title, description, project ID, "favorite" 
     status, and labels.
+
+    Update 1.5 (2026-04-16):
+    - Refactored create_task to raise exceptions instead of calling sys.exit(1)
+      to support integration into MCP servers.
+    - Updated header with Trac ticket link per WWOS standards.
 
     Update 1.4:
     - Added support for setting task due dates via --due argument.
@@ -195,21 +201,14 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
                         if add_label_to_task(host, token, task_id, label['id']):
                             count += 1
                     print(f"Attached {count}/{len(resolved_labels)} labels.")
+                return result
             else:
-                print(f"Error: Unexpected status code {response.status}")
-                print(response.read().decode('utf-8'))
-                sys.exit(1)
+                raise Exception(f"Unexpected status code {response.status}: {response.read().decode('utf-8')}")
 
     except urllib.error.HTTPError as e:
-        print(f"HTTP Error {e.code}: {e.reason}")
-        print(e.read().decode('utf-8'))
-        sys.exit(1)
+        raise Exception(f"HTTP Error {e.code}: {e.reason} - {e.read().decode('utf-8')}")
     except urllib.error.URLError as e:
-        print(f"URL Error: {e.reason}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        sys.exit(1)
+        raise Exception(f"URL Error: {e.reason}")
 
 def main():
     parser = argparse.ArgumentParser(description="Create a task in Vikunja.")
@@ -228,16 +227,20 @@ def main():
     labels = [w[1:] for w in words if w.startswith('*')]
     clean_title = ' '.join([w for w in words if not w.startswith('*')])
     
-    create_task(
-        title=clean_title,
-        description=args.description,
-        project_id=args.project_id,
-        is_favorite=not args.no_favorite,
-        host=args.host.rstrip('/'),
-        token=args.token,
-        labels=labels,
-        due_date=args.due
-    )
+    try:
+        create_task(
+            title=clean_title,
+            description=args.description,
+            project_id=args.project_id,
+            is_favorite=not args.no_favorite,
+            host=args.host.rstrip('/'),
+            token=args.token,
+            labels=labels,
+            due_date=args.due
+        )
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
