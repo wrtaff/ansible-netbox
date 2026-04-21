@@ -1,0 +1,34 @@
+# ==============================================================================
+# Filename:       install_pdf_arranger.yaml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-04-18
+# Context:        http://trac.home.arpa/ticket/2806
+#
+# Purpose:
+#    Installs PDF Arranger (pdfarranger) on Debian-based systems.
+#    PDF Arranger is a simple tool to merge or split PDF documents and 
+#    rotate, crop and rearrange their pages using a graphical interface.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/install_pdf_arranger.yaml -l <host>
+#
+# Revision History:
+#    1.0: Initial automation script for PDF Arranger installation.
+# ==============================================================================
+---
+- name: Install PDF Arranger
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: 01. Install pdfarranger package
+      ansible.builtin.package:
+        name: pdfarranger
+        state: present
+        update_cache: yes
+      register: install_result
+
+    - name: 02. Report installation status
+      ansible.builtin.debug:
+        msg: "PDF Arranger installation status: {{ install_result.changed }}"

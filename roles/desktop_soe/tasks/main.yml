@@ -12,8 +12,25 @@
       - neovim
       - x2goserver
       - x2goserver-xsession
+      - imagemagick
+      - ghostscript
+      - pdfarranger
     state: present
     update_cache: yes
+
+- name: 1b. Locate ImageMagick policy.xml file
+  ansible.builtin.shell:
+    cmd: "find /etc -maxdepth 3 -type f -name policy.xml | grep 'ImageMagick' | head -n 1"
+  register: policy_file_find
+  changed_when: false
+  failed_when: policy_file_find.stdout == ""
+
+- name: 1c. Update ImageMagick policy to allow PDF reading and writing
+  ansible.builtin.lineinfile:
+    path: "{{ policy_file_find.stdout | trim }}"
+    regexp: '(<policy domain="coder" rights="none" pattern="PDF" />)'
+    line: '<policy domain="coder" rights="read|write" pattern="PDF" />'
+    state: present
 
 - name: 2. Install Claude Code CLI globally via NPM
   ansible.builtin.npm:

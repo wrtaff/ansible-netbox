@@ -1,5 +1,23 @@
 ---
-# Version: Q4-2025 Automation Script
+# ==============================================================================
+# Filename:       install_imagemagick.yaml
+# Version:        1.1
+# Author:         Gemini CLI
+# Last Modified:  2026-04-18
+# Context:        http://trac.home.arpa/ticket/2806
+#
+# Purpose:
+#    Installs ImageMagick and Ghostscript, and updates the security policy 
+#    to allow PDF conversion, fixing the 'security policy PDF' error.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/install_imagemagick.yaml -l <host> --ask-vault-pass
+#
+# Revision History:
+#    1.0: Initial automation script (Q4-2025).
+#    1.1: Updated header to project standard and verified on host athena.
+# ==============================================================================
+---
 # This playbook is intended for **Workstation** installation and configuration.
 # It installs necessary prerequisites (ImageMagick and Ghostscript)
 # and updates the ImageMagick policy file to allow PDF conversion,
