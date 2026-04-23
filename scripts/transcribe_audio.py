@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       transcribe_audio.py
-Version:        1.10
+Version:        1.11
 Author:         Gemini CLI
 Last Modified:  2026-04-23
 Context:        http://trac.home.arpa/ticket/2966
@@ -13,6 +13,14 @@ Purpose:
     Outputs the transcript to a .txt file in the same directory.
     Supports providing context to improve transcription accuracy.
     Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.11:
+    - Replaced single OpenRouter fallback model with an ordered fallback chain.
+    - Default chain: openai/gpt-4o-audio-preview -> mistralai/voxtral-small-24b-2507.
+    - gpt-4o-audio-preview first: near-Gemini quality (speaker labels, clean output).
+    - voxtral-small last resort only: cheaper but no speaker labels, noisy output.
+    - Each model in the chain is tried in order; only exhaustion raises a fatal error.
+    - CLI: --openrouter-model replaced by --fallback-chain (accepts multiple model IDs).
 
 Changes in 1.10:
     - Corrected default OpenRouter fallback model to openai/gpt-4o-audio-preview
@@ -78,7 +86,10 @@ import math
 
 # --- Configuration ---
 DEFAULT_MODEL = "gemini-2.0-flash"
-DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-audio-preview"
+OPENROUTER_FALLBACK_CHAIN = [
+    "openai/gpt-4o-audio-preview",
+    "mistralai/voxtral-small-24b-2507",
+]
 API_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "gemini_key.txt")
 OPENROUTER_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "openrouter_key.txt")
 CHUNK_THRESHOLD_SECONDS = 1200 # 20 minutes
@@ -439,25 +450,31 @@ def transcribe_chunk(file_uri, mime_type, api_key, model=DEFAULT_MODEL, context=
         raise
 
 def process_file_or_chunk(file_path, api_key, model, context, chunk_index=0,
-                          openrouter_key=None, openrouter_model=DEFAULT_OPENROUTER_MODEL):
+                          openrouter_key=None, fallback_chain=None):
     """Orchestrates upload, wait, and transcribe for a single file/chunk.
-    Falls back to OpenRouter if Gemini returns an error."""
+    On Gemini failure, walks fallback_chain of OpenRouter models in order."""
     try:
         file_uri, file_name_api, mime_type = upload_file(file_path, api_key)
         wait_for_file(file_name_api, api_key)
         return transcribe_chunk(file_uri, mime_type, api_key, model, context, chunk_index)
-    except Exception as e:
-        if openrouter_key:
-            print(f"\nGemini failed ({e}). Falling back to OpenRouter ({openrouter_model})...")
-            return transcribe_chunk_openrouter(file_path, openrouter_key, openrouter_model, context, chunk_index)
-        raise
+    except Exception as gemini_err:
+        if not openrouter_key or not fallback_chain:
+            raise
+        for fallback_model in fallback_chain:
+            print(f"\nGemini failed ({gemini_err}). Trying OpenRouter fallback: {fallback_model}...")
+            try:
+                return transcribe_chunk_openrouter(file_path, openrouter_key, fallback_model, context, chunk_index)
+            except Exception as or_err:
+                print(f"OpenRouter/{fallback_model} failed ({or_err}). Trying next fallback...")
+        raise RuntimeError(f"All fallbacks exhausted for {os.path.basename(file_path)}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Transcribe audio using Gemini, with OpenRouter fallback.")
+    parser = argparse.ArgumentParser(description="Transcribe audio using Gemini, with OpenRouter fallback chain.")
     parser.add_argument("file_path", help="Path to the audio file.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Gemini model to use (default: {DEFAULT_MODEL})")
-    parser.add_argument("--openrouter-model", default=DEFAULT_OPENROUTER_MODEL,
-                        help=f"OpenRouter model for fallback (default: {DEFAULT_OPENROUTER_MODEL})")
+    parser.add_argument("--fallback-chain", nargs="+", default=OPENROUTER_FALLBACK_CHAIN,
+                        metavar="MODEL",
+                        help=f"Ordered OpenRouter fallback models (default: {' '.join(OPENROUTER_FALLBACK_CHAIN)})")
     parser.add_argument("--context", help="Contextual information to aid transcription.")
     
     args = parser.parse_args()
@@ -480,7 +497,7 @@ def main():
     api_key = get_api_key()
     openrouter_key = get_openrouter_api_key()
     if openrouter_key:
-        print(f"OpenRouter fallback available ({args.openrouter_model}).")
+        print(f"OpenRouter fallback chain: {' -> '.join(args.fallback_chain)}")
     else:
         print("Warning: No OpenRouter key found — Gemini errors will not be retried.")
 
@@ -488,7 +505,7 @@ def main():
     duration = get_audio_duration(args.file_path)
     full_transcript = ""
 
-    kwargs = dict(openrouter_key=openrouter_key, openrouter_model=args.openrouter_model)
+    kwargs = dict(openrouter_key=openrouter_key, fallback_chain=args.fallback_chain)
 
     try:
         if duration > CHUNK_THRESHOLD_SECONDS:
