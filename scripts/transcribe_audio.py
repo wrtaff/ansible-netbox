@@ -2,16 +2,29 @@
 """
 ================================================================================
 Filename:       transcribe_audio.py
-Version:        1.8
+Version:        1.10
 Author:         Gemini CLI
-Last Modified:  2026-03-27
-Context:        http://trac.home.arpa/ticket/2988
+Last Modified:  2026-04-23
+Context:        http://trac.home.arpa/ticket/2966
 
 Purpose:
     Transcribes an audio file using the Gemini 2.0 Flash API.
+    Falls back to OpenRouter (OpenAI-compatible, base64 audio) on Gemini errors.
     Outputs the transcript to a .txt file in the same directory.
     Supports providing context to improve transcription accuracy.
     Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.10:
+    - Corrected default OpenRouter fallback model to openai/gpt-4o-audio-preview
+      (google/gemini-2.0-flash-001 routes back to Google AI Studio and shares quota).
+    - Updated Context link to master tracker ticket #2966.
+
+Changes in 1.9:
+    - Added OpenRouter fallback when Gemini returns 429 or other API errors.
+    - Added --openrouter-model flag (default: openai/gpt-4o-audio-preview).
+    - Added get_openrouter_api_key() reading OPENROUTER_API_KEY env / file / .bashrc.
+    - Added transcribe_chunk_openrouter() using base64 inline audio.
+    - transcribe_chunk() now raises on error instead of sys.exit() so fallback fires cleanly.
 
 Changes in 1.8:
     - Added robust API key extraction from ~/.bashrc using grep.
@@ -65,7 +78,9 @@ import math
 
 # --- Configuration ---
 DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-audio-preview"
 API_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "gemini_key.txt")
+OPENROUTER_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "openrouter_key.txt")
 CHUNK_THRESHOLD_SECONDS = 1200 # 20 minutes
 CHUNK_SEGMENT_TIME = 1200      # 20 minutes
 CHUNK_OVERLAP = 60             # 60 seconds overlap
@@ -104,6 +119,107 @@ def get_api_key():
 
     print("Error: No API key provided.")
     sys.exit(1)
+
+def get_openrouter_api_key():
+    """Retrieves the OpenRouter API key from environment, file, or ~/.bashrc."""
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if api_key:
+        print("Using OpenRouter key from environment variable.")
+        return api_key
+
+    if os.path.exists(OPENROUTER_KEY_FILE):
+        with open(OPENROUTER_KEY_FILE, 'r') as f:
+            print(f"Using OpenRouter key from file: {OPENROUTER_KEY_FILE}")
+            return f.read().strip()
+
+    try:
+        cmd = "grep 'export OPENROUTER_API_KEY=' ~/.bashrc | cut -d'\"' -f2"
+        result = subprocess.run(['bash', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        bashrc_key = result.stdout.strip()
+        if bashrc_key and bashrc_key.startswith("sk-or"):
+            print("Using OpenRouter key from ~/.bashrc.")
+            return bashrc_key
+    except Exception as e:
+        print(f"Warning: Could not extract OpenRouter key from ~/.bashrc: {e}")
+
+    return None
+
+
+def transcribe_chunk_openrouter(file_path, openrouter_key, model, context, chunk_index=0):
+    """Transcribes a single audio chunk via OpenRouter using base64-encoded audio."""
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    ext = os.path.splitext(file_path)[1].lower().lstrip(".")
+    format_map = {"mp3": "mp3", "m4a": "m4a", "wav": "wav", "ogg": "ogg", "mp4": "mp4"}
+    audio_format = format_map.get(ext, "mp3")
+
+    print(f"Encoding {os.path.basename(file_path)} as base64 for OpenRouter...")
+    with open(file_path, "rb") as f:
+        audio_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    prompt_text = "Please provide a verbatim transcript of this audio file. Include speaker labels if possible and clear timestamps for major transitions."
+    if chunk_index > 0:
+        prompt_text += " Note: This is part of a larger recording, so context may be continuing from a previous segment."
+    if context:
+        prompt_text += f"\n\nContext for the conversation:\n{context}"
+
+    payload = {
+        "model": model,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt_text},
+                {"type": "input_audio", "input_audio": {"data": audio_b64, "format": audio_format}},
+            ]
+        }],
+        "temperature": 0.0,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {openrouter_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://home.arpa/pops",
+        "X-Title": "Pops Audio Ingest",
+    }
+
+    print(f"Requesting transcription from OpenRouter ({model})...")
+
+    done = False
+    def spinner():
+        for c in itertools.cycle(['|', '/', '-', '\\']):
+            if done:
+                break
+            sys.stdout.write(f'\rProcessing... {c}')
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write('\rProcessing... Done!   \n')
+
+    spinner_thread = threading.Thread(target=spinner)
+    spinner_thread.start()
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=600)
+        done = True
+        spinner_thread.join()
+        response.raise_for_status()
+        result = response.json()
+        try:
+            return result['choices'][0]['message']['content']
+        except (KeyError, IndexError):
+            print("\nWarning: No transcript text found in OpenRouter response.")
+            print(json.dumps(result, indent=2))
+            return "[No transcript generated for this segment]"
+    except Exception as e:
+        done = True
+        spinner_thread.join()
+        print(f"\nOpenRouter error: {e}")
+        try:
+            if 'response' in locals():
+                print(json.dumps(response.json(), indent=2))
+        except:
+            pass
+        raise
+
 
 def get_audio_duration(file_path):
     """Returns the duration of the audio file in seconds using ffprobe."""
@@ -310,7 +426,7 @@ def transcribe_chunk(file_uri, mime_type, api_key, model=DEFAULT_MODEL, context=
         done = True
         spinner_thread.join()
         print("\nError: Request timed out after 600 seconds.")
-        sys.exit(1)
+        raise
     except Exception as e:
         done = True
         spinner_thread.join()
@@ -320,18 +436,28 @@ def transcribe_chunk(file_uri, mime_type, api_key, model=DEFAULT_MODEL, context=
                 print(json.dumps(response.json(), indent=2))
         except:
             pass
-        sys.exit(1)
+        raise
 
-def process_file_or_chunk(file_path, api_key, model, context, chunk_index=0):
-    """Orchestrates upload, wait, and transcribe for a single file/chunk."""
-    file_uri, file_name_api, mime_type = upload_file(file_path, api_key)
-    wait_for_file(file_name_api, api_key)
-    return transcribe_chunk(file_uri, mime_type, api_key, model, context, chunk_index)
+def process_file_or_chunk(file_path, api_key, model, context, chunk_index=0,
+                          openrouter_key=None, openrouter_model=DEFAULT_OPENROUTER_MODEL):
+    """Orchestrates upload, wait, and transcribe for a single file/chunk.
+    Falls back to OpenRouter if Gemini returns an error."""
+    try:
+        file_uri, file_name_api, mime_type = upload_file(file_path, api_key)
+        wait_for_file(file_name_api, api_key)
+        return transcribe_chunk(file_uri, mime_type, api_key, model, context, chunk_index)
+    except Exception as e:
+        if openrouter_key:
+            print(f"\nGemini failed ({e}). Falling back to OpenRouter ({openrouter_model})...")
+            return transcribe_chunk_openrouter(file_path, openrouter_key, openrouter_model, context, chunk_index)
+        raise
 
 def main():
-    parser = argparse.ArgumentParser(description="Transcribe audio using Gemini.")
+    parser = argparse.ArgumentParser(description="Transcribe audio using Gemini, with OpenRouter fallback.")
     parser.add_argument("file_path", help="Path to the audio file.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Gemini model to use (default: {DEFAULT_MODEL})")
+    parser.add_argument("--openrouter-model", default=DEFAULT_OPENROUTER_MODEL,
+                        help=f"OpenRouter model for fallback (default: {DEFAULT_OPENROUTER_MODEL})")
     parser.add_argument("--context", help="Contextual information to aid transcription.")
     
     args = parser.parse_args()
@@ -352,26 +478,37 @@ def main():
         args.file_path = new_file_path
         
     api_key = get_api_key()
-    
+    openrouter_key = get_openrouter_api_key()
+    if openrouter_key:
+        print(f"OpenRouter fallback available ({args.openrouter_model}).")
+    else:
+        print("Warning: No OpenRouter key found — Gemini errors will not be retried.")
+
     # Check duration
     duration = get_audio_duration(args.file_path)
     full_transcript = ""
-    
-    if duration > CHUNK_THRESHOLD_SECONDS:
-        print(f"File duration ({duration:.2f}s) exceeds threshold ({CHUNK_THRESHOLD_SECONDS}s). Splitting...")
-        chunks = split_audio(args.file_path)
-        
-        for i, chunk_path in enumerate(chunks):
-            print(f"\n--- Processing Chunk {i+1}/{len(chunks)}: {os.path.basename(chunk_path)} ---")
-            chunk_transcript = process_file_or_chunk(chunk_path, api_key, args.model, args.context, chunk_index=i)
-            full_transcript += f"\n\n--- Segment {i+1} ---\n{chunk_transcript}"
-            
-            # Cleanup chunk
-            os.remove(chunk_path)
-            
-        print("\nAll chunks processed.")
-    else:
-        full_transcript = process_file_or_chunk(args.file_path, api_key, args.model, args.context)
+
+    kwargs = dict(openrouter_key=openrouter_key, openrouter_model=args.openrouter_model)
+
+    try:
+        if duration > CHUNK_THRESHOLD_SECONDS:
+            print(f"File duration ({duration:.2f}s) exceeds threshold ({CHUNK_THRESHOLD_SECONDS}s). Splitting...")
+            chunks = split_audio(args.file_path)
+
+            for i, chunk_path in enumerate(chunks):
+                print(f"\n--- Processing Chunk {i+1}/{len(chunks)}: {os.path.basename(chunk_path)} ---")
+                chunk_transcript = process_file_or_chunk(chunk_path, api_key, args.model, args.context, chunk_index=i, **kwargs)
+                full_transcript += f"\n\n--- Segment {i+1} ---\n{chunk_transcript}"
+
+                # Cleanup chunk
+                os.remove(chunk_path)
+
+            print("\nAll chunks processed.")
+        else:
+            full_transcript = process_file_or_chunk(args.file_path, api_key, args.model, args.context, **kwargs)
+    except Exception as e:
+        print(f"\nFatal error: {e}")
+        sys.exit(1)
     
     output_path = os.path.splitext(args.file_path)[0] + "_transcription.txt"
     with open(output_path, 'w') as f:
