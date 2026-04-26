@@ -3,7 +3,7 @@ import requests
 import sys
 
 def get_wwos_page(page_title):
-    url = "http://192.168.0.99/mediawiki/api.php"
+    url = "http://wwos.home.arpa/api.php"
     params = {
         "action": "parse",
         "page": page_title,

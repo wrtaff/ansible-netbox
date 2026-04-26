@@ -6,7 +6,7 @@ Version:        1.6
 Author:         Gemini CLI
 Last Modified:  2026-04-10
 Context:        http://trac.home.arpa/ticket/3265
-WWOS:           http://192.168.0.99/mediawiki/index.php/Trac_Wiki_Formatter
+WWOS:           http://wwos.home.arpa/index.php/Trac_Wiki_Formatter
 
 Purpose:
     A helper script to create Trac tickets via the XML-RPC API.

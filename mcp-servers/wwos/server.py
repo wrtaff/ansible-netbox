@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/wwos/server.py
-Version:        1.1
+Version:        1.4
 Author:         Gemini CLI
-Last Modified:  2026-04-10
+Last Modified:  2026-04-25
 Context:        WWOS (MediaWiki) Integration
 
 Purpose:
@@ -13,11 +13,22 @@ Purpose:
     tools for fetching, creating, and updating wiki pages.
 
 Revision History:
+    v1.4 (2026-04-25): Fix _read_bashrc_password() to handle $'...' ANSI C quoting —
+                       previously returned $'<password>!!' instead of <password> causing
+                       both ensure_auth() validation attempts to fail.
+    v1.3 (2026-04-25): Harden ensure_auth(): validate env var against live login when
+                       it differs from ~/.bashrc value; replace with .bashrc value if
+                       env var fails auth. Prevents silent breakage from corrupted env
+                       vars (e.g., bash !! history expansion).
+    v1.2 (2026-04-25): Fix auth race: move ensure_auth() before script imports so
+                       WWOS_PASSWORD is set in os.environ before any module captures
+                       it at import time (update_wwos_page.py reads PASSWORD at module
+                       level). Logging setup also moved before script imports.
     v1.1 (2026-04-10): Added wwos_generate_citation and wwos_import_from_wikipedia tools.
     v1.0 (2026-04-10): Initial implementation wrapping existing WWOS scripts.
 
 Notes:
-    Always bump the version number when modifying this file and annotate 
+    Always bump the version number when modifying this file and annotate
     the changes in the Revision History section.
 ================================================================================
 """
@@ -26,6 +37,7 @@ import sys
 import logging
 import re
 import subprocess
+import requests as _requests
 from typing import Optional, List
 
 # Add project root to path to allow importing from scripts
@@ -33,6 +45,97 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "../../"))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
+
+# Configure logging early so ensure_auth() can log
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename='/tmp/wwos_mcp.log',
+    filemode='a'
+)
+logger = logging.getLogger("wwos-mcp")
+
+def _read_bashrc_password():
+    """Read WWOS_PASSWORD from ~/.bashrc, return None if not found."""
+    bashrc_path = os.path.expanduser("~/.bashrc")
+    if not os.path.exists(bashrc_path):
+        return None
+    try:
+        with open(bashrc_path, "r") as f:
+            for line in f:
+                if "export WWOS_PASSWORD=" in line:
+                    parts = line.split("=", 1)
+                    if len(parts) == 2:
+                        val = parts[1].strip()
+                        # Handle $'...' ANSI C quoting (immune to !! expansion)
+                        m = re.match(r"^\$'(.+)'$", val)
+                        if m:
+                            return m.group(1)
+                        return val.strip('"').strip("'")
+    except Exception as e:
+        logger.error(f"Error reading ~/.bashrc: {e}")
+    return None
+
+
+def _try_auth(password):
+    """Attempt a MediaWiki login; return True on success, False otherwise."""
+    api_url = "http://wwos.home.arpa/api.php"
+    try:
+        session = _requests.Session()
+        resp = session.get(api_url, params={
+            "action": "query", "meta": "tokens", "type": "login", "format": "json"
+        }, timeout=5)
+        token = resp.json()["query"]["tokens"]["logintoken"]
+        login = session.post(api_url, data={
+            "action": "login", "lgname": "will", "lgpassword": password,
+            "lgtoken": token, "format": "json"
+        }, timeout=5)
+        return login.json().get("login", {}).get("result") == "Success"
+    except Exception as e:
+        logger.warning(f"Auth validation request failed: {e}")
+        return False
+
+
+def ensure_auth():
+    """Ensures WWOS_PASSWORD is set and valid in the environment.
+
+    Strategy:
+    - If the env var is missing: read from ~/.bashrc unconditionally.
+    - If the env var is present but differs from ~/.bashrc: validate both via a
+      live login attempt and promote whichever succeeds. This catches the case
+      where the env var was corrupted (e.g., by bash !! history expansion).
+    - If both sources agree, skip the HTTP round-trip.
+    """
+    env_pw = os.getenv("WWOS_PASSWORD")
+    bashrc_pw = _read_bashrc_password()
+
+    if not env_pw:
+        if bashrc_pw:
+            os.environ["WWOS_PASSWORD"] = bashrc_pw
+            logger.info("WWOS_PASSWORD not in environment; set from ~/.bashrc.")
+        else:
+            logger.warning("WWOS_PASSWORD not found in environment or ~/.bashrc.")
+        return
+
+    # Env var is set; if it matches .bashrc (or .bashrc is absent) trust it.
+    if not bashrc_pw or env_pw == bashrc_pw:
+        logger.info("WWOS_PASSWORD is set in environment.")
+        return
+
+    # Mismatch between env var and .bashrc — validate to pick the correct one.
+    logger.warning("WWOS_PASSWORD env var differs from ~/.bashrc value; validating both.")
+    if _try_auth(env_pw):
+        logger.info("Environment WWOS_PASSWORD validated successfully.")
+    elif _try_auth(bashrc_pw):
+        logger.warning("Environment WWOS_PASSWORD failed auth; replacing with ~/.bashrc value.")
+        os.environ["WWOS_PASSWORD"] = bashrc_pw
+    else:
+        logger.error("Both WWOS_PASSWORD values failed validation (server may be unreachable); keeping env var.")
+
+# Ensure WWOS_PASSWORD is in os.environ BEFORE importing scripts — several
+# scripts (notably update_wwos_page.py) read os.getenv("WWOS_PASSWORD") at
+# module level, so the env var must be present before the import statements run.
+ensure_auth()
 
 from mcp.server.fastmcp import FastMCP
 from scripts import create_wwos_page as cwp
@@ -43,41 +146,10 @@ from scripts import get_wwos_category_info as gci
 from scripts import wwos_citation as wc
 from scripts import wikipedia_to_wwos as wtw
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename='/tmp/wwos_mcp.log',
-    filemode='a'
-)
-logger = logging.getLogger("wwos-mcp")
-
 # Initialize FastMCP server
 mcp = FastMCP("wwos-server")
 
-logger.info("Initializing WWOS MCP Server v1.1")
-
-def ensure_auth():
-    """Ensures WWOS_PASSWORD is set in environment, falling back to ~/.bashrc."""
-    if not os.getenv("WWOS_PASSWORD"):
-        bashrc_path = os.path.expanduser("~/.bashrc")
-        if os.path.exists(bashrc_path):
-            try:
-                with open(bashrc_path, "r") as f:
-                    for line in f:
-                        if "export WWOS_PASSWORD=" in line:
-                            parts = line.split("=", 1)
-                            if len(parts) == 2:
-                                val = parts[1].strip().strip('"').strip("'")
-                                os.environ["WWOS_PASSWORD"] = val
-                                logger.info("WWOS_PASSWORD found in ~/.bashrc and set to environment.")
-                                return
-            except Exception as e:
-                logger.error(f"Error reading ~/.bashrc: {e}")
-        logger.warning("WWOS_PASSWORD not found in environment or ~/.bashrc.")
-
-# Ensure auth is available for all tools
-ensure_auth()
+logger.info("Initializing WWOS MCP Server v1.4")
 
 @mcp.tool(name="wwos_ping")
 def ping() -> str:

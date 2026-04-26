@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       update_wwos_page.py
-Version:        2.3
+Version:        2.4
 Author:         Will
-Last Modified:  2025-12-26
+Last Modified:  2026-04-25
 
 Purpose:
     Updates pages on the WWOS MediaWiki instance. The script handles
@@ -46,12 +46,29 @@ Exit Codes:
 import argparse
 import requests
 import os
+import re
 import sys
 
 # MediaWiki API endpoint and credentials
-API_URL = "http://192.168.0.99/mediawiki/api.php"
+API_URL = "http://wwos.home.arpa/api.php"
 USERNAME = "will"
 PASSWORD = os.getenv("WWOS_PASSWORD")
+
+if not PASSWORD:
+    bashrc_path = os.path.expanduser("~/.bashrc")
+    if os.path.exists(bashrc_path):
+        with open(bashrc_path, "r") as f:
+            for line in f:
+                # Handle $'...' ANSI C quoting first
+                ansi_match = re.search(r"export WWOS_PASSWORD=\$'([^']+)'", line)
+                if ansi_match:
+                    PASSWORD = ansi_match.group(1)
+                    break
+                match = re.search(r"export WWOS_PASSWORD=['\"]?([^'\"]+)['\"]?", line)
+                if match:
+                    PASSWORD = match.group(1)
+                    break
+
 SESSION = requests.Session()
 
 

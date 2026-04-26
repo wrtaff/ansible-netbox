@@ -13,7 +13,7 @@ Purpose:
 import requests
 import os
 
-API_URL = "http://192.168.0.99/mediawiki/api.php"
+API_URL = "http://wwos.home.arpa/api.php"
 USERNAME = "will"
 PASSWORD = os.getenv("WWOS_PASSWORD")
 
