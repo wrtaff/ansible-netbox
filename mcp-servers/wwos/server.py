@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/wwos/server.py
-Version:        1.4
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-04-25
+Last Modified:  2026-04-28
 Context:        WWOS (MediaWiki) Integration
 
 Purpose:
@@ -13,6 +13,12 @@ Purpose:
     tools for fetching, creating, and updating wiki pages.
 
 Revision History:
+    v1.6 (2026-04-28): Fix wwos_move_page redirect: omit 'noredirect' key entirely
+                       when redirect is wanted — MediaWiki treats any non-empty value
+                       (including "0") as true. Also log full API response and check
+                       'redirectcreated' key in response to verify redirect was made.
+    v1.5 (2026-04-28): Add wwos_move_page tool — MediaWiki action=move with optional
+                       redirect, used for MoS title-casing fixes and other renames.
     v1.4 (2026-04-25): Fix _read_bashrc_password() to handle $'...' ANSI C quoting —
                        previously returned $'<password>!!' instead of <password> causing
                        both ensure_auth() validation attempts to fail.
@@ -149,7 +155,7 @@ from scripts import wikipedia_to_wwos as wtw
 # Initialize FastMCP server
 mcp = FastMCP("wwos-server")
 
-logger.info("Initializing WWOS MCP Server v1.4")
+logger.info("Initializing WWOS MCP Server v1.6")
 
 @mcp.tool(name="wwos_ping")
 def ping() -> str:
@@ -301,6 +307,69 @@ def import_from_wikipedia(url: str, categories: str, title: Optional[str] = None
     except Exception as e:
         logger.error(f"Error importing from Wikipedia: {e}")
         return f"Error importing from Wikipedia: {e}"
+
+@mcp.tool(name="wwos_move_page")
+def move_page(from_page: str, to_page: str, reason: str = "rename: MoS title casing", create_redirect: bool = True) -> str:
+    """
+    Move (rename) a WWOS page, optionally leaving a redirect at the old title.
+    from_page: Current page title.
+    to_page: New page title.
+    reason: Edit summary recorded in the move log.
+    create_redirect: Leave a redirect at the old title (default True).
+    """
+    logger.info(f"WWOS: Move page '{from_page}' → '{to_page}'")
+    api_url = "http://wwos.home.arpa/api.php"
+    password = os.getenv("WWOS_PASSWORD")
+    if not password:
+        return "Error: WWOS_PASSWORD not set."
+    try:
+        session = _requests.Session()
+        # Get login token
+        r = session.get(api_url, params={"action": "query", "meta": "tokens", "type": "login", "format": "json"}, timeout=10)
+        login_token = r.json()["query"]["tokens"]["logintoken"]
+        # Login
+        login_resp = session.post(api_url, data={
+            "action": "login", "lgname": "will", "lgpassword": password,
+            "lgtoken": login_token, "format": "json"
+        }, timeout=10)
+        if login_resp.json().get("login", {}).get("result") != "Success":
+            return f"Error: WWOS login failed: {login_resp.json()}"
+        # Get CSRF token
+        r = session.get(api_url, params={"action": "query", "meta": "tokens", "format": "json"}, timeout=10)
+        csrf_token = r.json()["query"]["tokens"]["csrftoken"]
+        # Move — omit 'noredirect' entirely when a redirect is wanted; any
+        # non-empty value (including "0") is treated as true by the MediaWiki API.
+        move_data = {
+            "action": "move",
+            "from": from_page,
+            "to": to_page,
+            "reason": reason,
+            "movetalk": "1",
+            "token": csrf_token,
+            "format": "json"
+        }
+        if not create_redirect:
+            move_data["noredirect"] = "1"
+        resp = session.post(api_url, data=move_data, timeout=10)
+        result = resp.json()
+        logger.info(f"WWOS: Move API response: {result}")
+        if "move" in result:
+            moved = result["move"]
+            redirect_created = "redirectcreated" in moved
+            msg = f"Successfully moved '{moved['from']}' → '{moved['to']}'."
+            if redirect_created:
+                msg += f" Redirect left at '{moved['from']}'."
+            elif create_redirect:
+                msg += f" Warning: redirect was requested but not created (check suppressredirect rights)."
+            return msg
+        elif "error" in result:
+            return f"Error moving page: {result['error']['info']}"
+        else:
+            return f"Unexpected response: {result}"
+    except Exception as e:
+        logger.error(f"Error moving page: {e}")
+        return f"Error moving page '{from_page}' → '{to_page}': {e}"
+
 
 if __name__ == "__main__":
     logger.info("Starting WWOS MCP server...")
