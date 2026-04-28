@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       mcp-servers/wwos/server.py
-Version:        1.6
+Version:        1.7
 Author:         Gemini CLI
 Last Modified:  2026-04-28
 Context:        WWOS (MediaWiki) Integration
@@ -13,6 +13,8 @@ Purpose:
     tools for fetching, creating, and updating wiki pages.
 
 Revision History:
+    v1.7 (2026-04-28): Update wwos_generate_citation: drop ref_only param, always
+                       return ref-tag only — inline link before <ref> was a duplicate.
     v1.6 (2026-04-28): Fix wwos_move_page redirect: omit 'noredirect' key entirely
                        when redirect is wanted — MediaWiki treats any non-empty value
                        (including "0") as true. Also log full API response and check
@@ -155,7 +157,7 @@ from scripts import wikipedia_to_wwos as wtw
 # Initialize FastMCP server
 mcp = FastMCP("wwos-server")
 
-logger.info("Initializing WWOS MCP Server v1.6")
+logger.info("Initializing WWOS MCP Server v1.7")
 
 @mcp.tool(name="wwos_ping")
 def ping() -> str:
@@ -260,13 +262,14 @@ def get_category_info(category_name: str) -> str:
         return f"Error fetching category info for '{category_name}': {e}"
 
 @mcp.tool(name="wwos_generate_citation")
-def generate_citation(url: str, title: Optional[str] = None, source: Optional[str] = None, ref_only: bool = False) -> str:
+def generate_citation(url: str, title: Optional[str] = None, source: Optional[str] = None) -> str:
     """
     Generate a WWOS-style citation.
-    Standard format: [URL TITLE] <ref>SOURCE: [URL TITLE] retrieved YYYY-MM-DD</ref>
+    Standard format: <ref>SOURCE: [URL TITLE] retrieved YYYY-MM-DD</ref>
+    Place the returned tag inline at the end of the sentence it supports.
     """
     logger.info(f"WWOS: Generate citation for {url}")
-    return wc.format_wwos_citation(url, title, source, ref_only)
+    return wc.format_wwos_citation(url, title, source)
 
 @mcp.tool(name="wwos_import_from_wikipedia")
 def import_from_wikipedia(url: str, categories: str, title: Optional[str] = None) -> str:

@@ -17,15 +17,13 @@ if project_scripts not in sys.path:
 try:
     from wwos_citation import format_wwos_citation
 except ImportError:
-    def format_wwos_citation(url, title=None, source=None, ref_only=False):
+    def format_wwos_citation(url, title=None, source=None):
         from datetime import datetime
         today = datetime.now().strftime("%Y-%m-%d")
         display_title = title if title else url
         link_text = f"[{url} {display_title}]"
         source_prefix = f"{source}: " if source else ""
-        ref_tag = f"<ref>{source_prefix}{link_text} retrieved {today}</ref>"
-        if ref_only: return ref_tag
-        return f"{link_text} {ref_tag}"
+        return f"<ref>{source_prefix}{link_text} retrieved {today}</ref>"
 
 try:
     from create_wwos_page import create_wwos_page, page_exists, get_page_content
@@ -117,7 +115,7 @@ def format_content(content, url, title=None):
     content = re.sub(r'\[\[Category:[^]]+\]\]\n?', '', content, flags=re.IGNORECASE)
     
     # 2. Insert citation after first paragraph
-    citation = format_wwos_citation(url, title, source="Wikipedia", ref_only=True)
+    citation = format_wwos_citation(url, title, source="Wikipedia")
     
     # Heuristic to find end of first paragraph:
     # Scan text, respecting template {{...}} and table {|...|} nesting.
