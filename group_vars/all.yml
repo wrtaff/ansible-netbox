@@ -1,2 +1,10 @@
 ---
 system_timezone: "America/New_York"
+
+# Tailscale cert defaults — overridden per group (e.g. yunohost_servers)
+tailscale_cert_domain_override: ""
+tailscale_cert_dir_base: "/etc/ssl/tailscale"
+tailscale_cert_owner: "root"
+tailscale_cert_group: "ssl-cert"
+tailscale_cert_mode: "0644"
+tailscale_cert_reload_command: ""
