@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.24
+Version:        1.25
 Author:         Gemini CLI
-Last Modified:  2026-04-10
+Last Modified:  2026-05-09
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -21,7 +21,10 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
-    v1.24 (2026-04-10): Added calendar_update_event functionality to update existing 
+    v1.25 (2026-05-09): Added --calendar flag to all cal-* commands so events can be
+                       written to a specific calendar (e.g. the EP Mill 3 board calendar)
+                       rather than always defaulting to 'primary'.
+    v1.24 (2026-04-10): Added calendar_update_event functionality to update existing
                        calendar events.
     v1.23 (2026-04-07): Added location support to calendar_create_event and robust ISO 
                        time zone error handling with America/New_York default.
@@ -565,12 +568,12 @@ def drive_export_file(file_id, mime_type='text/plain', output_file=None):
 
 # --- CALENDAR FUNCTIONS ---
 
-def calendar_list_events(max_results=10, output_format='text'):
+def calendar_list_events(max_results=10, output_format='text', calendar_id='primary'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
     try:
         now = datetime.datetime.utcnow().isoformat() + 'Z'
-        results = service.events().list(calendarId='primary', timeMin=now,
+        results = service.events().list(calendarId=calendar_id, timeMin=now,
                                         maxResults=max_results, singleEvents=True,
                                         orderBy='startTime').execute()
         events = results.get('items', [])
@@ -578,7 +581,7 @@ def calendar_list_events(max_results=10, output_format='text'):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def calendar_create_event(summary, start_time_str, duration_mins=60, description=None, location=None, attendees=None, all_day=False, output_format='text'):
+def calendar_create_event(summary, start_time_str, duration_mins=60, description=None, location=None, attendees=None, all_day=False, output_format='text', calendar_id='primary'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
     try:
@@ -619,16 +622,16 @@ def calendar_create_event(summary, start_time_str, duration_mins=60, description
         if attendees:
             event['attendees'] = [{'email': email.strip()} for email in attendees.split(',')]
         
-        event = service.events().insert(calendarId='primary', body=event).execute()
+        event = service.events().insert(calendarId=calendar_id, body=event).execute()
         output(event, output_format)
     except Exception as error:
         output({'error': str(error)}, output_format)
 
-def calendar_update_event(event_id, summary=None, start_time_str=None, duration_mins=None, description=None, location=None, attendees=None, all_day=None, output_format='text'):
+def calendar_update_event(event_id, summary=None, start_time_str=None, duration_mins=None, description=None, location=None, attendees=None, all_day=None, output_format='text', calendar_id='primary'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
     try:
-        event = service.events().get(calendarId='primary', eventId=event_id).execute()
+        event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
         
         if summary:
             event['summary'] = summary
@@ -696,25 +699,25 @@ def calendar_update_event(event_id, summary=None, start_time_str=None, duration_
             else:
                 event['attendees'] = [{'email': email.strip()} for email in attendees.split(',')]
         
-        updated_event = service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
+        updated_event = service.events().update(calendarId=calendar_id, eventId=event_id, body=event).execute()
         output(updated_event, output_format)
     except Exception as error:
         output({'error': str(error)}, output_format)
 
-def calendar_get_event(event_id, output_format='text'):
+def calendar_get_event(event_id, output_format='text', calendar_id='primary'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
     try:
-        event = service.events().get(calendarId='primary', eventId=event_id).execute()
+        event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
         output(event, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def calendar_delete_event(event_id, output_format='text'):
+def calendar_delete_event(event_id, output_format='text', calendar_id='primary'):
     creds = get_creds()
     service = build('calendar', 'v3', credentials=creds)
     try:
-        service.events().delete(calendarId='primary', eventId=event_id).execute()
+        service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
         output({'result': f'Event {event_id} deleted'}, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
@@ -873,6 +876,7 @@ if __name__ == '__main__':
 
     parser_cal_list = subparsers.add_parser('cal-list', help='List calendar events')
     parser_cal_list.add_argument('--max', type=int, default=10, help='Max results')
+    parser_cal_list.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
     parser_cal_create = subparsers.add_parser('cal-create', help='Create calendar event')
     parser_cal_create.add_argument('summary', help='Event summary')
@@ -882,6 +886,7 @@ if __name__ == '__main__':
     parser_cal_create.add_argument('--location', help='Event location')
     parser_cal_create.add_argument('--attendees', help='Comma-separated attendee emails')
     parser_cal_create.add_argument('--all-day', action='store_true', help='Create an all-day event')
+    parser_cal_create.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
     parser_cal_update = subparsers.add_parser('cal-update', help='Update calendar event')
     parser_cal_update.add_argument('id', help='Event ID')
@@ -892,12 +897,15 @@ if __name__ == '__main__':
     parser_cal_update.add_argument('--location', help='Event location')
     parser_cal_update.add_argument('--attendees', help='Comma-separated attendee emails')
     parser_cal_update.add_argument('--all-day', type=str, choices=['true', 'false'], help='Convert to all-day (true) or timed (false)')
+    parser_cal_update.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
     parser_cal_delete = subparsers.add_parser('cal-delete', help='Delete calendar event')
     parser_cal_delete.add_argument('id', help='Event ID')
+    parser_cal_delete.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
     parser_cal_get = subparsers.add_parser('cal-get', help='Get calendar event details')
     parser_cal_get.add_argument('id', help='Event ID')
+    parser_cal_get.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
     parser_tasks_list = subparsers.add_parser('tasks-list', help='List tasks')
     parser_tasks_list.add_argument('--max', type=int, default=10, help='Max results')
@@ -947,18 +955,18 @@ if __name__ == '__main__':
     elif args.command == 'drive-upload':
         drive_upload_file(args.file_path, args.mime, args.parent, args.target_mime, args.format)
     elif args.command == 'cal-list':
-        calendar_list_events(args.max, args.format)
+        calendar_list_events(args.max, args.format, args.calendar)
     elif args.command == 'cal-create':
-        calendar_create_event(args.summary, args.start, args.duration, args.desc, args.location, args.attendees, args.all_day, args.format)
+        calendar_create_event(args.summary, args.start, args.duration, args.desc, args.location, args.attendees, args.all_day, args.format, args.calendar)
     elif args.command == 'cal-update':
         all_day_bool = None
         if args.all_day == 'true': all_day_bool = True
         elif args.all_day == 'false': all_day_bool = False
-        calendar_update_event(args.id, args.summary, args.start, args.duration, args.desc, args.location, args.attendees, all_day_bool, args.format)
+        calendar_update_event(args.id, args.summary, args.start, args.duration, args.desc, args.location, args.attendees, all_day_bool, args.format, args.calendar)
     elif args.command == 'cal-get':
-        calendar_get_event(args.id, args.format)
+        calendar_get_event(args.id, args.format, args.calendar)
     elif args.command == 'cal-delete':
-        calendar_delete_event(args.id, args.format)
+        calendar_delete_event(args.id, args.format, args.calendar)
     elif args.command == 'tasks-list':
         tasks_list_tasks(args.max, args.format)
     elif args.command == 'tasks-create':
