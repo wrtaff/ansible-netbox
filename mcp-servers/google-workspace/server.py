@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.0
+Version:        2.1
 Author:         Gemini CLI
-Last Modified:  2026-04-15
+Last Modified:  2026-05-09
 Context:        http://trac.gafla.us.com/ticket/3084
 
 Purpose:
@@ -13,6 +13,9 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v2.1 (2026-05-09): Added optional calendar_id parameter to all five calendar
+                       tools so agents can target a specific calendar (e.g. a
+                       shared board calendar) rather than always using 'primary'.
     v2.0 (2026-04-15): gmail_get_message now accepts optional drive_parent to
                        auto-download non-image attachments and upload them to
                        Drive, folding links into the Trac comment. Added
@@ -417,57 +420,57 @@ def drive_create_folder(name: str, parent_id: Optional[str] = None) -> str:
 # --- CALENDAR TOOLS ---
 
 @mcp.tool(name="calendar_list_events")
-def list_calendar_events(max_results: int = 10) -> str:
-    """List upcoming events from the primary calendar."""
+def list_calendar_events(max_results: int = 10, calendar_id: Optional[str] = None) -> str:
+    """List upcoming events. calendar_id targets a specific calendar (default: primary)."""
     logger.info("Calendar: Listing events")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.calendar_list_events(max_results=max_results, output_format='json')
+            gwm.calendar_list_events(max_results=max_results, output_format='json', calendar_id=calendar_id or 'primary')
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 
 @mcp.tool(name="calendar_get_event")
-def calendar_get_event(event_id: str) -> str:
-    """Get details for a specific calendar event."""
+def calendar_get_event(event_id: str, calendar_id: Optional[str] = None) -> str:
+    """Get details for a specific calendar event. calendar_id targets a specific calendar (default: primary)."""
     logger.info(f"Calendar: Getting event {event_id}")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.calendar_get_event(event_id=event_id, output_format='json')
+            gwm.calendar_get_event(event_id=event_id, output_format='json', calendar_id=calendar_id or 'primary')
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 
 @mcp.tool(name="calendar_create_event")
-def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60, description: Optional[str] = None, location: Optional[str] = None, attendees: Optional[str] = None, all_day: bool = False) -> str:
-    """Create a calendar event. For normal events, start_time is ISO. For all-day, use YYYY-MM-DD."""
+def create_calendar_event(summary: str, start_time: str, duration_mins: int = 60, description: Optional[str] = None, location: Optional[str] = None, attendees: Optional[str] = None, all_day: bool = False, calendar_id: Optional[str] = None) -> str:
+    """Create a calendar event. For normal events, start_time is ISO. For all-day, use YYYY-MM-DD. calendar_id targets a specific calendar (default: primary)."""
     logger.info(f"Calendar: Creating event '{summary}' at {start_time} (location='{location}')")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.calendar_create_event(summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, location=location, attendees=attendees, all_day=all_day, output_format='json')
+            gwm.calendar_create_event(summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, location=location, attendees=attendees, all_day=all_day, output_format='json', calendar_id=calendar_id or 'primary')
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 
 @mcp.tool(name="calendar_update_event")
-def update_calendar_event(event_id: str, summary: Optional[str] = None, start_time: Optional[str] = None, duration_mins: Optional[int] = None, description: Optional[str] = None, location: Optional[str] = None, attendees: Optional[str] = None, all_day: Optional[bool] = None) -> str:
-    """Update an existing calendar event. all_day is optional boolean."""
+def update_calendar_event(event_id: str, summary: Optional[str] = None, start_time: Optional[str] = None, duration_mins: Optional[int] = None, description: Optional[str] = None, location: Optional[str] = None, attendees: Optional[str] = None, all_day: Optional[bool] = None, calendar_id: Optional[str] = None) -> str:
+    """Update an existing calendar event. all_day is optional boolean. calendar_id targets a specific calendar (default: primary)."""
     logger.info(f"Calendar: Updating event {event_id}")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.calendar_update_event(event_id=event_id, summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, location=location, attendees=attendees, all_day=all_day, output_format='json')
+            gwm.calendar_update_event(event_id=event_id, summary=summary, start_time_str=start_time, duration_mins=duration_mins, description=description, location=location, attendees=attendees, all_day=all_day, output_format='json', calendar_id=calendar_id or 'primary')
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
