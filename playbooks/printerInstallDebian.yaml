@@ -1,3 +1,22 @@
+# ------------------------------------------------------------------------------
+# Playbook: printerInstallDebian.yaml
+# Path: /opt/netbox/ansible-netbox/playbooks/printerInstallDebian.yaml
+# Version: 1.1
+# Last Modified: 2026-05-10
+# Trac Ticket: #3246
+# Wiki Page: http://192.168.0.99/mediawiki/index.php/Playbooks/printerInstallDebian.yaml
+#
+# Purpose:
+#   Configures network printers (HP LaserJet P2055dn and HP OfficeJet Pro 9010)
+#   on Debian workstations, ensuring CUPS and required drivers are installed.
+#
+# Prerequisites:
+#   - Hosts must be part of the 'debian' or 'desktops' group.
+#   - PPD files (e.g., laserjet.ppd) must be available on the control machine.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/printerInstallDebian.yaml
+# ------------------------------------------------------------------------------
 ---
 - name: Configure Printer on Debian Workranstation
   hosts: debian

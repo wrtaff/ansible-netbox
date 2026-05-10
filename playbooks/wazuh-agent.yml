@@ -42,7 +42,7 @@
 
   vars:
     netbox_url: "http://netbox1.home.arpa"
-    netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+    netbox_token: "{{ netbox_api_token }}"
     wazuh_agent_config:
       repo:
         apt: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"

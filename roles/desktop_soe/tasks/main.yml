@@ -15,6 +15,14 @@
       - imagemagick
       - ghostscript
       - pdfarranger
+      - cups
+      - cups-client
+      - cups-bsd
+      - printer-driver-all
+      - hplip
+      - system-config-printer
+      - system-config-printer-udev
+      - cups-browsed
     state: present
     update_cache: yes
 

@@ -42,7 +42,7 @@
     # Use '@' for UDP (default, less reliable) or '@@' for TCP (more reliable)
     graylog_protocol: "@"
     netbox_url: "http://netbox1.home.arpa"
-    netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+    netbox_token: "{{ netbox_api_token }}"
 
   # --- Tasks ---
   # The sequence of operations Ansible will perform on each host.

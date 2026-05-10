@@ -17,7 +17,7 @@
     - name: "TASK 2: Fetch device info from NetBox"
       netbox.netbox.netbox_device:
         netbox_url: "{{ lookup('env', 'NETBOX_API') }}"
-        netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+        netbox_token: "{{ netbox_api_token }}"
         validate_certs: false
         data:
           name: "{{ target_device }}"

@@ -1,6 +1,7 @@
 ---
 # Configuration for NetBox backup using pbs_client role
 # Secrets are managed in vault.yml
+ansible_user: root
 
 pbs_client_user: "{{ netbox_pbs_token }}"
 pbs_client_password: "{{ netbox_pbs_password }}"
