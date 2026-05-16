@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/netbox/server.py
-Version:        1.0
+Version:        1.1
 Author:         Gemini CLI
-Last Modified:  2026-04-12
+Last Modified:  2026-05-15
 Purpose:
     Model Context Protocol (MCP) server for NetBox integration.
     Provides tools for NetBox device and VM management directly within
@@ -14,6 +14,7 @@ Purpose:
 import os
 import logging
 import pynetbox
+import json
 from typing import Optional, Dict, Any, List
 from mcp.server.fastmcp import FastMCP
 
@@ -65,16 +66,36 @@ def get_nb():
         raise ValueError("NETBOX_TOKEN is not set")
     
     nb = pynetbox.api(NETBOX_URL, token=NETBOX_TOKEN)
-    # Disable SSL verification for internal NetBox if needed
-    # nb.http_session.verify = False 
     return nb
+
+def parse_kwargs(kwargs_str: Optional[str], **other_params) -> Dict[str, Any]:
+    """Parses a kwargs string (JSON or key=value) and combines with other params."""
+    result = {k: v for k, v in other_params.items() if v is not None}
+    if not kwargs_str:
+        return result
+    
+    try:
+        # Try JSON
+        json_kwargs = json.loads(kwargs_str)
+        if isinstance(json_kwargs, dict):
+            result.update(json_kwargs)
+            return result
+    except json.JSONDecodeError:
+        pass
+        
+    # Try key=value
+    for pair in kwargs_str.split(','):
+        if '=' in pair:
+            k, v = pair.split('=', 1)
+            result[k.strip()] = v.strip()
+            
+    return result
 
 @mcp.tool(name="netbox_ping")
 def ping() -> str:
     """Test connectivity to NetBox."""
     try:
         nb = get_nb()
-        # Simple status check
         status = nb.status()
         return f"Connected to NetBox {status.get('netbox-version')}"
     except Exception as e:
@@ -88,7 +109,6 @@ def get_vm(name: str) -> Optional[Dict[str, Any]]:
         nb = get_nb()
         vm = nb.virtualization.virtual_machines.get(name=name)
         if vm:
-            # Convert record to dict for JSON serialization
             return dict(vm)
         return None
     except Exception as e:
@@ -131,7 +151,7 @@ def search_devices(query: str) -> List[Dict[str, Any]]:
         return [{"error": str(e)}]
 
 @mcp.tool(name="netbox_update_vm")
-def update_vm(name: str, **kwargs) -> Dict[str, Any]:
+def update_vm(name: str, kwargs: Optional[str] = None, status: Optional[str] = None, comments: Optional[str] = None, description: Optional[str] = None) -> Dict[str, Any]:
     """Update fields on a Virtual Machine by name."""
     try:
         nb = get_nb()
@@ -139,14 +159,15 @@ def update_vm(name: str, **kwargs) -> Dict[str, Any]:
         if not vm:
             return {"error": f"VM '{name}' not found"}
         
-        vm.update(kwargs)
+        update_data = parse_kwargs(kwargs, status=status, comments=comments, description=description)
+        vm.update(update_data)
         return dict(vm)
     except Exception as e:
         logger.error(f"Failed to update VM '{name}': {e}")
         return {"error": str(e)}
 
 @mcp.tool(name="netbox_update_device")
-def update_device(name: str, **kwargs) -> Dict[str, Any]:
+def update_device(name: str, kwargs: Optional[str] = None, status: Optional[str] = None, comments: Optional[str] = None, description: Optional[str] = None, serial: Optional[str] = None, asset_tag: Optional[str] = None) -> Dict[str, Any]:
     """Update fields on a physical Device by name."""
     try:
         nb = get_nb()
@@ -154,10 +175,28 @@ def update_device(name: str, **kwargs) -> Dict[str, Any]:
         if not device:
             return {"error": f"Device '{name}' not found"}
         
-        device.update(kwargs)
+        update_data = parse_kwargs(kwargs, status=status, comments=comments, description=description, serial=serial, asset_tag=asset_tag)
+        device.update(update_data)
         return dict(device)
     except Exception as e:
         logger.error(f"Failed to update device '{name}': {e}")
+        return {"error": str(e)}
+
+@mcp.tool(name="netbox_update_device_type")
+def update_device_type(model: str, kwargs: Optional[str] = None, comments: Optional[str] = None, description: Optional[str] = None) -> Dict[str, Any]:
+    """Update fields on a Device Type by model name."""
+    try:
+        nb = get_nb()
+        dt = nb.dcim.device_types.get(model=model)
+        if not dt:
+            return {"error": f"Device Type '{model}' not found"}
+        
+        update_data = parse_kwargs(kwargs, comments=comments, description=description)
+        if update_data:
+            dt.update(update_data)
+        return dict(dt)
+    except Exception as e:
+        logger.error(f"Failed to update device type '{model}': {e}")
         return {"error": str(e)}
 
 @mcp.tool(name="netbox_get_interfaces")
@@ -192,7 +231,6 @@ def get_ip_addresses(query: Optional[str] = None, device_name: Optional[str] = N
             device = nb.dcim.devices.get(name=device_name)
             if not device:
                 return [{"error": f"Device '{device_name}' not found"}]
-            # There is no direct filter for device name in IP addresses, we need to filter by device_id via interfaces
             ips = nb.ipam.ip_addresses.filter(device_id=device.id)
             return [dict(ip) for ip in ips]
         elif vm_name:

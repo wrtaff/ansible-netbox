@@ -28,9 +28,10 @@ def get_category_info(cat_name):
     })
     
     # Get page content for Category:Name
+    full_cat_name = cat_name if cat_name.startswith("Category:") else f"Category:{cat_name}"
     params = {
         "action": "query",
-        "titles": f"Category:{cat_name}",
+        "titles": full_cat_name,
         "prop": "revisions",
         "rvprop": "content",
         "format": "json"

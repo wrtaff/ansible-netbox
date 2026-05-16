@@ -28,10 +28,13 @@ def get_category_members(cat_name):
     })
     
     # List members
+    # Ensure cat_name doesn't result in double-prefixing
+    full_cat_name = cat_name if cat_name.startswith("Category:") else f"Category:{cat_name}"
+    
     params = {
         "action": "query",
         "list": "categorymembers",
-        "cmtitle": f"Category:{cat_name}",
+        "cmtitle": full_cat_name,
         "cmlimit": "max",
         "format": "json"
     }
