@@ -1,11 +1,28 @@
 #!/usr/bin/env python3
 """
-Absolute Path: /opt/vikunja-helper/local_vikunja_server.py
-Purpose:       A simple HTTP server to act as a bridge between the Trac bookmarklet
-               and the Vikunja API. It receives POST requests with task details
-               and creates tasks in Vikunja using a secure API token.
-Last Modified: 2026-01-26 17:30:00
-Trac Ticket:   http://trac.home.arpa/ticket/2963
+================================================================================
+Filename:       local_vikunja_server.py
+Version:        1.4
+Author:         Will
+Last Modified:  2026-05-19
+Context:        http://trac.gafla.us.com/ticket/2790
+
+Purpose:
+    Lightweight HTTP bridge between the Trac bookmarklet (trac2vik.js) and the
+    Vikunja API. Receives POST requests containing Trac ticket details and
+    creates corresponding tasks in Vikunja using a secure API token supplied
+    via environment variable.
+
+Usage:
+    Managed as a systemd service (vikunja-helper) on gmailctl-ansible.
+    VIKUNJA_API_TOKEN environment variable must be set in the service unit.
+    Deploy path: /opt/vikunja-helper/local_vikunja_server.py
+    Ansible playbook: playbooks/deploy_trac_vik_servlet_helper.yml
+
+Notes:
+    Always bump version and annotate changes in this header when modifying.
+    Related ticket: http://trac.gafla.us.com/ticket/2963 (urllib refactor)
+================================================================================
 """
 import http.server
 import socketserver
