@@ -1,0 +1,76 @@
+# ==============================================================================
+# Filename:       install_playwright_mcp.yml
+# Version:        1.0
+# Author:         Claude Code
+# Last Modified:  2026-05-19
+# Context:        http://trac.home.arpa/ticket/3472
+#
+# Purpose:
+#   Installs the Playwright MCP server (@playwright/mcp) globally via npm
+#   on the target host, and installs the Chromium browser binaries required
+#   for headless browser automation.
+#
+# Use Case:
+#   Enables AI agents (Claude Code and any MCP-compliant client) to perform
+#   browser automation tasks — form filling, navigation, scraping — via the
+#   Model Context Protocol. LLM-agnostic: any MCP client can drive it.
+#
+# Prerequisites:
+#   - Node.js and npm installed on target host
+#   - Internet access for npm registry and Playwright browser download
+#   - Ansible become (sudo) privileges
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/install_playwright_mcp.yml --limit athena
+#
+# Post-install:
+#   Wire .mcp.json in the pops repo with:
+#     "playwright": { "type": "stdio", "command": "npx", "args": ["@playwright/mcp"] }
+#   Restart Claude Code session to load the new MCP server.
+# ==============================================================================
+---
+- name: Install Playwright MCP server
+  hosts: athena
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: 0. Check if @playwright/mcp is already installed
+      ansible.builtin.command:
+        cmd: npm list -g @playwright/mcp --depth=0
+      register: playwright_mcp_before
+      changed_when: false
+      failed_when: false
+      tags: [install, verify]
+
+    - name: 1. Install @playwright/mcp globally via npm
+      ansible.builtin.npm:
+        name: "@playwright/mcp"
+        global: true
+        state: latest
+      tags: install
+
+    - name: 2. Install Playwright Chromium browser and system dependencies
+      ansible.builtin.command:
+        cmd: npx playwright install --with-deps chromium
+      changed_when: true
+      tags: install
+
+    - name: 3. Verify @playwright/mcp is installed
+      ansible.builtin.command:
+        cmd: npm list -g @playwright/mcp --depth=0
+      register: playwright_mcp_after
+      changed_when: false
+      tags: verify
+
+    - name: 4. Show installation result
+      ansible.builtin.debug:
+        msg: >-
+          @playwright/mcp: {{ playwright_mcp_after.stdout }}
+          {% if playwright_mcp_before.rc != 0 %}
+          (fresh install)
+          {% else %}
+          (already present / updated)
+          {% endif %}
+      when: playwright_mcp_after.rc == 0
+      tags: verify
