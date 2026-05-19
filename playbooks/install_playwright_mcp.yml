@@ -1,23 +1,24 @@
 # ==============================================================================
 # Filename:       install_playwright_mcp.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Claude Code
 # Last Modified:  2026-05-19
 # Context:        http://trac.home.arpa/ticket/3472
 #
 # Purpose:
 #   Installs the Playwright MCP server (@playwright/mcp) globally via npm
-#   on the target host, and installs the Chromium browser binaries required
-#   for headless browser automation.
+#   on the target host. Configured to use the system-installed Firefox
+#   browser rather than downloading Playwright-managed browser binaries.
 #
 # Use Case:
 #   Enables AI agents (Claude Code and any MCP-compliant client) to perform
-#   browser automation tasks — form filling, navigation, scraping — via the
+#   browser automation tasks -- form filling, navigation, scraping -- via the
 #   Model Context Protocol. LLM-agnostic: any MCP client can drive it.
 #
 # Prerequisites:
 #   - Node.js and npm installed on target host
-#   - Internet access for npm registry and Playwright browser download
+#   - Firefox installed on target host (verified by task 1)
+#   - Internet access for npm registry
 #   - Ansible become (sudo) privileges
 #
 # Usage:
@@ -25,8 +26,18 @@
 #
 # Post-install:
 #   Wire .mcp.json in the pops repo with:
-#     "playwright": { "type": "stdio", "command": "npx", "args": ["@playwright/mcp"] }
+#     "playwright": {
+#       "type": "stdio",
+#       "command": "npx",
+#       "args": ["@playwright/mcp", "--browser", "firefox", "--executable-path", "/usr/bin/firefox"]
+#     }
 #   Restart Claude Code session to load the new MCP server.
+#
+# Update 1.1:
+#   - Removed Playwright-managed Chromium download step. npx playwright install
+#     required an interactive prompt and was unnecessary given Firefox is
+#     already installed on athena. Switched to system Firefox via
+#     --executable-path. Added Firefox presence verification task.
 # ==============================================================================
 ---
 - name: Install Playwright MCP server
@@ -35,7 +46,15 @@
   gather_facts: true
 
   tasks:
-    - name: 0. Check if @playwright/mcp is already installed
+    - name: 0. Verify Firefox is installed
+      ansible.builtin.command:
+        cmd: firefox --version
+      register: firefox_version
+      changed_when: false
+      failed_when: firefox_version.rc != 0
+      tags: [install, verify]
+
+    - name: 1. Check if @playwright/mcp is already installed
       ansible.builtin.command:
         cmd: npm list -g @playwright/mcp --depth=0
       register: playwright_mcp_before
@@ -43,17 +62,11 @@
       failed_when: false
       tags: [install, verify]
 
-    - name: 1. Install @playwright/mcp globally via npm
+    - name: 2. Install @playwright/mcp globally via npm
       ansible.builtin.npm:
         name: "@playwright/mcp"
         global: true
         state: latest
-      tags: install
-
-    - name: 2. Install Playwright Chromium browser and system dependencies
-      ansible.builtin.command:
-        cmd: npx playwright install --with-deps chromium
-      changed_when: true
       tags: install
 
     - name: 3. Verify @playwright/mcp is installed
@@ -66,6 +79,7 @@
     - name: 4. Show installation result
       ansible.builtin.debug:
         msg: >-
+          Firefox: {{ firefox_version.stdout }} |
           @playwright/mcp: {{ playwright_mcp_after.stdout }}
           {% if playwright_mcp_before.rc != 0 %}
           (fresh install)
