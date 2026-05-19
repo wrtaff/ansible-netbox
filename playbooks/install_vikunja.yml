@@ -1,3 +1,34 @@
+# ==============================================================================
+# Filename:       install_vikunja.yml
+# Absolute Path:  /home/will/ansible-netbox/playbooks/install_vikunja.yml
+# Version:        1.0
+# Author:         Claude Code
+# Last Modified:  2026-05-19
+# Context:        http://trac.home.arpa/ticket/2862
+#
+# Purpose:
+#   Provisions Vikunja from source on the vikunja_servers group (vik-01).
+#   Compiles the Go API and pnpm frontend, deploys the binary, config, and
+#   systemd service. Requires Go and pnpm to be available on the target host.
+#
+# Note:
+#   Building from source produces a binary that reports version "dev" rather
+#   than a release tag. For upgrades, use upgrade_vikunja.yml instead, which
+#   downloads a pre-built release binary and preserves proper version strings.
+#
+# Prerequisites:
+#   - vik-01 reachable via Ansible (SSH key: ~/.ssh/id_rsa_lab)
+#   - vault.yml contains vikunja_smtp_user and vikunja_smtp_password
+#   - Sufficient RAM/CPU on vik-01 for Go + pnpm build (may take 20+ min)
+#
+# Usage:
+#   ansible-playbook playbooks/install_vikunja.yml -i inventory.ini
+#   ansible-playbook playbooks/install_vikunja.yml -i inventory.ini --tags build
+#   ansible-playbook playbooks/install_vikunja.yml -i inventory.ini --tags deploy
+#
+# WWOS:    http://192.168.0.99/mediawiki/index.php/Playbooks/install_vikunja.yml
+# GitHub:  https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/install_vikunja.yml
+# ==============================================================================
 ---
 - name: Install Vikunja from Source
   hosts: vikunja_servers

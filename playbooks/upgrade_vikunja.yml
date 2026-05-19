@@ -1,0 +1,155 @@
+# ==============================================================================
+# Filename:       upgrade_vikunja.yml
+# Absolute Path:  /home/will/ansible-netbox/playbooks/upgrade_vikunja.yml
+# Version:        1.0
+# Author:         Claude Code
+# Last Modified:  2026-05-19
+# Context:        http://trac.home.arpa/ticket/3204
+#
+# Purpose:
+#   Upgrades the Vikunja binary on vik-01 in-place using a pre-built release
+#   binary from GitHub. Preserves all task IDs and URLs (SQLite DB untouched).
+#
+# Use Case:
+#   Run this playbook for each Vikunja version upgrade. Override vikunja_version
+#   at the command line (e.g., -e "vikunja_version=v2.4.0").
+#
+# Prerequisites:
+#   - vik-01 reachable via Ansible (SSH key: ~/.ssh/id_rsa_lab)
+#   - Vikunja installed at /usr/local/bin/vikunja (binary install, not Docker)
+#   - SQLite DB at /var/lib/vikunja/vikunja.db
+#   - Internet access on vik-01 to download binary from GitHub
+#   - Verify the exact binary filename against the GitHub release page before
+#     running: https://github.com/go-vikunja/vikunja/releases
+#
+# URL Preservation:
+#   Task URLs (/tasks/123) are based on DB primary keys. In-place binary
+#   upgrade leaves the SQLite DB untouched — all IDs survive. Do NOT restore
+#   from a Vikunja UI data export (that JSON reassigns new IDs on import).
+#
+# Usage:
+#   ansible-playbook playbooks/upgrade_vikunja.yml -i inventory.ini
+#   ansible-playbook playbooks/upgrade_vikunja.yml -i inventory.ini -e "vikunja_version=v2.4.0"
+#
+# Rollback:
+#   The old binary is preserved at /usr/local/bin/vikunja.bak for the duration
+#   of the run. For a full rollback, use the Proxmox LXC snapshot taken before
+#   running this playbook (pct rollback 107 pre-vikunja-upgrade on pve2).
+#
+# WWOS:    http://192.168.0.99/mediawiki/index.php/Playbooks/upgrade_vikunja.yml
+# GitHub:  https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/upgrade_vikunja.yml
+# ==============================================================================
+---
+- name: Upgrade Vikunja binary on vik-01
+  hosts: vik-01
+  become: true
+  gather_facts: false
+
+  vars:
+    vikunja_version: "v2.3.0"
+    vikunja_binary_path: "/usr/local/bin/vikunja"
+    vikunja_db_path: "/var/lib/vikunja/vikunja.db"
+    vikunja_service: "vikunja"
+    # v2.x releases ship as a zip; binary name inside matches vikunja_version
+    vikunja_zip_name: "vikunja-{{ vikunja_version }}-linux-amd64-full.zip"
+    vikunja_binary_in_zip: "vikunja-{{ vikunja_version }}-linux-amd64"
+    vikunja_download_url: "https://github.com/go-vikunja/vikunja/releases/download/{{ vikunja_version }}/{{ vikunja_zip_name }}"
+
+  tasks:
+    - name: Pre. Ensure unzip is installed
+      ansible.builtin.apt:
+        name: unzip
+        state: present
+        update_cache: false
+
+    - name: 0. Record current version
+      ansible.builtin.command: "{{ vikunja_binary_path }} version"
+      register: version_before
+      changed_when: false
+      failed_when: false
+
+    - name: 0b. Display current version
+      ansible.builtin.debug:
+        msg: "Current version before upgrade: {{ version_before.stdout | default('unknown') }}"
+
+    - name: 1. Backup SQLite database
+      ansible.builtin.shell:
+        cmd: "cp {{ vikunja_db_path }} {{ vikunja_db_path }}.bak-$(date +%Y%m%d)"
+      changed_when: true
+
+    - name: 2. Download release zip to /tmp
+      ansible.builtin.get_url:
+        url: "{{ vikunja_download_url }}"
+        dest: "/tmp/{{ vikunja_zip_name }}"
+        mode: "0644"
+        timeout: 120
+
+    - name: 2b. Extract binary from zip
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ vikunja_zip_name }}"
+        dest: /tmp/
+        include: "{{ vikunja_binary_in_zip }}"
+        remote_src: true
+        mode: "0755"
+
+    - name: 3. Verify extracted binary reports expected version
+      ansible.builtin.command: "/tmp/{{ vikunja_binary_in_zip }} version"
+      register: new_version_check
+      changed_when: false
+      failed_when: vikunja_version not in new_version_check.stdout
+
+    - name: 4. Stop Vikunja service
+      ansible.builtin.systemd:
+        name: "{{ vikunja_service }}"
+        state: stopped
+
+    - name: 5. Back up old binary
+      ansible.builtin.copy:
+        src: "{{ vikunja_binary_path }}"
+        dest: "{{ vikunja_binary_path }}.bak"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: 6. Install new binary
+      ansible.builtin.copy:
+        src: "/tmp/{{ vikunja_binary_in_zip }}"
+        dest: "{{ vikunja_binary_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: 7. Start Vikunja service
+      ansible.builtin.systemd:
+        name: "{{ vikunja_service }}"
+        state: started
+
+    - name: 8. Wait for service to become ready
+      ansible.builtin.wait_for:
+        port: 3456
+        host: 127.0.0.1
+        delay: 3
+        timeout: 30
+
+    - name: 9. Verify new version
+      ansible.builtin.command: "{{ vikunja_binary_path }} version"
+      register: version_after
+      changed_when: false
+      failed_when: vikunja_version not in version_after.stdout
+
+    - name: 10. Show upgrade summary
+      ansible.builtin.debug:
+        msg:
+          - "Upgrade complete."
+          - "Before: {{ version_before.stdout | default('unknown') }}"
+          - "After:  {{ version_after.stdout }}"
+
+    - name: 11. Clean up /tmp artifacts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ vikunja_zip_name }}"
+        - "/tmp/{{ vikunja_binary_in_zip }}"
