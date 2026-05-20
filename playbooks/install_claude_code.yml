@@ -1,68 +1,83 @@
 # ==============================================================================
 # Filename:       install_claude_code.yml
-# Version:        1.6
+# Version:        2.1
 # Author:         Gemini CLI
-# Last Modified:  2026-02-21
-# Context:        http://trac.home.arpa/ticket/3038
+# Last Modified:  2026-05-20
+# Context:        http://trac.home.arpa/ticket/3092
 #
 # Purpose:
-#   Installs or updates the Claude Code CLI tool globally via NPM on target hosts.
+#   Migrates Claude Code CLI from NPM to the new native installer and ensures
+#   it is installed/updated on target desktop hosts.
+#
+# Update 2.1:
+#   - Added PATH management in .bashrc for ~/.local/bin.
+#   - Created /usr/local/bin/claude compatibility symlink.
+#   - Removed 'creates' from installer shell command to support updates.
+#
+# Update 2.0:
+#   - Migrated from global NPM package to native installer (install.sh).
+#   - Changed target hosts to 'desktops' (including athena and limbo-bd).
+#   - Added cleanup of legacy NPM package.
+#   - Switched to per-user installation in ~/.local/bin.
 #
 # Update 1.6:
 #   - Changed state from 'present' to 'latest' to allow updates.
 #   - Added pre-check task to capture current version before installation.
-#   - Enhanced debug output to show before/after versions.
-#
-# Update 1.5:
-#   - Finalized installation and documentation.
-#   - Verified and ready for production use.
-#
-# Update 1.4:
-#   - Verified successful installation on limbo-bd. 
-#   - Ready for user testing via '/login'.
-#
-# Update 1.3:
-#   - Removed redundant nodejs/npm package task. They are already installed
-#     and attempting to manage them via apt caused dependency conflicts.
 # ==============================================================================
 ---
-- name: Install or Update Claude Code CLI
-  hosts: limbo-bd
-  become: true
+- name: Install or Update Claude Code CLI (Native)
+  hosts: desktops
+  become: false
   gather_facts: true
 
   tasks:
-    - name: 0. Check current Claude Code version (if any)
-      ansible.builtin.command:
-        cmd: claude --version
-      register: claude_version_before
-      changed_when: false
-      failed_when: false
-      tags: [install, verify]
-
-    - name: 1. Install or Update Claude Code CLI Globally via NPM
+    - name: 1. Remove Deprecated Global NPM Installation
+      become: true
       ansible.builtin.npm:
         name: "@anthropic-ai/claude-code"
         global: true
-        state: latest
+        state: absent
+      tags: cleanup
+
+    - name: 2. Ensure local bin directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_user_dir }}/.local/bin"
+        state: directory
+        mode: '0755'
       tags: install
 
-    - name: 2. Verify Claude Code CLI is installed
+    - name: 3. Install Claude Code via Native Installer
+      ansible.builtin.shell:
+        cmd: "curl -fsSL https://claude.ai/install.sh | bash"
+      register: install_output
+      tags: install
+
+    - name: 4. Ensure ~/.local/bin is in PATH
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_user_dir }}/.bashrc"
+        line: 'export PATH="$HOME/.local/bin:$PATH"'
+        regexp: 'export PATH="\$HOME/.local/bin:\$PATH"'
+        state: present
+      tags: install
+
+    - name: 5. Create global symlink for compatibility
+      become: true
+      ansible.builtin.file:
+        src: "{{ ansible_user_dir }}/.local/bin/claude"
+        dest: /usr/local/bin/claude
+        state: link
+        force: yes
+      tags: install
+
+    - name: 6. Verify Claude Code CLI is installed
       ansible.builtin.command:
-        cmd: claude --version
+        cmd: "claude --version"
       register: claude_version_output
       changed_when: false
       tags: verify
 
-    - name: 3. Show Claude Code Version
+    - name: 7. Show Claude Code Version
       ansible.builtin.debug:
-        msg: >-
-          Claude Code version: {{ claude_version_output.stdout }}
-          {% if claude_version_before.rc == 0 and claude_version_before.stdout != claude_version_output.stdout %}
-          (updated from {{ claude_version_before.stdout }})
-          {% elif claude_version_before.rc != 0 %}
-          (fresh install)
-          {% else %}
-          (already up to date)
-          {% endif %}
+        msg: "Claude Code version: {{ claude_version_output.stdout }}"
       when: claude_version_output.rc == 0
+      tags: verify
