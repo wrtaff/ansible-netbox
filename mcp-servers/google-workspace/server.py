@@ -128,6 +128,9 @@ def format_gmail_for_trac(msg_data: dict, type: str = "Fetched", drive_attachmen
     else:
         report.append(f"'''To:''' {to_email}")
 
+    cc_email = msg_data.get('cc')
+    if cc_email:
+        report.append(f"'''Cc:''' {cc_email}")
     report.append(f"'''Subject:''' {subject}")
     report.append(f"'''Gmail ID:''' [https://mail.google.com/mail/u/0/#all/{msg_id} {msg_id}]")
     report.append("\n{{{")
@@ -269,7 +272,7 @@ def send_message(to: str, subject: str, body: str, attachment_path: Optional[str
         return handle_auth_error(e)
 
 @mcp.tool(name="gmail_create_draft")
-def create_draft(to: str, subject: str, body: str, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None) -> str:
+def create_draft(to: str, subject: str, body: str, cc: Optional[str] = None, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None) -> str:
     """Create a draft email, optionally with an attachment. Optionally append to a Trac ticket."""
     logger.info(f"Gmail: Creating draft for {to}")
     import io
@@ -277,9 +280,9 @@ def create_draft(to: str, subject: str, body: str, attachment_path: Optional[str
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.gmail_create_draft(to=to, subject=subject, body=body, attachment_path=attachment_path, output_format='json')
+            gwm.gmail_create_draft(to=to, subject=subject, body=body, cc=cc, attachment_path=attachment_path, output_format='json')
         result_json = f.getvalue()
-        
+
         if trac_ticket:
             try:
                 res_data = json.loads(result_json)
@@ -290,9 +293,10 @@ def create_draft(to: str, subject: str, body: str, attachment_path: Optional[str
                     ticket_id = parse_ticket_id(trac_ticket)
                     if ticket_id:
                         comment = format_gmail_for_trac({
-                            'to': to, 
-                            'subject': subject, 
-                            'body': body, 
+                            'to': to,
+                            'cc': cc,
+                            'subject': subject,
+                            'body': body,
                             'id': msg_id or draft_id
                         }, type="Drafted")
                         append_to_trac(ticket_id, comment)

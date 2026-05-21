@@ -262,7 +262,7 @@ def gmail_send_message(to, subject, body, attachment_path=None, output_format='t
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def gmail_create_draft(to, subject, body, attachment_path=None, output_format='text'):
+def gmail_create_draft(to, subject, body, cc=None, attachment_path=None, output_format='text'):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
@@ -273,6 +273,8 @@ def gmail_create_draft(to, subject, body, attachment_path=None, output_format='t
         message.set_content(body)
         message['To'] = to
         message['Subject'] = subject
+        if cc:
+            message['Cc'] = cc
 
         if attachment_path and os.path.exists(attachment_path):
             mime_type, _ = mimetypes.guess_type(attachment_path)
@@ -828,6 +830,7 @@ if __name__ == '__main__':
     parser_gmail_draft.add_argument('to', help='Recipient email address')
     parser_gmail_draft.add_argument('subject', help='Email subject')
     parser_gmail_draft.add_argument('body', help='Email body')
+    parser_gmail_draft.add_argument('--cc', help='CC recipients (comma-separated)')
     parser_gmail_draft.add_argument('--attachment', help='Path to file to attach')
 
     parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
@@ -933,7 +936,7 @@ if __name__ == '__main__':
     elif args.command == 'gmail-send':
         gmail_send_message(args.to, args.subject, args.body, args.attachment, args.format)
     elif args.command == 'gmail-create-draft':
-        gmail_create_draft(args.to, args.subject, args.body, args.attachment, args.format)
+        gmail_create_draft(args.to, args.subject, args.body, cc=args.cc, attachment_path=args.attachment, output_format=args.format)
     elif args.command == 'gmail-get':
         gmail_get_message(args.id, args.format, args.cite)
     elif args.command == 'gmail-download':
