@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.25
+Version:        1.26
 Author:         Gemini CLI
-Last Modified:  2026-05-09
+Last Modified:  2026-05-21
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -21,6 +21,8 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.26 (2026-05-21): Added cc parameter to gmail_create_draft; sets Cc header and
+                       exposes --cc flag in CLI.
     v1.25 (2026-05-09): Added --calendar flag to all cal-* commands so events can be
                        written to a specific calendar (e.g. the EP Mill 3 board calendar)
                        rather than always defaulting to 'primary'.

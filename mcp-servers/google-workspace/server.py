@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.1
+Version:        2.2
 Author:         Gemini CLI
-Last Modified:  2026-05-09
+Last Modified:  2026-05-21
 Context:        http://trac.gafla.us.com/ticket/3084
 
 Purpose:
@@ -13,6 +13,8 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v2.2 (2026-05-21): Added cc parameter to gmail_create_draft tool; cc rendered
+                       in Trac comments via format_gmail_for_trac.
     v2.1 (2026-05-09): Added optional calendar_id parameter to all five calendar
                        tools so agents can target a specific calendar (e.g. a
                        shared board calendar) rather than always using 'primary'.
