@@ -3,16 +3,24 @@ Description=RClone Google Drive Mount for {{ ansible_user }}
 AssertPathIsDirectory=/home/{{ ansible_user }}/gDrive
 After=network-online.target
 Wants=network-online.target
- 
+# Prevent restart storm if token is expired — fix token first, then restart
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
 [Service]
 Type=forking
 User={{ ansible_user }}
 Group={{ ansible_user }}
 Environment="HOME=/home/{{ ansible_user }}"
-ExecStart=/usr/bin/rclone mount --daemon --config=/home/{{ ansible_user }}/.config/rclone/rclone.conf will-gDrive: /home/{{ ansible_user }}/gDrive 
-ExecStop=/bin/fusermount -u /home/{{ ansible_user }}/gDrive 
+ExecStart=/usr/bin/rclone mount --daemon \
+  --config=/home/{{ ansible_user }}/.config/rclone/rclone.conf \
+  --vfs-cache-mode writes \
+  --vfs-cache-max-size 10G \
+  --vfs-cache-max-age 24h \
+  will-gDrive: /home/{{ ansible_user }}/gDrive
+ExecStop=/bin/fusermount -u /home/{{ ansible_user }}/gDrive
 Restart=on-failure
-RestartSec=10
- 
+RestartSec=30
+
 [Install]
 WantedBy=multi-user.target
