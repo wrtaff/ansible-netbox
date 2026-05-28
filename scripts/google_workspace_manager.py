@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.26
+Version:        1.27
 Author:         Gemini CLI
-Last Modified:  2026-05-21
+Last Modified:  2026-05-26
 Context:        http://trac.gafla.us.com/ticket/3147
 
 Purpose:
@@ -21,6 +21,8 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.27 (2026-05-26): Added cc parameter to gmail_send_message; sets Cc header on
+                       outgoing messages, matching gmail_create_draft behaviour.
     v1.26 (2026-05-21): Added cc parameter to gmail_create_draft; sets Cc header and
                        exposes --cc flag in CLI.
     v1.25 (2026-05-09): Added --calendar flag to all cal-* commands so events can be
@@ -233,7 +235,7 @@ def gmail_list_messages(query='', max_results=10, output_format='text', cite=Fal
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def gmail_send_message(to, subject, body, attachment_path=None, output_format='text'):
+def gmail_send_message(to, subject, body, cc=None, attachment_path=None, output_format='text'):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
@@ -244,6 +246,8 @@ def gmail_send_message(to, subject, body, attachment_path=None, output_format='t
         message.set_content(body)
         message['To'] = to
         message['Subject'] = subject
+        if cc:
+            message['Cc'] = cc
         
         if attachment_path and os.path.exists(attachment_path):
             mime_type, _ = mimetypes.guess_type(attachment_path)

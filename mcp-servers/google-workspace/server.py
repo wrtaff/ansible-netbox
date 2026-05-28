@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.2
+Version:        2.3
 Author:         Gemini CLI
-Last Modified:  2026-05-21
+Last Modified:  2026-05-26
 Context:        http://trac.gafla.us.com/ticket/3084
 
 Purpose:
@@ -13,6 +13,9 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v2.3 (2026-05-26): Added cc parameter to gmail_send_message tool; passes through
+                       to google_workspace_manager.gmail_send_message and included
+                       in Trac comment when trac_ticket is provided.
     v2.2 (2026-05-21): Added cc parameter to gmail_create_draft tool; cc rendered
                        in Trac comments via format_gmail_for_trac.
     v2.1 (2026-05-09): Added optional calendar_id parameter to all five calendar
@@ -241,17 +244,17 @@ def get_message(message_id: str, trac_ticket: Optional[str] = None, drive_parent
         return handle_auth_error(e)
 
 @mcp.tool(name="gmail_send_message")
-def send_message(to: str, subject: str, body: str, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None) -> str:
-    """Send an email message, optionally with an attachment. Optionally append to a Trac ticket."""
+def send_message(to: str, subject: str, body: str, cc: Optional[str] = None, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None) -> str:
+    """Send an email message, optionally with a CC, attachment, or Trac ticket reference."""
     logger.info(f"Gmail: Sending message to {to}")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.gmail_send_message(to=to, subject=subject, body=body, attachment_path=attachment_path, output_format='json')
+            gwm.gmail_send_message(to=to, subject=subject, body=body, cc=cc, attachment_path=attachment_path, output_format='json')
         result_json = f.getvalue()
-        
+
         if trac_ticket:
             try:
                 res_data = json.loads(result_json)
@@ -260,15 +263,16 @@ def send_message(to: str, subject: str, body: str, attachment_path: Optional[str
                     ticket_id = parse_ticket_id(trac_ticket)
                     if ticket_id:
                         comment = format_gmail_for_trac({
-                            'to': to, 
-                            'subject': subject, 
-                            'body': body, 
+                            'to': to,
+                            'cc': cc,
+                            'subject': subject,
+                            'body': body,
                             'id': msg_id
                         }, type="Sent")
                         append_to_trac(ticket_id, comment)
             except Exception as e:
                 logger.error(f"Failed to append sent email to Trac: {e}")
-                
+
         return result_json
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
