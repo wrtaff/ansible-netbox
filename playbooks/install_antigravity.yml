@@ -1,0 +1,135 @@
+# ==============================================================================
+# Filename:       playbooks/install_antigravity.yml
+# Version:        1.2
+# Author:         Claude Code
+# Last Modified:  2026-06-01
+# Trac Ticket:    #3481 (Migrate from Gemini CLI to Antigravity CLI)
+#
+# Purpose:
+#     Installs the Google Antigravity CLI (agy) on target hosts. Antigravity CLI
+#     replaces the deprecated Gemini CLI (@google/gemini-cli npm package) for
+#     Google One / unpaid tier users. Migration deadline: June 18, 2026.
+#
+#     Antigravity CLI is a native Go binary (NOT an npm package). It is installed
+#     via Google's official install script and dropped into ~/.local/bin/agy per
+#     the installing user.
+#
+# Use Case:
+#     Replace Gemini CLI on developer workstations. Gemini CLI stops serving
+#     free/individual tier users on June 18, 2026. This playbook automates
+#     installation across all affected dev endpoints.
+#
+# Installation Method:
+#     curl-pipe-bash via https://antigravity.google/cli/install.sh
+#     Idempotent: skips install if ~/.local/bin/agy already exists.
+#
+# Prerequisites:
+#     - Ansible installed on controller (athena)
+#     - Target hosts accessible via SSH (inventory group: desktops or explicit --limit)
+#     - curl installed on target hosts
+#     - Internet access on target hosts (to reach antigravity.google)
+#     - Target user account exists (installs per-user, not system-wide)
+#
+# Configuration:
+#     - Binary location: ~/.local/bin/agy (per installing user)
+#     - Auth: Google Sign-In via browser (SSH sessions print an auth URL)
+#
+# Secrets:
+#     None — no vault variables required for installation.
+#     Auth is completed interactively post-install via Google Sign-In.
+#     If a non-interactive API key flow becomes available, add as:
+#       antigravity_api_key  (vault.yml) — Google AI API key for Antigravity CLI
+#
+# Usage:
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/install_antigravity.yml \
+#         --limit athena --check --diff
+#
+#     # Install on specific host
+#     ansible-playbook -i inventory.ini playbooks/install_antigravity.yml \
+#         --limit athena
+#
+#     # Install on all affected hosts
+#     ansible-playbook -i inventory.ini playbooks/install_antigravity.yml \
+#         --limit athena,opti-cc76
+#
+# Removal Instructions:
+#     rm ~/.local/bin/agy
+#     # Remove config/auth data if present:
+#     rm -rf ~/.config/antigravity/
+#
+# Revision History:
+#     1.0 - Initial playbook. Trac #3481.
+#     1.1 - Fix ansible_env deprecation warning (use ansible_facts['env']['HOME']).
+#           Gate post-install assert on not ansible_check_mode (check mode skips
+#           the install task so the binary never appears; assert would always fail).
+#     1.2 - Add Secrets field to header per updated Ansible playbook documentation standard.
+#
+# NOTES:
+#     - Authentication must be completed manually after install (interactive browser flow).
+#     - SSH sessions: agy will print an authorization URL; complete in local browser.
+#     - After confirming binary name and auth flow, update vault.yml if an API key
+#       approach becomes available (store as antigravity_api_key).
+#     - Always bump version and annotate Revision History when making changes.
+#
+# WWOS:  http://wwos.home.arpa/index.php/Playbooks/install_antigravity.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/install_antigravity.yml
+# ==============================================================================
+---
+- name: Install Google Antigravity CLI
+  hosts: all
+  become: false
+  gather_facts: true
+
+  vars:
+    antigravity_install_script: "https://antigravity.google/cli/install.sh"
+    antigravity_binary: "{{ ansible_facts['env']['HOME'] }}/.local/bin/agy"
+
+  tasks:
+
+    - name: Check if Antigravity CLI (agy) is already installed
+      ansible.builtin.stat:
+        path: "{{ antigravity_binary }}"
+      register: agy_stat
+
+    - name: Install Antigravity CLI via official install script
+      ansible.builtin.shell:
+        cmd: "curl -fsSL {{ antigravity_install_script }} | bash"
+        executable: /bin/bash
+      when: not agy_stat.stat.exists
+      register: agy_install_result
+      changed_when: agy_install_result.rc == 0
+
+    - name: Verify Antigravity CLI binary is present post-install
+      ansible.builtin.stat:
+        path: "{{ antigravity_binary }}"
+      register: agy_post_stat
+
+    - name: Confirm installation succeeded
+      ansible.builtin.assert:
+        that: agy_post_stat.stat.exists
+        success_msg: "Antigravity CLI installed successfully at {{ antigravity_binary }}"
+        fail_msg: >
+          Antigravity CLI binary not found at {{ antigravity_binary }} after install.
+          Check install script output above for errors.
+      when: not ansible_check_mode
+
+    - name: Report Antigravity CLI version
+      ansible.builtin.command:
+        cmd: "{{ antigravity_binary }} --version"
+      register: agy_version
+      changed_when: false
+      when: agy_post_stat.stat.exists
+
+    - name: Display version
+      ansible.builtin.debug:
+        msg: "Antigravity CLI version: {{ agy_version.stdout }}"
+      when: agy_version is not skipped
+
+    - name: Remind operator to complete authentication
+      ansible.builtin.debug:
+        msg: >
+          NEXT STEP: Run 'agy auth' (or 'agy login') on {{ inventory_hostname }}
+          to complete Google Sign-In. For SSH sessions, agy will print a browser
+          URL — open it locally to authenticate. See Trac #3481 for tracking.
+      when: not agy_stat.stat.exists
