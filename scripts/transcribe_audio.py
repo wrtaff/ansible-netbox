@@ -2,17 +2,22 @@
 """
 ================================================================================
 Filename:       transcribe_audio.py
-Version:        1.11
+Version:        1.12
 Author:         Gemini CLI
-Last Modified:  2026-04-23
+Last Modified:  2026-06-02
 Context:        http://trac.home.arpa/ticket/2966
 
 Purpose:
-    Transcribes an audio file using the Gemini 2.0 Flash API.
+    Transcribes an audio file using the Gemini 2.5 Flash API.
     Falls back to OpenRouter (OpenAI-compatible, base64 audio) on Gemini errors.
     Outputs the transcript to a .txt file in the same directory.
     Supports providing context to improve transcription accuracy.
     Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.12:
+    - Updated DEFAULT_MODEL from gemini-2.0-flash to gemini-2.5-flash.
+      gemini-2.0-flash is deprecated; 2.5-flash is the current stable model.
+      No API changes required — same Files API and generateContent endpoint.
 
 Changes in 1.11:
     - Replaced single OpenRouter fallback model with an ordered fallback chain.
@@ -85,7 +90,7 @@ import glob
 import math
 
 # --- Configuration ---
-DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-2.5-flash"
 OPENROUTER_FALLBACK_CHAIN = [
     "openai/gpt-4o-audio-preview",
     "mistralai/voxtral-small-24b-2507",
