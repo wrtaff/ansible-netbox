@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.3
+Version:        2.4
 Author:         Gemini CLI
-Last Modified:  2026-05-26
-Context:        http://trac.gafla.us.com/ticket/3084
+Last Modified:  2026-06-10
+Context:        http://trac.gafla.us.com/ticket/3571
 
 Purpose:
     Model Context Protocol (MCP) server for Google Workspace integration.
@@ -13,6 +13,7 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v2.4 (2026-06-10): Added gmail_modify_labels tool to modify Gmail labels (add/remove).
     v2.3 (2026-05-26): Added cc parameter to gmail_send_message tool; passes through
                        to google_workspace_manager.gmail_send_message and included
                        in Trac comment when trac_ticket is provided.
@@ -40,6 +41,9 @@ Revision History:
                        and Task Update tools. Support for all-day calendar events.
     v1.1 (2026-03-04): Updated header to WWOS standards; prepared for GitHub push.
     v1.0 (2026-02-26): Initial prototype wrapping google_workspace_manager.py.
+
+Secrets:
+    None - Auth is delegated to the wrapped google_workspace_manager.py.
 
 Notes:
     Always bump the version number when modifying this file and annotate 
@@ -312,6 +316,22 @@ def create_draft(to: str, subject: str, body: str, cc: Optional[str] = None, att
         return result_json
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
+
+@mcp.tool(name="gmail_modify_labels")
+def gmail_modify_labels(message_id: str, add_labels: Optional[list] = None, remove_labels: Optional[list] = None) -> str:
+    """Modify (add/remove) labels on a Gmail message. Resolves human-readable label names to IDs."""
+    logger.info(f"Gmail: Modifying labels for message {message_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.gmail_modify_labels(message_id=message_id, add_labels=add_labels, remove_labels=remove_labels, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
 # --- DRIVE TOOLS ---
 

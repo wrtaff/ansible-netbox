@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.27
+Version:        1.28
 Author:         Gemini CLI
-Last Modified:  2026-05-26
-Context:        http://trac.gafla.us.com/ticket/3147
+Last Modified:  2026-06-10
+Context:        http://trac.gafla.us.com/ticket/3571
 
 Purpose:
     Unified manager for Google Workspace services (Calendar, Tasks, Gmail, Drive, Contacts).
@@ -21,6 +21,7 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.28 (2026-06-10): Added gmail_modify_labels function and gmail-modify-labels CLI subcommand to support email-handler label modification.
     v1.27 (2026-05-26): Added cc parameter to gmail_send_message; sets Cc header on
                        outgoing messages, matching gmail_create_draft behaviour.
     v1.26 (2026-05-21): Added cc parameter to gmail_create_draft; sets Cc header and
@@ -59,6 +60,10 @@ Revision History:
     v1.2 (2026-02-17): Added gmail-send functionality.
     v1.1 (2026-02-16): Added attachment retrieval and file upload support.
     v1.0 (2026-02-16): Initial version with basic Gmail/Drive/Cal/Tasks.
+
+Secrets:
+    token.pickle (local file) - Stores OAuth 2.0 user credentials.
+    credentials.json (local file) - Stores Google OAuth 2.0 client secrets.
 
 Notes:
     Always bump the version number when modifying this file and annotate 
@@ -417,6 +422,48 @@ def gmail_download_attachment(message_id, attachment_id, filename, output_dir=No
     except HttpError as error:
         print(f"Error downloading attachment: {error}")
         return None
+
+def gmail_modify_labels(message_id, add_labels=None, remove_labels=None, output_format='text'):
+    if add_labels is None:
+        add_labels = []
+    if remove_labels is None:
+        remove_labels = []
+    creds = get_creds()
+    service = build('gmail', 'v1', credentials=creds)
+    try:
+        # Resolve human-readable label names to label IDs
+        labels_resp = service.users().labels().list(userId='me').execute()
+        labels = labels_resp.get('labels', [])
+        
+        name_to_id = {l['name']: l['id'] for l in labels}
+        name_to_id_lower = {l['name'].lower(): l['id'] for l in labels}
+        known_ids = {l['id'] for l in labels}
+
+        def resolve_label(label_str):
+            if label_str in known_ids:
+                return label_str
+            if label_str in name_to_id:
+                return name_to_id[label_str]
+            if label_str.lower() in name_to_id_lower:
+                return name_to_id_lower[label_str.lower()]
+            return label_str
+
+        add_label_ids = [resolve_label(l) for l in add_labels]
+        remove_label_ids = [resolve_label(l) for l in remove_labels]
+
+        body = {}
+        if add_label_ids:
+            body['addLabelIds'] = add_label_ids
+        if remove_label_ids:
+            body['removeLabelIds'] = remove_label_ids
+
+        result = service.users().messages().modify(userId='me', id=message_id, body=body).execute()
+        output(result, output_format)
+        return result
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+        raise
+
 
 # --- DRIVE FUNCTIONS ---
 
@@ -852,6 +899,12 @@ if __name__ == '__main__':
     parser_gmail_header = subparsers.add_parser('gmail-get-by-header', help='Get message details by header string')
     parser_gmail_header.add_argument('header', help='Full email header string')
 
+    parser_gmail_modify = subparsers.add_parser('gmail-modify-labels', help='Modify labels on a Gmail message')
+    parser_gmail_modify.add_argument('id', help='Message ID')
+    parser_gmail_modify.add_argument('--add', nargs='*', default=[], help='Label names or IDs to add')
+    parser_gmail_modify.add_argument('--remove', nargs='*', default=[], help='Label names or IDs to remove')
+
+
     parser_drive_search = subparsers.add_parser('drive-search', help='Search Google Drive')
     parser_drive_search.add_argument('--query', help='Drive query (e.g. "name contains \'resume\'")')
     parser_drive_search.add_argument('--max', type=int, default=10, help='Max results')
@@ -951,6 +1004,9 @@ if __name__ == '__main__':
             print(f"Attachment saved to {path}")
     elif args.command == 'gmail-get-by-header':
         gmail_get_by_header(args.header, args.format)
+    elif args.command == 'gmail-modify-labels':
+        gmail_modify_labels(args.id, args.add, args.remove, args.format)
+
     elif args.command == 'drive-search':
         drive_search(args.query, args.max, args.format, args.cite)
     elif args.command == 'drive-get':
