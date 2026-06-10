@@ -1,0 +1,80 @@
+# ==============================================================================
+# Filename:       playbooks/deploy_pops_api.yml
+# Version:        1.0
+# Author:         Claude Code
+# Last Modified:  2026-06-10
+# Trac Ticket:    http://trac.home.arpa/ticket/3577
+#
+# Purpose:
+#   Provisions dependencies required by the pops-api/ FastAPI service on athena
+#   (Phase 1, subtask P1.2). Installs:
+#     - ripgrep (rg) binary via apt - used by the /api/search endpoint
+#     - fastapi, uvicorn[standard], python-multipart into the shared Python
+#       virtual environment at /opt/venvs/gemini_projects
+#
+# Secrets:
+#   ansible_become_pass (vault.yml) - used for sudo privilege escalation
+#
+# Usage:
+#   # Dry run (check + diff):
+#   ansible-playbook -i inventory.ini playbooks/deploy_pops_api.yml \
+#       --limit athena --check --diff
+#
+#   # Full run:
+#   ansible-playbook -i inventory.ini playbooks/deploy_pops_api.yml \
+#       --limit athena
+#
+# Revision History:
+#   v1.0 (2026-06-10) - Initial version. Install ripgrep + pops-api pip deps.
+#                       Trac #3577.
+# ==============================================================================
+
+- name: Deploy Pops API dependencies
+  hosts: athena
+  gather_facts: false
+  become: true
+
+  vars:
+    venv_path: /opt/venvs/gemini_projects
+    pops_api_pip_packages:
+      - fastapi==0.136.3
+      - "uvicorn[standard]==0.49.0"
+      - python-multipart==0.0.32
+
+  tasks:
+    - name: Install ripgrep via apt
+      ansible.builtin.apt:
+        name: ripgrep
+        state: present
+        update_cache: yes
+
+    - name: Install pops-api Python dependencies into shared venv
+      ansible.builtin.pip:
+        name: "{{ item }}"
+        state: present
+        virtualenv: "{{ venv_path }}"
+      loop: "{{ pops_api_pip_packages }}"
+      become_user: will
+
+    - name: Verify rg binary is present
+      ansible.builtin.command:
+        cmd: rg --version
+      register: rg_version
+      changed_when: false
+
+    - name: Show rg version
+      ansible.builtin.debug:
+        msg: "ripgrep installed: {{ rg_version.stdout }}"
+      when: rg_version is not skipped
+
+    - name: Verify fastapi import
+      ansible.builtin.command:
+        cmd: "{{ venv_path }}/bin/python3 -c 'import fastapi, uvicorn, multipart; print(\"deps OK - fastapi\", fastapi.__version__)'"
+      register: dep_check
+      changed_when: false
+      become_user: will
+
+    - name: Show dependency verification
+      ansible.builtin.debug:
+        msg: "{{ dep_check.stdout }}"
+      when: dep_check is not skipped
