@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       __init__.py (package: app.routers)
-Version:        1.0
+Version:        1.1
 Author:         Claude Code
 Last Modified:  2026-06-10
 Context:        http://trac.home.arpa/ticket/3577
@@ -21,6 +21,7 @@ Usage:
     from app.routers import ALL_ROUTERS
 
 Revision History:
+    1.1 - Register health router (P1.4). Trac #3577.
     1.0 - Initial scaffold with empty registry (Phase 1 subtask P1.1).
           Trac #3577.
 ================================================================================
@@ -31,4 +32,6 @@ Revision History:
 #     from app.routers import health
 #     ALL_ROUTERS = [health.router]
 
-ALL_ROUTERS: list = []
+from app.routers import health
+
+ALL_ROUTERS: list = [health.router]

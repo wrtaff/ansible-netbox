@@ -23,8 +23,11 @@ pops-api/
 
 ```bash
 cd ~/ansible-netbox/pops-api
-POPS_API_KEY=devkey python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8765
+POPS_API_KEY=devkey /opt/venvs/gemini_projects/bin/python3 -m uvicorn app.main:app \
+    --host 0.0.0.0 --port 8765
 ```
+
+Dependencies live in the shared project venv `/opt/venvs/gemini_projects` (installed by `playbooks/deploy_pops_api.yml`), not in system python.
 
 Dependencies (`fastapi`, `uvicorn[standard]`, `python-multipart`) and the `ripgrep` binary are installed via the Ansible provisioning subtask (P1.2) - no ad-hoc `pip install` / `apt install`.
 
