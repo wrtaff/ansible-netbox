@@ -1,8 +1,8 @@
 # ==============================================================================
 # Filename:       playbooks/deploy_pops_api.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Claude Code
-# Last Modified:  2026-06-10
+# Last Modified:  2026-06-11
 # Trac Ticket:    http://trac.home.arpa/ticket/3577
 #
 # Purpose:
@@ -11,6 +11,7 @@
 #     - ripgrep (rg) binary via apt - used by the /api/search endpoint
 #     - fastapi, uvicorn[standard], python-multipart into the shared Python
 #       virtual environment at /opt/venvs/gemini_projects
+#     - pytest, httpx test dependencies for the pops-api test suite (P1.7)
 #
 # Secrets:
 #   ansible_become_pass (vault.yml) - used for sudo privilege escalation
@@ -25,6 +26,8 @@
 #       --limit athena
 #
 # Revision History:
+#   v1.1 (2026-06-11) - Add pytest + httpx test deps for the P1.7 suite.
+#                       Trac #3577.
 #   v1.0 (2026-06-10) - Initial version. Install ripgrep + pops-api pip deps.
 #                       Trac #3577.
 # ==============================================================================
@@ -40,6 +43,8 @@
       - fastapi==0.136.3
       - "uvicorn[standard]==0.49.0"
       - python-multipart==0.0.32
+      - pytest==8.4.1
+      - httpx==0.28.1
 
   tasks:
     - name: Install ripgrep via apt

@@ -37,6 +37,33 @@ Dependencies (`fastapi`, `uvicorn[standard]`, `python-multipart`) and the `ripgr
 - Commit format: `pops-api: <description>  ref #3577`. Stage specific files only; push to GitHub (`origin master`) on completion.
 - Routers stay thin; logic lives in `app/services/`. New endpoint = router module + one import/list entry in `app/routers/__init__.py`.
 
+## Tests
+
+Pytest + FastAPI `TestClient` suite (P1.7). Every test runs against a throwaway
+pops tree under pytest's `tmp_path` (via the `POPS_ROOT` env var), so the suite
+never reads or writes the real `/home/will/pops`.
+
+```bash
+cd ~/ansible-netbox/pops-api
+/opt/venvs/gemini_projects/bin/python3 -m pytest tests/ -v
+```
+
+Test dependencies (`pytest`, `httpx`) live in the shared project venv and are
+pinned in `requirements.txt` under the `# pops-api test deps` comment; install
+them by re-running `playbooks/deploy_pops_api.yml`. The search tests require the
+`rg` binary (already installed at `/usr/bin/rg`).
+
+`tests/smoke.sh` is a manual smoke test against an already-running server:
+
+```bash
+POPS_API_KEY=devkey ./tests/smoke.sh
+POPS_API_URL=http://athena:8765 POPS_API_KEY=devkey ./tests/smoke.sh
+```
+
+WARNING: `smoke.sh` performs a real `/api/inbox` capture, which WRITES to the
+live `POPS_ROOT` of the server under test (a `raw/journal/` file and a
+`wiki/log.md` line).
+
 ## Phase 1 subtasks
 
 See Trac #3577 for the graded subtask breakdown (P1.1 scaffold ... P1.7 tests) and assignment status.

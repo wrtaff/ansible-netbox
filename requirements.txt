@@ -18,3 +18,7 @@ markdownify==1.2.2
 fastapi==0.136.3
 uvicorn[standard]==0.49.0
 python-multipart==0.0.32
+
+# pops-api test deps (ref #3577)
+pytest==8.4.1
+httpx==0.28.1
