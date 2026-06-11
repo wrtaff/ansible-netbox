@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       __init__.py (package: app.routers)
-Version:        1.3
+Version:        1.5
 Author:         Claude Code
-Last Modified:  2026-06-10
+Last Modified:  2026-06-11
 Context:        http://trac.home.arpa/ticket/3577
 
 Purpose:
@@ -21,6 +21,8 @@ Usage:
     from app.routers import ALL_ROUTERS
 
 Revision History:
+    1.5 - Register tickets router (P2.2). Trac #3585.
+    1.4 - Register tasks router (P2.1). Trac #3585.
     1.3 - Register search router (P1.6). Trac #3577.
     1.2 - Register inbox router (P1.5). Trac #3577.
     1.1 - Register health router (P1.4). Trac #3577.
@@ -37,5 +39,13 @@ Revision History:
 from app.routers import health
 from app.routers import inbox
 from app.routers import search
+from app.routers import tasks
+from app.routers import tickets
 
-ALL_ROUTERS: list = [health.router, inbox.router, search.router]
+ALL_ROUTERS: list = [
+    health.router,
+    inbox.router,
+    search.router,
+    tasks.router,
+    tickets.router,
+]
