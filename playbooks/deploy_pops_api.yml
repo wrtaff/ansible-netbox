@@ -1,9 +1,9 @@
 # ==============================================================================
 # Filename:       playbooks/deploy_pops_api.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Claude Code
 # Last Modified:  2026-06-11
-# Trac Ticket:    http://trac.home.arpa/ticket/3577
+# Trac Ticket:    http://trac.home.arpa/ticket/3586
 #
 # Purpose:
 #   Provisions dependencies required by the pops-api/ FastAPI service on athena
@@ -12,9 +12,18 @@
 #     - fastapi, uvicorn[standard], python-multipart into the shared Python
 #       virtual environment at /opt/venvs/gemini_projects
 #     - pytest, httpx test dependencies for the pops-api test suite (P1.7)
+#   Promotes the API to a persistent systemd service (Trac #3586):
+#     - Creates /etc/pops-api/ and generates /etc/pops-api/env (POPS_API_KEY)
+#       idempotently (file is not overwritten once created)
+#     - Deploys pops-api/systemd/pops-api.service to /etc/systemd/system/
+#     - Enables and starts pops-api.service; verifies /api/health returns 200
 #
 # Secrets:
 #   ansible_become_pass (vault.yml) - used for sudo privilege escalation
+#   POPS_API_KEY (/etc/pops-api/env, mode 0640, root:will) - generated once by
+#     this playbook via openssl rand -hex 32; never regenerated if file exists
+#   VIKUNJA_API_TOKEN / TRAC_PASSWORD - resolved at runtime from
+#     /home/will/.bashrc by service code; not stored in env file
 #
 # Usage:
 #   # Dry run (check + diff):
@@ -26,6 +35,8 @@
 #       --limit athena
 #
 # Revision History:
+#   v1.2 (2026-06-11) - Deploy pops-api.service systemd unit + /etc/pops-api/env.
+#                       Trac #3586.
 #   v1.1 (2026-06-11) - Add pytest + httpx test deps for the P1.7 suite.
 #                       Trac #3577.
 #   v1.0 (2026-06-10) - Initial version. Install ripgrep + pops-api pip deps.
@@ -83,3 +94,70 @@
       ansible.builtin.debug:
         msg: "{{ dep_check.stdout }}"
       when: dep_check is not skipped
+
+    # --- Phase 2: systemd service deployment (Trac #3586) ---
+
+    - name: Ensure /etc/pops-api directory exists
+      ansible.builtin.file:
+        path: /etc/pops-api
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Generate POPS_API_KEY and write /etc/pops-api/env (idempotent)
+      ansible.builtin.shell:
+        cmd: |
+          printf 'POPS_API_KEY=%s\n' "$(openssl rand -hex 32)" > /etc/pops-api/env
+          chown root:will /etc/pops-api/env
+          chmod 0640 /etc/pops-api/env
+        creates: /etc/pops-api/env
+
+    - name: Deploy pops-api.service unit file
+      ansible.builtin.copy:
+        src: /home/will/ansible-netbox/pops-api/systemd/pops-api.service
+        dest: /etc/systemd/system/pops-api.service
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+      notify: Reload systemd
+
+    - name: Kill any stray dev uvicorn process
+      ansible.builtin.shell:
+        cmd: pkill -f 'uvicorn app.main:app' || true
+      failed_when: false
+      changed_when: false
+
+    - name: Flush handlers (daemon-reload before enable/start)
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable and start pops-api.service
+      ansible.builtin.systemd:
+        name: pops-api.service
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Wait for pops-api to be ready
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 8765
+        timeout: 20
+
+    - name: Verify pops-api health endpoint
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8765/api/health
+        method: GET
+        status_code: 200
+      register: health_result
+      become: false
+
+    - name: Show health check result
+      ansible.builtin.debug:
+        msg: "pops-api health: {{ health_result.status }} - {{ health_result.json }}"
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true

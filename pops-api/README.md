@@ -19,6 +19,27 @@ pops-api/
   systemd/             pops-api.service unit (Phase 4)
 ```
 
+## Run as a service (production)
+
+The API runs as a persistent systemd service on athena, deployed by `playbooks/deploy_pops_api.yml`.
+
+```bash
+# Check status
+systemctl status pops-api
+
+# Restart after a config or code change
+systemctl restart pops-api
+```
+
+The production API key is stored at `/etc/pops-api/env` (mode 0640, root:will).
+A copy is kept at `/home/will/pops/tmp/pops-api-key.txt` (mode 0600) for convenience.
+To re-deploy or update the service unit:
+
+```bash
+cd ~/ansible-netbox
+ansible-playbook -i inventory.ini playbooks/deploy_pops_api.yml --limit athena
+```
+
 ## Run (development, athena)
 
 ```bash

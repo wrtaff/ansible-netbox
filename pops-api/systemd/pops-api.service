@@ -1,0 +1,38 @@
+# ==============================================================================
+# Filename:       pops-api/systemd/pops-api.service
+# Version:        1.0
+# Author:         Claude Code
+# Last Modified:  2026-06-11
+# Context:        http://trac.home.arpa/ticket/3586
+#
+# Purpose:
+#   Systemd service unit for the Pops KMS REST API (FastAPI/uvicorn).
+#   Runs persistently on athena at port 8765 as user will. Deployed by
+#   playbooks/deploy_pops_api.yml. Parent ticket: Trac #3577.
+#
+# Secrets:
+#   POPS_API_KEY (/etc/pops-api/env, mode 0640, root:will) - client API key
+#     required for all endpoints except /api/health.
+#   VIKUNJA_API_TOKEN / TRAC_PASSWORD - resolved at runtime from
+#     /home/will/.bashrc by the service code; do not need to be in the env file.
+#
+# Revision History:
+#   v1.0 (2026-06-11) - Initial unit file. Trac #3586.
+# ==============================================================================
+
+[Unit]
+Description=Pops KMS REST API (FastAPI/uvicorn, port 8765)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=will
+Group=will
+WorkingDirectory=/home/will/ansible-netbox/pops-api
+EnvironmentFile=/etc/pops-api/env
+ExecStart=/opt/venvs/gemini_projects/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8765
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
