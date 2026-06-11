@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.1
+Version:        1.3
 Author:         Gemini CLI
-Last Modified:  2026-04-16
+Last Modified:  2026-06-11
 Context:        http://trac.home.arpa/ticket/3321
 
 Purpose:
@@ -13,6 +13,10 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.3 (2026-06-11): Added vikunja_list_projects tool. vikunja_create_task now accepts a
+                       'project' NAME that is matched (case-insensitive) to an existing
+                       project; it never creates a project. Context: http://trac.gafla.us.com/ticket/3584
+    v1.2 (2026-06-05): Added vikunja_get_tasks_by_priority tool with named/numeric priority support.
     v1.1 (2026-04-16): Updated header with Trac ticket link per WWOS standards.
     v1.0 (2026-04-16): Initial implementation.
 
@@ -81,6 +85,74 @@ def ensure_auth():
 # Ensure auth is available
 ensure_auth()
 
+
+def _get_all_projects(host, token, include_filters=False):
+    """
+    Fetch all Vikunja projects, de-duplicated by id. The /projects endpoint can return the
+    full set on every page request, so we dedupe and stop once a page adds nothing new.
+    Saved filters appear here as pseudo-projects with negative ids; excluded by default
+    (they cannot hold tasks).
+    """
+    import requests
+    url = f"{host}/api/v1/projects"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    by_id = {}
+    page = 1
+    while page <= 50:  # hard safety cap
+        resp = requests.get(url, headers=headers, params={"page": page})
+        resp.raise_for_status()
+        batch = resp.json()
+        if not batch:
+            break
+        added = 0
+        for p in batch:
+            pid = p.get("id")
+            if pid not in by_id:
+                by_id[pid] = p
+                added += 1
+        if added == 0 or len(batch) < 50:  # nothing new, or a short final page
+            break
+        page += 1
+    projects = list(by_id.values())
+    if not include_filters:
+        projects = [p for p in projects if (p.get("id") or 0) > 0]
+    return projects
+
+
+def _resolve_project_id(project, host, token):
+    """
+    Resolve a project NAME (or numeric id) to an existing project_id.
+    Match only - NEVER create. Returns (project_id, None) on success or (None, error_str).
+    """
+    # Numeric id passes through unchanged.
+    try:
+        return int(project), None
+    except (ValueError, TypeError):
+        pass
+
+    name = str(project).strip().lower()
+    projects = _get_all_projects(host, token)
+    active = [p for p in projects if not p.get("is_archived")]
+
+    exact = [p for p in active if str(p.get("title", "")).strip().lower() == name]
+    if len(exact) == 1:
+        return exact[0]["id"], None
+    if len(exact) > 1:
+        ids = ", ".join(f"{p['title']} (id {p['id']})" for p in exact)
+        return None, f"Ambiguous project '{project}': multiple exact matches: {ids}"
+
+    subs = [p for p in active if name in str(p.get("title", "")).strip().lower()]
+    if len(subs) == 1:
+        return subs[0]["id"], None
+
+    catalog = ", ".join(sorted(str(p.get("title", "")) for p in active))
+    if subs:
+        cand = ", ".join(f"{p['title']} (id {p['id']})" for p in subs)
+        return None, f"Ambiguous project '{project}'. Candidates: {cand}. All projects: {catalog}"
+    return None, (f"No project named '{project}' exists. Projects are matched, never created. "
+                  f"Existing projects: {catalog}")
+
+
 @mcp.tool(name="vikunja_ping")
 def ping() -> str:
     """A simple ping tool to verify MCP transport connectivity."""
@@ -88,35 +160,40 @@ def ping() -> str:
     return "pong"
 
 @mcp.tool(name="vikunja_create_task")
-def create_task(title: str, description: str = "", project_id: int = 1, labels: Optional[List[str]] = None, due_date: Optional[str] = None) -> str:
+def create_task(title: str, description: str = "", project_id: int = 1, project: Optional[str] = None, labels: Optional[List[str]] = None, due_date: Optional[str] = None) -> str:
     """
     Create a new task in Vikunja.
     title: Task title (words starting with * are extracted as labels).
-    description: Detailed description (Markdown supported).
-    project_id: ID of the project (Default: 1 - Inbox).
+    description: Detailed description (Markdown supported). Put source links here in
+        markdown so they are clickable, e.g. [subject](https://mail.google.com/mail/u/0/#all/<id>).
+    project_id: Numeric ID of the project (Default: 1 - Inbox).
+    project: Project NAME to match to an EXISTING project (e.g. 'maintenance', 'sysadmin').
+        Matched case-insensitively; NEVER creates a project. If given, it overrides project_id.
+        If no project matches, returns an error listing existing projects (it does not create one).
     labels: List of labels to attach.
     due_date: ISO format date (e.g., 2026-03-04T13:00:00).
     """
-    logger.info(f"Vikunja: Create task '{title}'")
+    logger.info(f"Vikunja: Create task '{title}' (project={project!r}, project_id={project_id})")
     try:
+        token = os.getenv("VIKUNJA_API_TOKEN")
+        host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
+
+        # Resolve a project name to an existing project_id (match only, never create).
+        if project is not None and str(project).strip() != "":
+            resolved, err = _resolve_project_id(project, host, token)
+            if err:
+                return f"Error: {err}"
+            project_id = resolved
+
         # Re-parse labels from title if provided
         words = title.split()
         title_labels = [w[1:] for w in words if w.startswith('*')]
         clean_title = ' '.join([w for w in words if not w.startswith('*')])
-        
+
         all_labels = title_labels
         if labels:
             all_labels.extend(labels)
-        
-        # Note: cvt.create_task handles API calls and printing to stdout.
-        # We might want to capture stdout or modify cvt to return values.
-        # For now, we'll call it and assume it works if no exception is raised.
-        # However, it uses sys.exit(1) on failure, which is bad for a server.
-        # I'll wrap it in a way that handles the logic.
-        
-        token = os.getenv("VIKUNJA_API_TOKEN")
-        host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
-        
+
         cvt.create_task(
             title=clean_title,
             description=description,
@@ -127,7 +204,7 @@ def create_task(title: str, description: str = "", project_id: int = 1, labels: 
             labels=all_labels,
             due_date=due_date
         )
-        return f"Successfully created Vikunja task: {clean_title}"
+        return f"Successfully created Vikunja task: {clean_title} (project_id={project_id})"
     except Exception as e:
         logger.error(f"Error creating Vikunja task: {e}")
         return f"Error creating Vikunja task: {e}"
@@ -203,6 +280,127 @@ def list_labels() -> str:
     except Exception as e:
         logger.error(f"Error listing labels: {e}")
         return f"Error listing labels: {e}"
+
+@mcp.tool(name="vikunja_list_projects")
+def list_projects() -> str:
+    """
+    List all Vikunja projects (id, title, parent_project_id, is_archived) so a domain name
+    can be matched to a project_id. Projects are matched, NEVER created.
+    """
+    logger.info("Vikunja: List projects")
+    try:
+        token = os.getenv("VIKUNJA_API_TOKEN")
+        host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
+        projects = _get_all_projects(host, token)
+        slim = [
+            {
+                "id": p.get("id"),
+                "title": p.get("title"),
+                "parent_project_id": p.get("parent_project_id"),
+                "is_archived": p.get("is_archived"),
+            }
+            for p in projects
+        ]
+        return json.dumps(slim, indent=2)
+    except Exception as e:
+        logger.error(f"Error listing projects: {e}")
+        return f"Error listing projects: {e}"
+
+@mcp.tool(name="vikunja_search_tasks")
+def search_tasks(filter: str = "done = false") -> str:
+    """
+    Search for tasks in Vikunja using a filter string.
+    Example filters:
+    - 'done = false'
+    - 'assignees = will && done = false'
+    - 'labels = awp && done = false'
+    - 'title ~ some_keyword'
+    """
+    logger.info(f"Vikunja: Search tasks with filter '{filter}'")
+    try:
+        import requests
+        token = os.getenv("VIKUNJA_API_TOKEN")
+        host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
+        
+        # Use the specific endpoint for tasks with filter
+        url = f"{host}/api/v1/tasks"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        params = {"filter": filter}
+        
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        tasks = response.json()
+        
+        return json.dumps(tasks, indent=2)
+    except Exception as e:
+        logger.error(f"Error searching tasks: {e}")
+        return f"Error searching tasks: {e}"
+
+PRIORITY_MAP = {
+    "unset": 0, "none": 0,
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+    "urgent": 4,
+    "now": 5,
+}
+
+@mcp.tool(name="vikunja_get_tasks_by_priority")
+def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> str:
+    """
+    Fetch all tasks at a given priority level, open and/or closed.
+    priority: Name ('now', 'urgent', 'high', 'medium', 'low', 'unset') or integer 0-5.
+    include_done: If True (default), return both open and closed tasks.
+    Returns a compact summary table.
+    """
+    logger.info(f"Vikunja: Get tasks by priority='{priority}' include_done={include_done}")
+    try:
+        import requests
+
+        # Resolve priority to int
+        if isinstance(priority, str) and not priority.isdigit():
+            priority_int = PRIORITY_MAP.get(priority.lower())
+            if priority_int is None:
+                return f"Unknown priority '{priority}'. Use: now, urgent, high, medium, low, unset, or 0-5."
+        else:
+            priority_int = int(priority)
+
+        token = os.getenv("VIKUNJA_API_TOKEN")
+        host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
+        url = f"{host}/api/v1/tasks"
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+        filter_str = f"priority = {priority_int}"
+        if not include_done:
+            filter_str += " && done = false"
+
+        response = requests.get(url, headers=headers, params={"filter": filter_str})
+        response.raise_for_status()
+        tasks = response.json()
+
+        if not tasks:
+            label = next((k for k, v in PRIORITY_MAP.items() if v == priority_int), str(priority_int))
+            return f"No tasks found with priority '{label}' ({priority_int})."
+
+        priority_label = next((k for k, v in PRIORITY_MAP.items() if v == priority_int), str(priority_int))
+        open_tasks = [t for t in tasks if not t.get("done")]
+        done_tasks = [t for t in tasks if t.get("done")]
+
+        lines = [f"Priority: {priority_label.upper()} ({priority_int}) — {len(tasks)} task(s) ({len(open_tasks)} open, {len(done_tasks)} done)\n"]
+        for t in sorted(tasks, key=lambda x: (x.get("done", False), x.get("id"))):
+            status = "✓" if t.get("done") else "○"
+            due = t.get("due_date", "")[:10] if t.get("due_date") else ""
+            due_str = f" [due {due}]" if due else ""
+            lines.append(f"  {status} [{t['id']}] {t['title']}{due_str}")
+
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error(f"Error fetching tasks by priority: {e}")
+        return f"Error fetching tasks by priority: {e}"
+
 
 if __name__ == "__main__":
     logger.info("Starting Vikunja MCP server...")
