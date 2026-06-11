@@ -2,15 +2,17 @@
 """
 ================================================================================
 Filename:       update_trac_ticket.py
-Version:        1.6
+Version:        1.7
 Author:         Gemini CLI
-Last Modified:  2026-04-02
+Last Modified:  2026-06-11
 Context:        http://trac.home.arpa/ticket/3265
 WWOS:           http://wwos.home.arpa/index.php/Trac_Wiki_Formatter
 
 Purpose:
     A helper script to update Trac tickets via the XML-RPC API.
 
+    Update 1.7:
+    - Fixed resolution handling to explicitly set status to closed and assign resolution when resolving tickets via XML-RPC.
     Update 1.6:
     - Finalized integration with scripts.lib.trac_formatter.
     Update 1.5:
@@ -18,6 +20,9 @@ Purpose:
     - Added --markdown (-m) flag for automated Markdown-to-MoinMoin conversion.
     - Added automated secret sanitization for all comments and descriptions.
     - Updated header to WWOS standard with Context and WWOS links.
+
+Secrets:
+    TRAC_PASSWORD   (environment / ~/.bashrc) — used to authenticate to Trac XML-RPC
 ================================================================================
 """
 import xmlrpc.client
@@ -135,6 +140,8 @@ def main():
         attributes['action'] = args.action
     if args.action == 'resolve' and args.resolve_as:
         attributes['action_resolve_resolve_as'] = args.resolve_as
+        attributes['resolution'] = args.resolve_as
+        attributes['status'] = 'closed'
     if args.priority:
         attributes['priority'] = args.priority
     if args.keywords:
