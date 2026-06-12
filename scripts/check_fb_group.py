@@ -32,7 +32,7 @@ from playwright.sync_api import sync_playwright
 # Configuration
 GROUP_URL = "https://www.facebook.com/groups/473971729877417/"
 STATE_FILE = "/home/will/pops/tmp/fb_group_state.json"
-PROFILE_DIR = "/home/will/.cache/ms-playwright/mcp-chrome-f96f1ec" # Default Playwright MCP chrome profile
+PROFILE_DIR = "/home/will/.cache/ms-playwright/mcp-chrome-for-testing-f96f1ec" # Default Playwright MCP chrome profile
 CHROME_PATH = "/usr/bin/google-chrome"
 
 def notify_via_hass(message):
@@ -58,8 +58,8 @@ def notify_via_hass(message):
 
 def main():
     if not os.path.exists(PROFILE_DIR):
-        # Fallback to Chrome for testing profile if first profile doesn't exist
-        alt_profile = "/home/will/.cache/ms-playwright/mcp-chrome-for-testing-f96f1ec"
+        # Fallback to standard Chrome profile if testing one doesn't exist
+        alt_profile = "/home/will/.cache/ms-playwright/mcp-chrome-f96f1ec"
         if os.path.exists(alt_profile):
             profile_path = alt_profile
         else:
