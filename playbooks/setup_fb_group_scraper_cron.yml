@@ -1,0 +1,38 @@
+# ==============================================================================
+# Filename:       playbooks/setup_fb_group_scraper_cron.yml
+# Version:        1.0
+# Author:         Antigravity
+# Last Modified:  2026-06-12
+# Context:        Facebook Group Scraper (EPSC)
+#
+# Purpose:
+#    Deploys a cron job on athena to check the EPSC Facebook group for updates
+#    every 2 hours and notify the user via Home Assistant.
+#
+# Secrets:
+#    None - no secrets used in this playbook
+#
+# Revision History:
+#    v1.0 (2026-06-12) - Initial version.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/setup_fb_group_scraper_cron.yml
+# ==============================================================================
+---
+- name: Deploy EPSC Facebook Group Scraper Cron Job
+  hosts: athena
+  become: false  # Can run as the 'will' user directly
+
+  tasks:
+    - name: 1. Ensure check_fb_group.py is executable
+      ansible.builtin.file:
+        path: /home/will/ansible-netbox/scripts/check_fb_group.py
+        mode: '0755'
+
+    - name: 2. Create cron job to check group every 2 hours
+      ansible.builtin.cron:
+        name: "Check EPSC Facebook Group for Updates"
+        minute: "0"
+        hour: "*/2"
+        job: "/opt/venvs/gemini_projects/bin/python3 /home/will/ansible-netbox/scripts/check_fb_group.py >> /home/will/ansible-netbox/logs/fb_group_check.log 2>&1"
+        state: present

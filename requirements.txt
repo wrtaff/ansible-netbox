@@ -13,6 +13,7 @@ mcp==1.25.0
 fastmcp==2.14.5
 markdown==3.7.0
 markdownify==1.2.2
+playwright==1.49.0
 
 # pops-api dependencies (ref #3577)
 fastapi==0.136.3
