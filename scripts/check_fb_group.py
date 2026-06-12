@@ -90,10 +90,10 @@ def main():
         page = context.new_page()
         
         print(f"Navigating to group URL: {GROUP_URL}")
-        page.goto(GROUP_URL, wait_until="networkidle")
+        page.goto(GROUP_URL, wait_until="domcontentloaded", timeout=15000)
         
         # Wait a bit for dynamic posts to load
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(10000)
         
         # Check if we got redirected to login (session expired)
         if "login" in page.url or page.locator("input[name='email']").first.is_visible():
@@ -105,12 +105,20 @@ def main():
         # Scrape recent posts
         print("Scraping feed...")
         feed_articles = page.locator('div[role="article"]').all()
+        print(f"Found {len(feed_articles)} elements with div[role='article']")
         
         posts = []
-        for i, article in enumerate(feed_articles[:3]):
+        for i, article in enumerate(feed_articles[:5]):
             text = article.inner_text().strip()
+            print(f"Article {i+1} text length: {len(text)}")
             if text:
                 posts.append(text)
+
+        # Take screenshot for debugging if no posts found
+        if not posts:
+            screenshot_path = "/home/will/pops/tmp/fb_group_error.png"
+            page.screenshot(path=screenshot_path)
+            print(f"Debug screenshot saved to {screenshot_path}")
 
         context.close()
 
