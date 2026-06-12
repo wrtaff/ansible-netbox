@@ -90,10 +90,8 @@ def main():
         page = context.new_page()
         
         print(f"Navigating to group URL: {GROUP_URL}")
-        page.goto(GROUP_URL, wait_until="domcontentloaded", timeout=15000)
-        
-        # Wait a bit for dynamic posts to load
-        page.wait_for_timeout(10000)
+        page.goto(GROUP_URL, wait_until="domcontentloaded", timeout=20000)
+        page.wait_for_timeout(5000)
         
         # Check if we got redirected to login (session expired)
         if "login" in page.url or page.locator("input[name='email']").first.is_visible():
@@ -102,17 +100,92 @@ def main():
             context.close()
             sys.exit(0)
 
-        # Scrape recent posts
-        print("Scraping feed...")
-        feed_articles = page.locator('div[role="article"]').all()
-        print(f"Found {len(feed_articles)} elements with div[role='article']")
+        # Click the sorting dropdown to select 'New posts'
+        print("Checking sort option...")
+        sort_btn = page.locator('div[role="button"]:has-text("Most relevant")').first
+        if sort_btn.count() > 0:
+            print("Clicking Sort button...")
+            sort_btn.click()
+            page.wait_for_timeout(2000)
+            new_posts_item = page.locator('div[role="menuitem"], div[role="menuitemradio"]').filter(has_text='New posts').first
+            if new_posts_item.count() > 0:
+                print('Selecting "New posts"...')
+                new_posts_item.click()
+                page.wait_for_timeout(5000)
+
+        # Scroll twice to load the very newest posts
+        print("Scrolling slightly to load newest posts...")
+        for _ in range(2):
+            page.evaluate('window.scrollBy(0, 800)')
+            page.wait_for_timeout(1500)
+
+        # Identify target post containers currently in the DOM
+        post_count = page.evaluate('''() => {
+            const feed = document.querySelector('div[role="feed"]');
+            if (!feed) return 0;
+            const containers = feed.querySelectorAll('div.x1n2onr6.xh8yej3.x1ja2u2z.xod5an3');
+            
+            let count = 0;
+            containers.forEach((c) => {
+                const messageEl = c.querySelector('div[data-ad-comet-preview="message"]');
+                if (messageEl) {
+                    c.setAttribute('data-target-post', 'true');
+                    count++;
+                }
+            });
+            return count;
+        }''')
+        
+        print(f"Found {post_count} posts containing message content.")
         
         posts = []
-        for i, article in enumerate(feed_articles[:5]):
-            text = article.inner_text().strip()
-            print(f"Article {i+1} text length: {len(text)}")
-            if text:
-                posts.append(text)
+        feed_locator = page.locator('div[role="feed"]').first
+        
+        # Parse up to the first 3 posts
+        for idx in range(min(post_count, 3)):
+            post_locator = feed_locator.locator('div[data-target-post="true"]').nth(idx)
+            
+            # Author
+            author = page.evaluate('''(postIdx) => {
+                const post = document.querySelectorAll('div[data-target-post="true"]')[postIdx];
+                const firstTextLink = Array.from(post.querySelectorAll('a')).find(a => a.innerText && a.innerText.trim().length > 0);
+                return firstTextLink ? firstTextLink.innerText.trim() : 'Unknown Author';
+            }''', idx)
+            
+            # Content
+            content = page.evaluate('''(postIdx) => {
+                const post = document.querySelectorAll('div[data-target-post="true"]')[postIdx];
+                const msg = post.querySelector('div[data-ad-comet-preview="message"]');
+                return msg ? msg.innerText.trim() : '';
+            }''', idx)
+            
+            # Date via hover tooltip
+            date_link_idx = page.evaluate('''(postIdx) => {
+                const post = document.querySelectorAll('div[data-target-post="true"]')[postIdx];
+                const links = Array.from(post.querySelectorAll('a'));
+                return links.findIndex(a => a.getAttribute('href') && a.getAttribute('href').startsWith('?__cft__'));
+            }''', idx)
+            
+            date_str = 'Unknown Date'
+            if date_link_idx != -1:
+                try:
+                    date_link_loc = post_locator.locator('a').nth(date_link_idx)
+                    date_link_loc.scroll_into_view_if_needed()
+                    date_link_loc.hover()
+                    page.wait_for_timeout(800)
+                    date_str = page.evaluate('''() => {
+                        const tooltip = document.querySelector('div[role="tooltip"]');
+                        return tooltip ? tooltip.innerText.trim() : 'Unknown';
+                    }''')
+                except Exception as hover_err:
+                    print(f"Hover failed for post {idx}: {hover_err}")
+            
+            if content:
+                posts.append({
+                    "author": author,
+                    "date": date_str,
+                    "content": content
+                })
 
         # Take screenshot for debugging if no posts found
         if not posts:
@@ -127,7 +200,9 @@ def main():
         sys.exit(1)
 
     latest_post = posts[0]
-    print(f"Latest post content preview: {latest_post[:100]}...")
+    print(f"Latest post content preview: {latest_post['content'][:100]}...")
+    print(f"Latest post author: {latest_post['author']}")
+    print(f"Latest post date: {latest_post['date']}")
 
     # Load old state
     old_state = {}
@@ -140,14 +215,23 @@ def main():
 
     # Check if latest post is new
     last_known_post = old_state.get("latest_post")
-    if last_known_post != latest_post:
+    
+    is_new = False
+    if isinstance(last_known_post, dict):
+        if last_known_post.get("content") != latest_post["content"] or last_known_post.get("author") != latest_post["author"]:
+            is_new = True
+    else:
+        is_new = True
+
+    if is_new:
         print("New post detected!")
         # Save new state
         with open(STATE_FILE, 'w') as f:
             json.dump({"latest_post": latest_post, "updated_at": time.time()}, f)
         
         # Trigger notification
-        notify_via_hass(f"New update on EPSC Facebook Page:\n\n{latest_post}")
+        msg_body = f"Author: {latest_post['author']}\nDate: {latest_post['date']}\n\n{latest_post['content']}"
+        notify_via_hass(msg_body)
     else:
         print("No new posts detected.")
 
