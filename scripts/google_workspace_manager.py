@@ -621,6 +621,27 @@ def drive_export_file(file_id, mime_type='text/plain', output_file=None):
     except HttpError as error:
         print(f"Error exporting file: {error}")
 
+# --- SHEETS FUNCTIONS ---
+
+def sheets_update_row(spreadsheet_id, range_name, values, output_format='text'):
+    creds = get_creds()
+    service = build('sheets', 'v4', credentials=creds)
+    try:
+        body = {'values': values}
+        result = service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id, range=range_name,
+            valueInputOption='USER_ENTERED', body=body).execute()
+        
+        if output_format == 'json':
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"{result.get('updatedCells')} cells updated.")
+    except HttpError as error:
+        if output_format == 'json':
+            print(json.dumps({'error': str(error)}))
+        else:
+            print(f"Error updating sheet: {error}")
+
 # --- CALENDAR FUNCTIONS ---
 
 def calendar_list_events(max_results=10, output_format='text', calendar_id='primary'):

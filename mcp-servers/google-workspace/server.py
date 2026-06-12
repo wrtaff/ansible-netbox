@@ -447,6 +447,22 @@ def drive_create_folder(name: str, parent_id: Optional[str] = None) -> str:
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
 
+@mcp.tool(name="sheets_update_row")
+def sheets_update_row(spreadsheet_id: str, range_name: str, values_json: str) -> str:
+    """Update a row in a Google Sheet."""
+    logger.info(f"Sheets: Updating {spreadsheet_id} range {range_name}")
+    import io
+    import json
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            values = json.loads(values_json)
+            gwm.sheets_update_row(spreadsheet_id=spreadsheet_id, range_name=range_name, values=values, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+
 # --- CALENDAR TOOLS ---
 
 @mcp.tool(name="calendar_list_events")
