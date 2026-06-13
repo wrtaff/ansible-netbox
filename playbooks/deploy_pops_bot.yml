@@ -1,0 +1,60 @@
+# ==============================================================================
+# Filename:       playbooks/deploy_pops_bot.yml
+# Version:        1.0
+# Author:         Claude Code
+# Last Modified:  2026-06-12
+# Trac Ticket:    http://trac.home.arpa/ticket/3576
+#
+# Purpose:
+#   Provisions dependencies required by the Pops KMS Telegram bot on athena.
+#   Installs python-telegram-bot into the shared Python virtual environment at
+#   /opt/venvs/gemini_projects and verifies the import.
+#   NOTE: A later subtask will extend this playbook with the systemd unit for
+#   the bot service - structure is intentionally clean for that extension.
+#
+# Secrets:
+#   ansible_become_pass (vault.yml) - sudo privilege escalation
+#
+# Usage:
+#   # Dry run (check + diff):
+#   ansible-playbook -i inventory.ini playbooks/deploy_pops_bot.yml \
+#       --limit athena --check --diff
+#
+#   # Full run:
+#   ansible-playbook -i inventory.ini playbooks/deploy_pops_bot.yml \
+#       --limit athena
+#
+# Revision History:
+#   v1.0 (2026-06-12) - Initial version. Install python-telegram-bot. Trac #3576.
+# ==============================================================================
+
+- name: Deploy Pops Telegram bot dependencies
+  hosts: athena
+  gather_facts: false
+  become: true
+
+  vars:
+    venv_path: /opt/venvs/gemini_projects
+    pops_bot_pip_packages:
+      - python-telegram-bot==22.8
+
+  tasks:
+    - name: Install pops-bot Python dependencies into shared venv
+      ansible.builtin.pip:
+        name: "{{ item }}"
+        state: present
+        virtualenv: "{{ venv_path }}"
+      loop: "{{ pops_bot_pip_packages }}"
+      become_user: will
+
+    - name: Verify telegram import and print version
+      ansible.builtin.command:
+        cmd: "{{ venv_path }}/bin/python3 -c 'import telegram; print(telegram.__version__)'"
+      register: telegram_version
+      changed_when: false
+      become_user: will
+
+    - name: Show telegram version
+      ansible.builtin.debug:
+        msg: "python-telegram-bot installed: {{ telegram_version.stdout }}"
+      when: telegram_version is not skipped

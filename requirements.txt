@@ -23,3 +23,6 @@ python-multipart==0.0.32
 # pops-api test deps (ref #3577)
 pytest==8.4.1
 httpx==0.28.1
+
+# pops-bot deps (ref #3576)
+python-telegram-bot==22.8
