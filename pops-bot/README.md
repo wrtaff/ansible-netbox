@@ -50,6 +50,63 @@ TELEGRAM_BOT_TOKEN=... POPS_API_KEY=... TELEGRAM_ALLOWED_USER_IDS=123456789 \
 Production: systemd unit `pops-bot.service`, deployed by
 `playbooks/deploy_pops_bot.yml`.
 
+## Deployment
+
+Managed by `playbooks/deploy_pops_bot.yml`. Run from the `ansible-netbox`
+directory:
+
+```bash
+ansible-playbook -i inventory.ini playbooks/deploy_pops_bot.yml --limit athena
+```
+
+### Unit file
+
+`pops-bot/systemd/pops-bot.service` is deployed to
+`/etc/systemd/system/pops-bot.service`. It depends on `network-online.target`
+and `pops-api.service`, runs as user `will`, and loads secrets from
+`/etc/pops-bot/env` via `EnvironmentFile`.
+
+### Environment file
+
+`/etc/pops-bot/env` - owner `root`, group `will`, mode `0640`. Created once
+by the playbook (idempotent - not overwritten on re-runs). Contents:
+
+```
+TELEGRAM_BOT_TOKEN=<BotFather token>
+TELEGRAM_ALLOWED_USER_IDS=<comma-separated numeric IDs>
+POPS_API_URL=http://127.0.0.1:8765
+POPS_API_KEY=<copied from /etc/pops-api/env at deploy time>
+```
+
+### Held-start behavior
+
+The playbook enables the service but does NOT start it. At deploy time
+`TELEGRAM_BOT_TOKEN` is set to the placeholder `REPLACE_ME`. The playbook
+detects this and skips the start task, printing instructions instead. The
+service remains in state `enabled / inactive` until the operator supplies a
+real token.
+
+### Go-live steps
+
+1. Get a bot token from [@BotFather](https://t.me/BotFather) (`/newbot`).
+2. Get your numeric Telegram user ID from [@userinfobot](https://t.me/userinfobot).
+3. Edit the env file on athena (requires sudo):
+
+   ```bash
+   sudo nano /etc/pops-bot/env
+   # Set TELEGRAM_BOT_TOKEN to the token from @BotFather
+   # Set TELEGRAM_ALLOWED_USER_IDS to your numeric ID (comma-separated for multiple)
+   ```
+
+4. Start the service:
+
+   ```bash
+   sudo systemctl start pops-bot
+   sudo systemctl status pops-bot
+   ```
+
+5. Message the bot: `/status` - it should reply with API status and uptime.
+
 ## BotFather setup
 
 1. Create the bot with [@BotFather](https://t.me/BotFather) (`/newbot`); copy

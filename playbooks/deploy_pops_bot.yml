@@ -1,19 +1,23 @@
 # ==============================================================================
 # Filename:       playbooks/deploy_pops_bot.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Claude Code
 # Last Modified:  2026-06-12
 # Trac Ticket:    http://trac.home.arpa/ticket/3576
 #
 # Purpose:
-#   Provisions dependencies required by the Pops KMS Telegram bot on athena.
-#   Installs python-telegram-bot into the shared Python virtual environment at
-#   /opt/venvs/gemini_projects and verifies the import.
-#   NOTE: A later subtask will extend this playbook with the systemd unit for
-#   the bot service - structure is intentionally clean for that extension.
+#   Provisions and deploys the Pops KMS Telegram bot on athena. Installs
+#   python-telegram-bot into the shared Python virtual environment at
+#   /opt/venvs/gemini_projects, deploys the pops-bot.service systemd unit,
+#   creates /etc/pops-bot/env with placeholders for Telegram secrets and the
+#   real POPS_API_KEY copied from /etc/pops-api/env. Service is enabled but
+#   start is held until TELEGRAM_BOT_TOKEN is replaced with a real value.
 #
 # Secrets:
 #   ansible_become_pass (vault.yml) - sudo privilege escalation
+#   TELEGRAM_BOT_TOKEN (/etc/pops-bot/env, mode 0640 root:will) - BotFather token
+#   POPS_API_KEY (/etc/pops-bot/env, mode 0640 root:will) - copied from
+#     /etc/pops-api/env at deploy time; not regenerated if file already exists
 #
 # Usage:
 #   # Dry run (check + diff):
@@ -25,6 +29,8 @@
 #       --limit athena
 #
 # Revision History:
+#   v1.1 (2026-06-12) - Deploy pops-bot.service + /etc/pops-bot/env; start held
+#                       until real token. Trac #3576.
 #   v1.0 (2026-06-12) - Initial version. Install python-telegram-bot. Trac #3576.
 # ==============================================================================
 
@@ -58,3 +64,95 @@
       ansible.builtin.debug:
         msg: "python-telegram-bot installed: {{ telegram_version.stdout }}"
       when: telegram_version is not skipped
+
+    # --- Phase 2: systemd service deployment (Trac #3576 B4) ---
+
+    - name: Ensure /etc/pops-bot directory exists
+      ansible.builtin.file:
+        path: /etc/pops-bot
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Slurp POPS_API_KEY from /etc/pops-api/env
+      ansible.builtin.slurp:
+        src: /etc/pops-api/env
+      register: pops_api_env_raw
+
+    - name: Extract POPS_API_KEY value
+      ansible.builtin.set_fact:
+        pops_api_key_value: >-
+          {{ (pops_api_env_raw.content | b64decode)
+             | regex_search('POPS_API_KEY=(\S+)', '\1') | first }}
+
+    - name: Write /etc/pops-bot/env (idempotent - skipped if file already exists)
+      ansible.builtin.shell:
+        cmd: |
+          printf 'TELEGRAM_BOT_TOKEN=REPLACE_ME\nTELEGRAM_ALLOWED_USER_IDS=REPLACE_ME\nPOPS_API_URL=http://127.0.0.1:8765\nPOPS_API_KEY=%s\n' \
+            "{{ pops_api_key_value }}" > /etc/pops-bot/env
+          chown root:will /etc/pops-bot/env
+          chmod 0640 /etc/pops-bot/env
+        creates: /etc/pops-bot/env
+
+    - name: Deploy pops-bot.service unit file
+      ansible.builtin.copy:
+        src: /home/will/ansible-netbox/pops-bot/systemd/pops-bot.service
+        dest: /etc/systemd/system/pops-bot.service
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+      notify: Reload systemd
+
+    - name: Flush handlers (daemon-reload before enable)
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable pops-bot.service (without starting)
+      ansible.builtin.systemd:
+        name: pops-bot.service
+        enabled: true
+        daemon_reload: true
+
+    - name: Slurp /etc/pops-bot/env to check token placeholder
+      ansible.builtin.slurp:
+        src: /etc/pops-bot/env
+      register: pops_bot_env_raw
+
+    - name: Set fact - token is placeholder
+      ansible.builtin.set_fact:
+        bot_token_is_placeholder: >-
+          {{ 'TELEGRAM_BOT_TOKEN=REPLACE_ME' in (pops_bot_env_raw.content | b64decode) }}
+
+    - name: Start pops-bot.service (only when token is real)
+      ansible.builtin.systemd:
+        name: pops-bot.service
+        state: started
+      when: not bot_token_is_placeholder
+
+    - name: Inform operator - service held until token is set
+      ansible.builtin.debug:
+        msg: >-
+          pops-bot.service is ENABLED but NOT started. To go live:
+          1. Edit /etc/pops-bot/env on athena (sudo).
+          2. Set TELEGRAM_BOT_TOKEN to the token from @BotFather.
+          3. Set TELEGRAM_ALLOWED_USER_IDS to your numeric ID(s) from @userinfobot.
+          4. Run: systemctl start pops-bot
+          5. Then message the bot: /status
+      when: bot_token_is_placeholder
+
+    - name: Report pops-bot.service enabled state
+      ansible.builtin.command:
+        cmd: systemctl is-enabled pops-bot.service
+      register: bot_enabled_state
+      changed_when: false
+      failed_when: false
+
+    - name: Show pops-bot.service enabled state
+      ansible.builtin.debug:
+        msg: "pops-bot.service enabled state: {{ bot_enabled_state.stdout }}"
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
