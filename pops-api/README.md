@@ -5,6 +5,20 @@ Trac: [#3577](http://trac.home.arpa/ticket/3577) (parent) · first client: Teleg
 
 Runs on **athena** (where `/home/will/pops` lives), port **8765**, single shared API key (`X-API-Key` header) for all endpoints except `/api/health`.
 
+## Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/health` | Liveness, version, pops-root status (no auth) |
+| POST | `/api/inbox` | Timestamped capture to `raw/journal/` + `wiki/log.md` |
+| GET | `/api/search` | ripgrep over `wiki/` (q, max_results, context) |
+| POST | `/api/tasks` | Create Vikunja task (title, description, project_id, labels, due) |
+| POST | `/api/tickets` | Create Trac ticket (markdown auto-converted to MoinMoin) |
+| POST | `/api/transcribe` | Multipart audio upload; background job, returns `job_id` (202) |
+| GET | `/api/transcribe/{job_id}` | Job status; transcript text/path when done |
+
+Transcription jobs stage uploads in `POPS_ROOT/tmp/api-uploads/`, keep state JSON in `POPS_ROOT/tmp/api-jobs/`, and deliver transcripts to `raw/transcripts/`.
+
 ## Layout
 
 ```
@@ -85,6 +99,6 @@ WARNING: `smoke.sh` performs a real `/api/inbox` capture, which WRITES to the
 live `POPS_ROOT` of the server under test (a `raw/journal/` file and a
 `wiki/log.md` line).
 
-## Phase 1 subtasks
+## Project history
 
-See Trac #3577 for the graded subtask breakdown (P1.1 scaffold ... P1.7 tests) and assignment status.
+See Trac #3577 (parent: blueprint, decisions, phase reports), #3585 (Phase 2 action endpoints), #3586 (systemd deployment), #3596 (Phase 3 transcription).
