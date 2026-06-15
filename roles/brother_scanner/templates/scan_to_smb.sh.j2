@@ -32,8 +32,8 @@ scanimage --device-name="{{ scanner_device_name | default('brother4:bus3;dev1') 
           --batch="${TMP_PREFIX}_p%04d.tiff" \
           --format=tiff
 
-# Convert to PDF
-convert "${TMP_PREFIX}_p*.tiff" "${OUTPUT_PDF}"
+# Convert to PDF with JPEG compression to drastically reduce file sizes
+convert "${TMP_PREFIX}_p*.tiff" -compress jpeg -quality 80 "${OUTPUT_PDF}"
 
 if [ -f "${OUTPUT_PDF}" ]; then
     echo "Successfully saved to ${OUTPUT_PDF}"

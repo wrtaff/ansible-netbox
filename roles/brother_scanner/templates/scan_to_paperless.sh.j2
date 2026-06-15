@@ -20,10 +20,10 @@ echo "Starting scan to ${OUTPUT_PDF}..."
 # Scan using scanimage (ADF, duplex if supported, 150dpi)
 scanimage --device-name="brother4:bus5;dev1" --resolution 150 --mode Gray --source "Automatic Document Feeder(centrally aligned,Duplex)" --batch="${TMP_PREFIX}_p%04d.tiff" --format=tiff
 
-# Convert to PDF
+# Convert to PDF with JPEG compression to drastically reduce file sizes
 # Note: Paperless-ngx can also consume TIFFs directly and OCR them, 
 # but we convert to PDF here to be safe and bundle the pages.
-convert "${TMP_PREFIX}_p*.tiff" "${OUTPUT_PDF}"
+convert "${TMP_PREFIX}_p*.tiff" -compress jpeg -quality 80 "${OUTPUT_PDF}"
 
 if [ -f "${OUTPUT_PDF}" ]; then
     echo "Scan complete. Moving to Paperless consume directory: ${CONSUME_DIR}"
