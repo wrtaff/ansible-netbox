@@ -1,0 +1,44 @@
+#!/bin/bash
+# ==============================================================================
+# Script:     scan_to_paperless.sh
+# Purpose:    Scan script triggered by Brother scanner button (brscan-skey)
+#             Designed to push to Paperless-ngx consume directory
+# Secrets:    None — no credentials or secrets required
+# ==============================================================================
+# Revision History:
+#   2026-06-15  Antigravity  Adjusted resolution to 150dpi
+# ==============================================================================
+
+# Configuration
+CONSUME_DIR="{{ paperless_consume_dir | default('/mnt/paperless/consume') }}"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+TMP_PREFIX="/tmp/scan_${TIMESTAMP}"
+OUTPUT_PDF="${TMP_PREFIX}.pdf"
+
+echo "Starting scan to ${OUTPUT_PDF}..."
+
+# Scan using scanimage (ADF, duplex if supported, 150dpi)
+scanimage --device-name="brother4:bus5;dev1" --resolution 150 --mode Gray --source "Automatic Document Feeder(centrally aligned,Duplex)" --batch="${TMP_PREFIX}_p%04d.tiff" --format=tiff
+
+# Convert to PDF
+# Note: Paperless-ngx can also consume TIFFs directly and OCR them, 
+# but we convert to PDF here to be safe and bundle the pages.
+convert "${TMP_PREFIX}_p*.tiff" "${OUTPUT_PDF}"
+
+if [ -f "${OUTPUT_PDF}" ]; then
+    echo "Scan complete. Moving to Paperless consume directory: ${CONSUME_DIR}"
+    
+    # Check if the consume directory is a mounted SMB share and available
+    if [ -d "${CONSUME_DIR}" ]; then
+        cp "${OUTPUT_PDF}" "${CONSUME_DIR}/"
+        echo "Successfully copied to ${CONSUME_DIR}"
+    else
+        echo "ERROR: Consume directory ${CONSUME_DIR} not found or not mounted."
+        # Fallback: leave in /tmp
+    fi
+else
+    echo "ERROR: Scan failed, no PDF generated."
+fi
+
+# Cleanup temp TIFFs
+rm -f "${TMP_PREFIX}_p"*.tiff

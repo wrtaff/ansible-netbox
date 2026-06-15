@@ -1,0 +1,8 @@
+---
+- name: Install Brother ADS-2000 Scanner Drivers
+  hosts: all
+  become: yes
+  vars:
+    paperless_consume_dir: "/mnt/paperless/consume"
+  roles:
+    - brother_scanner

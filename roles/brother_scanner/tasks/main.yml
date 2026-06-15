@@ -1,0 +1,91 @@
+---
+- name: Install dependencies for Brother scanner
+  apt:
+    name:
+      - sane
+      - sane-utils
+      - libusb-0.1-4
+      - gscan2pdf
+      - imagemagick
+      - unpaper
+      - curl
+    state: present
+    update_cache: yes
+
+- name: Find Brother driver deb files in role files directory
+  delegate_to: localhost
+  find:
+    paths: "{{ role_path }}/files"
+    patterns: "*.deb"
+  register: local_deb_files
+
+- name: Copy Brother driver deb files to target
+  copy:
+    src: "{{ item.path }}"
+    dest: "/tmp/{{ item.path | basename }}"
+  with_items: "{{ local_deb_files.files }}"
+  when: local_deb_files.matched > 0
+
+- name: Install Brother drivers via apt
+  apt:
+    deb: "/tmp/{{ item.path | basename }}"
+  with_items: "{{ local_deb_files.files }}"
+  when: local_deb_files.matched > 0
+
+- name: Ensure SYSFS line is commented out in Brother udev rules (Ubuntu 12.04+ fix)
+  replace:
+    path: "{{ item }}"
+    regexp: '^(.*SYSFS.*)$'
+    replace: '#\1'
+  with_items:
+    - /etc/udev/rules.d/60-brother-libsane-type1.rules
+    - /etc/udev/rules.d/60-brother-brscan4-libsane-type1.rules
+  notify: Reload udev rules
+
+- name: Create scan script directory
+  file:
+    path: /opt/brother/scanner/scripts
+    state: directory
+    mode: '0755'
+
+- name: Deploy paperless-ngx push-to-scan script
+  template:
+    src: scan_to_paperless.sh.j2
+    dest: /opt/brother/scanner/scripts/scan_to_paperless.sh
+    mode: '0755'
+
+- name: Deploy raw SMB push-to-scan script
+  template:
+    src: scan_to_smb.sh.j2
+    dest: /opt/brother/scanner/scripts/scan_to_smb.sh
+    mode: '0755'
+
+- name: Configure brscan-skey to use the paperless scan script
+  lineinfile:
+    path: /opt/brother/scanner/brscan-skey/brscan-skey-0.2.4-0.cfg # Path may vary depending on driver version
+    regexp: '^IMAGE='
+    line: 'IMAGE=/opt/brother/scanner/scripts/scan_to_paperless.sh'
+    create: yes
+  ignore_errors: yes # Might fail if brscan-skey isn't installed yet or path is different
+
+- name: Configure brscan-skey to use the raw SMB scan script
+  lineinfile:
+    path: /opt/brother/scanner/brscan-skey/brscan-skey-0.2.4-0.cfg # Path may vary depending on driver version
+    regexp: '^FILE='
+    line: 'FILE=/opt/brother/scanner/scripts/scan_to_smb.sh'
+    create: yes
+  ignore_errors: yes # Might fail if brscan-skey isn't installed yet or path is different
+
+- name: Create desktop shortcut for Scan to SMB
+  copy:
+    dest: "/home/{{ ansible_user | default('will') }}/Desktop/Scan_to_SMB.desktop"
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Terminal=true
+      Name=Scan to SMB (Letter Duplex)
+      Exec=/opt/brother/scanner/scripts/scan_to_smb.sh
+      Icon=scanner
+      Categories=Utility;
+    mode: '0755'
+    owner: "{{ ansible_user | default('will') }}"

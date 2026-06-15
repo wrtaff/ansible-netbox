@@ -1,0 +1,45 @@
+#!/bin/bash
+# ==============================================================================
+# Script:     scan_to_smb.sh
+# Purpose:    Scan script triggered by Brother scanner button or desktop shortcut
+#             Designed to push to raw SMB share (Letter, Duplex, 150dpi, True Gray)
+# Secrets:    None — no credentials or secrets required
+# ==============================================================================
+# Revision History:
+#   2026-06-15  Antigravity  Initial creation; duplex letter 150dpi scan to SMB
+# ==============================================================================
+
+# Configuration
+OUTPUT_DIR="/mnt/smb/share/Documents/Scans_Folder"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+TMP_PREFIX="/tmp/scan_${TIMESTAMP}"
+OUTPUT_PDF="${OUTPUT_DIR}/Scan_${TIMESTAMP}.pdf"
+
+echo "Starting dual-sided Letter scan to ${OUTPUT_PDF}..."
+
+# Ensure target directory exists (if mounted)
+if [ ! -d "${OUTPUT_DIR}" ]; then
+    echo "ERROR: Output directory ${OUTPUT_DIR} not found or not mounted."
+    exit 1
+fi
+
+# Scan using scanimage (ADF, duplex, True Gray, 150dpi, Letter Geometry)
+scanimage --device-name="{{ scanner_device_name | default('brother4:bus3;dev1') }}" \
+          --resolution 150 \
+          --mode "True Gray" \
+          --source "Automatic Document Feeder(left aligned,Duplex)" \
+          -x 211.9 -y 279.4 \
+          --batch="${TMP_PREFIX}_p%04d.tiff" \
+          --format=tiff
+
+# Convert to PDF
+convert "${TMP_PREFIX}_p*.tiff" "${OUTPUT_PDF}"
+
+if [ -f "${OUTPUT_PDF}" ]; then
+    echo "Successfully saved to ${OUTPUT_PDF}"
+else
+    echo "ERROR: Scan failed, no PDF generated."
+fi
+
+# Cleanup temp TIFFs
+rm -f "${TMP_PREFIX}_p"*.tiff
