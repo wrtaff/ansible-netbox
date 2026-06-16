@@ -19,7 +19,7 @@
 # ==============================================================================
 ---
 - name: Install and Configure OpenCode CLI
-  hosts: athena
+  hosts: "{{ target | default('athena') }}"
   become: true
   gather_facts: true
 
