@@ -2,20 +2,21 @@
 """
 ================================================================================
 Filename:       check_fb_group.py
-Version:        1.0
+Version:        2.0
 Author:         Antigravity
-Last Modified:  2026-06-12
+Last Modified:  2026-06-22
 Context:        Facebook Group Updates (EPSC)
 
 Purpose:
     Scrape the EPSC Facebook group using Playwright with the persistent
-    profile to check for new posts. If a new post is detected, notify
-    via Home Assistant.
+    profile to check for new posts and comments. If new items are detected,
+    notify via Email using google_workspace_manager.py.
 
 Secrets:
-    None - no direct credentials required (delegates to hass_api_manager.py)
+    None - delegates to google_workspace_manager.py
 
 Revision History:
+    v2.0 (2026-06-22) - Email notifications, comment support, hash-based state.
     v1.0 (2026-06-12) - Initial version.
 
 Usage:
@@ -27,6 +28,7 @@ import sys
 import json
 import time
 import subprocess
+import hashlib
 from playwright.sync_api import sync_playwright
 
 # Configuration
@@ -34,27 +36,25 @@ GROUP_URL = "https://www.facebook.com/groups/473971729877417/"
 STATE_FILE = "/home/will/pops/tmp/fb_group_state.json"
 PROFILE_DIR = "/home/will/.cache/ms-playwright/mcp-chrome-for-testing-f96f1ec" # Default Playwright MCP chrome profile
 CHROME_PATH = "/usr/bin/google-chrome"
+EMAIL_TO = "will@gafla.us.com"
 
-def notify_via_hass(message):
-    """Call Home Assistant to post a persistent notification."""
+def notify_via_email(subject, message):
+    """Call Google Workspace Manager to send an email notification."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    hass_manager = os.path.join(script_dir, "hass_api_manager.py")
-    
-    payload = {
-        "title": "EPSC Facebook Group Update",
-        "message": message
-    }
+    gws_manager = os.path.join(script_dir, "google_workspace_manager.py")
     
     try:
         subprocess.run(
-            [sys.executable, hass_manager, "call", "persistent_notification", "create", json.dumps(payload)],
+            [sys.executable, gws_manager, "gmail-send", EMAIL_TO, subject, message],
             check=True,
             capture_output=True,
             text=True
         )
-        print("Notification sent to Home Assistant.")
+        print("Notification sent via Email.")
     except Exception as e:
-        print(f"Failed to send Home Assistant notification: {e}", file=sys.stderr)
+        print(f"Failed to send email notification: {e}", file=sys.stderr)
+        if hasattr(e, 'stderr') and e.stderr:
+            print(e.stderr, file=sys.stderr)
 
 def main():
     if not os.path.exists(PROFILE_DIR):
@@ -96,7 +96,7 @@ def main():
         # Check if we got redirected to login (session expired)
         if "login" in page.url or page.locator("input[name='email']").first.is_visible():
             print("Session expired or not logged in. Sending notification.")
-            notify_via_hass("Facebook session has expired. Please log back in using the Facebook Messenger skill to refresh the session.")
+            notify_via_email("EPSC Facebook Scraper: Session Expired", "Facebook session has expired. Please log back in using the Facebook Messenger skill to refresh the session.")
             context.close()
             sys.exit(0)
 
@@ -113,79 +113,88 @@ def main():
                 new_posts_item.click()
                 page.wait_for_timeout(5000)
 
-        # Scroll twice to load the very newest posts
-        print("Scrolling slightly to load newest posts...")
-        for _ in range(2):
+        # Expand comments if possible
+        print("Expanding comments...")
+        comment_buttons = page.locator('div[role="button"]').filter(has_text=' comments')
+        for i in range(min(comment_buttons.count(), 3)):
+            try:
+                comment_buttons.nth(i).click()
+                page.wait_for_timeout(1000)
+            except:
+                pass
+        
+        # Scroll slightly to load newest posts
+        print("Scrolling slightly to load newest posts/comments...")
+        for _ in range(3):
             page.evaluate('window.scrollBy(0, 800)')
             page.wait_for_timeout(1500)
 
-        # Identify target post containers currently in the DOM
-        post_count = page.evaluate('''() => {
+        # Identify target post and comment containers currently in the DOM
+        item_count = page.evaluate('''() => {
             const feed = document.querySelector('div[role="feed"]');
             if (!feed) return 0;
-            const containers = feed.querySelectorAll('div.x1n2onr6.xh8yej3.x1ja2u2z.xod5an3');
             
             let count = 0;
-            containers.forEach((c) => {
-                const messageEl = c.querySelector('div[data-ad-comet-preview="message"]');
-                if (messageEl) {
-                    c.setAttribute('data-target-post', 'true');
+            
+            // 1. Posts
+            const postMessages = feed.querySelectorAll('div[data-ad-comet-preview="message"]');
+            postMessages.forEach((msg) => {
+                if (!msg.hasAttribute('data-target-item')) {
+                    msg.setAttribute('data-target-item', 'post');
                     count++;
                 }
             });
+            
+            // 2. Comments
+            // Comments are typically in div[role="article"] which have aria-label starting with "Comment"
+            const articles = feed.querySelectorAll('div[role="article"]');
+            articles.forEach((article) => {
+                const label = article.getAttribute('aria-label');
+                if (label && label.startsWith("Comment")) {
+                    const textDiv = article.querySelector('div[dir="auto"]');
+                    if (textDiv && !textDiv.hasAttribute('data-target-item')) {
+                        textDiv.setAttribute('data-target-item', 'comment');
+                        let author = label.replace("Comment by ", "").replace("Comment from ", "");
+                        textDiv.setAttribute('data-author', author);
+                        count++;
+                    }
+                }
+            });
+            
             return count;
         }''')
         
-        print(f"Found {post_count} posts containing message content.")
+        print(f"Found {item_count} items (posts and comments).")
         
         posts = []
-        feed_locator = page.locator('div[role="feed"]').first
-        
-        # Parse up to the first 3 posts
-        for idx in range(min(post_count, 3)):
-            post_locator = feed_locator.locator('div[data-target-post="true"]').nth(idx)
-            
-            # Author
-            author = page.evaluate('''(postIdx) => {
-                const post = document.querySelectorAll('div[data-target-post="true"]')[postIdx];
-                const firstTextLink = Array.from(post.querySelectorAll('a')).find(a => a.innerText && a.innerText.trim().length > 0);
-                return firstTextLink ? firstTextLink.innerText.trim() : 'Unknown Author';
-            }''', idx)
-            
-            # Content
-            content = page.evaluate('''(postIdx) => {
-                const post = document.querySelectorAll('div[data-target-post="true"]')[postIdx];
-                const msg = post.querySelector('div[data-ad-comet-preview="message"]');
-                return msg ? msg.innerText.trim() : '';
-            }''', idx)
-            
-            # Date via hover tooltip
-            date_link_idx = page.evaluate('''(postIdx) => {
-                const post = document.querySelectorAll('div[data-target-post="true"]')[postIdx];
-                const links = Array.from(post.querySelectorAll('a'));
-                return links.findIndex(a => a.getAttribute('href') && a.getAttribute('href').startsWith('?__cft__'));
-            }''', idx)
-            
-            date_str = 'Unknown Date'
-            if date_link_idx != -1:
+        if item_count > 0:
+            for idx in range(min(item_count, 15)): # Parse up to 15 items to ensure we catch everything
                 try:
-                    date_link_loc = post_locator.locator('a').nth(date_link_idx)
-                    date_link_loc.scroll_into_view_if_needed()
-                    date_link_loc.hover()
-                    page.wait_for_timeout(800)
-                    date_str = page.evaluate('''() => {
-                        const tooltip = document.querySelector('div[role="tooltip"]');
-                        return tooltip ? tooltip.innerText.trim() : 'Unknown';
-                    }''')
-                except Exception as hover_err:
-                    print(f"Hover failed for post {idx}: {hover_err}")
-            
-            if content:
-                posts.append({
-                    "author": author,
-                    "date": date_str,
-                    "content": content
-                })
+                    item_type = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].getAttribute('data-target-item')''')
+                    
+                    if item_type == 'post':
+                        author = page.evaluate(f'''() => {{
+                            const el = document.querySelectorAll('[data-target-item]')[{idx}];
+                            const article = el.closest('div[role="article"]');
+                            if (!article) return "Unknown Author";
+                            const firstTextLink = Array.from(article.querySelectorAll('a')).find(a => a.innerText && a.innerText.trim().length > 0);
+                            return firstTextLink ? firstTextLink.innerText.trim() : 'Unknown Author';
+                        }}''')
+                        content = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].innerText.trim()''')
+                        is_comment = False
+                    else:
+                        author = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].getAttribute('data-author') || "Unknown Author"''')
+                        content = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].innerText.trim()''')
+                        is_comment = True
+
+                    if content:
+                        posts.append({
+                            "author": author,
+                            "content": content,
+                            "is_comment": is_comment
+                        })
+                except Exception as e:
+                    print(f"Error parsing item {idx}: {e}")
 
         # Take screenshot for debugging if no posts found
         if not posts:
@@ -196,13 +205,10 @@ def main():
         context.close()
 
     if not posts:
-        print("No posts found. Facebook page layout might have changed or feed failed to load.")
+        print("No items found. Facebook page layout might have changed or feed failed to load.")
         sys.exit(1)
 
-    latest_post = posts[0]
-    print(f"Latest post content preview: {latest_post['content'][:100]}...")
-    print(f"Latest post author: {latest_post['author']}")
-    print(f"Latest post date: {latest_post['date']}")
+    print(f"Successfully extracted {len(posts)} items.")
 
     # Load old state
     old_state = {}
@@ -213,27 +219,38 @@ def main():
         except Exception as e:
             print(f"Warning: Failed to load old state: {e}")
 
-    # Check if latest post is new
-    last_known_post = old_state.get("latest_post")
+    notified_hashes = old_state.get("notified_hashes", [])
     
-    is_new = False
-    if isinstance(last_known_post, dict):
-        if last_known_post.get("content") != latest_post["content"] or last_known_post.get("author") != latest_post["author"]:
-            is_new = True
-    else:
-        is_new = True
+    # Migrate old state format if necessary
+    if "latest_post" in old_state and isinstance(old_state["latest_post"], dict):
+        old_content = old_state["latest_post"].get("content", "")
+        old_author = old_state["latest_post"].get("author", "")
+        old_hash = hashlib.md5((old_author + old_content).encode('utf-8')).hexdigest()
+        if old_hash not in notified_hashes:
+            notified_hashes.append(old_hash)
 
-    if is_new:
-        print("New post detected!")
-        # Save new state
+    new_items_found = False
+    
+    # Process from oldest to newest if we want to notify in order, but we grabbed them top-down (newest first).
+    # Reversing the list so we process older items first if they are on the page.
+    for post in reversed(posts):
+        post_hash = hashlib.md5((post["author"] + post["content"]).encode('utf-8')).hexdigest()
+        if post_hash not in notified_hashes:
+            print(f"New {'comment' if post['is_comment'] else 'post'} detected by {post['author']}!")
+            subject = f"EPSC FB {'Comment' if post['is_comment'] else 'Post'}: {post['author']}"
+            msg_body = f"Author: {post['author']}\n\n{post['content']}"
+            notify_via_email(subject, msg_body)
+            
+            notified_hashes.append(post_hash)
+            new_items_found = True
+
+    if new_items_found:
+        # Keep only the last 200 hashes to prevent file growth
+        notified_hashes = notified_hashes[-200:]
         with open(STATE_FILE, 'w') as f:
-            json.dump({"latest_post": latest_post, "updated_at": time.time()}, f)
-        
-        # Trigger notification
-        msg_body = f"Author: {latest_post['author']}\nDate: {latest_post['date']}\n\n{latest_post['content']}"
-        notify_via_hass(msg_body)
+            json.dump({"notified_hashes": notified_hashes, "updated_at": time.time()}, f)
     else:
-        print("No new posts detected.")
+        print("No new posts/comments detected.")
 
 if __name__ == "__main__":
     main()
