@@ -44,7 +44,7 @@ GCP_SCOPES = [
     'https://www.googleapis.com/auth/cloud-billing'
 ]
 
-def get_creds():
+def get_creds(quota_project=None):
     if not os.path.exists(TOKEN_FILE):
         print(f"Error: {TOKEN_FILE} not found. Please run google_workspace_manager.py auth first.")
         sys.exit(1)
@@ -60,6 +60,9 @@ def get_creds():
 
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
+    
+    if quota_project:
+        creds = creds.with_quota_project(quota_project)
     
     return creds
 
@@ -82,6 +85,66 @@ def list_billing_accounts():
         response = request.execute()
         accounts = response.get('billingAccounts', [])
         print(json.dumps(accounts, indent=2))
+    except HttpError as e:
+        print(f"HTTP Error: {e}")
+
+def list_service_accounts(project_id):
+    creds = get_creds(quota_project='gafla-gae-learning-2026')
+    service = build('iam', 'v1', credentials=creds)
+    try:
+        name = f"projects/{project_id}"
+        request = service.projects().serviceAccounts().list(name=name)
+        response = request.execute()
+        accounts = response.get('accounts', [])
+        print(json.dumps(accounts, indent=2))
+    except HttpError as e:
+        print(f"HTTP Error: {e}")
+
+def create_service_account(project_id, account_id, display_name):
+    creds = get_creds()
+    service = build('iam', 'v1', credentials=creds)
+    try:
+        name = f"projects/{project_id}"
+        body = {
+            'accountId': account_id,
+            'serviceAccount': {
+                'displayName': display_name
+            }
+        }
+        account = service.projects().serviceAccounts().create(name=name, body=body).execute()
+        print(f"Service account created: {json.dumps(account, indent=2)}")
+    except HttpError as e:
+        print(f"HTTP Error: {e}")
+
+def list_service_account_keys(project_id, email):
+    creds = get_creds(quota_project='gafla-gae-learning-2026')
+    service = build('iam', 'v1', credentials=creds)
+    try:
+        name = f"projects/{project_id}/serviceAccounts/{email}"
+        request = service.projects().serviceAccounts().keys().list(name=name)
+        response = request.execute()
+        keys = response.get('keys', [])
+        print(json.dumps(keys, indent=2))
+    except HttpError as e:
+        print(f"HTTP Error: {e}")
+
+def create_service_account_key(project_id, email):
+    creds = get_creds()
+    service = build('iam', 'v1', credentials=creds)
+    try:
+        name = f"projects/{project_id}/serviceAccounts/{email}"
+        key = service.projects().serviceAccounts().keys().create(name=name, body={}).execute()
+        print(json.dumps(key, indent=2))
+    except HttpError as e:
+        print(f"HTTP Error: {e}")
+
+def delete_service_account_key(project_id, email, key_id):
+    creds = get_creds(quota_project='gafla-gae-learning-2026')
+    service = build('iam', 'v1', credentials=creds)
+    try:
+        name = f"projects/{project_id}/serviceAccounts/{email}/keys/{key_id}"
+        service.projects().serviceAccounts().keys().delete(name=name).execute()
+        print(f"Key {key_id} deleted successfully.")
     except HttpError as e:
         print(f"HTTP Error: {e}")
 
@@ -218,6 +281,31 @@ def main():
             print("Usage: gcp_manager.py disable-gae <project_id>")
             sys.exit(1)
         disable_gae(sys.argv[2])
+    elif cmd == "list-sa":
+        if len(sys.argv) < 3:
+            print("Usage: gcp_manager.py list-sa <project_id>")
+            sys.exit(1)
+        list_service_accounts(sys.argv[2])
+    elif cmd == "create-sa":
+        if len(sys.argv) < 5:
+            print("Usage: gcp_manager.py create-sa <project_id> <account_id> <display_name>")
+            sys.exit(1)
+        create_service_account(sys.argv[2], sys.argv[3], sys.argv[4])
+    elif cmd == "list-keys":
+        if len(sys.argv) < 4:
+            print("Usage: gcp_manager.py list-keys <project_id> <email>")
+            sys.exit(1)
+        list_service_account_keys(sys.argv[2], sys.argv[3])
+    elif cmd == "create-key":
+        if len(sys.argv) < 4:
+            print("Usage: gcp_manager.py create-key <project_id> <email>")
+            sys.exit(1)
+        create_service_account_key(sys.argv[2], sys.argv[3])
+    elif cmd == "delete-key":
+        if len(sys.argv) < 5:
+            print("Usage: gcp_manager.py delete-key <project_id> <email> <key_id>")
+            sys.exit(1)
+        delete_service_account_key(sys.argv[2], sys.argv[3], sys.argv[4])
     else:
         print(f"Unknown command: {cmd}")
 
