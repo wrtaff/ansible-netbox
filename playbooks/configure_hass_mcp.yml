@@ -51,7 +51,8 @@
     config_files:
       - "/home/{{ gemini_user }}/.gemini/antigravity-cli/mcp_config.json"
       - "/home/{{ gemini_user }}/.mcp.json"
-      - "/home/{{ gemini_user }}/.config/opencode/mcp.json"
+    
+    opencode_config: "/home/{{ gemini_user }}/.config/opencode/opencode.jsonc"
 
   tasks:
     - name: Ensure target configuration directories exist
@@ -61,7 +62,7 @@
         mode: '0755'
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
-      loop: "{{ config_files }}"
+      loop: "{{ config_files + [opencode_config] }}"
       become: yes
       become_user: "{{ gemini_user }}"
 
@@ -72,12 +73,12 @@
         mode: '0644'
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
-      loop: "{{ config_files }}"
+      loop: "{{ config_files + [opencode_config] }}"
       become: yes
       become_user: "{{ gemini_user }}"
       changed_when: false
 
-    - name: Read current configuration files
+    - name: Read standard MCP configuration files
       ansible.builtin.slurp:
         src: "{{ item }}"
       register: slurped_configs
@@ -86,7 +87,7 @@
       become_user: "{{ gemini_user }}"
       ignore_errors: true
 
-    - name: Update configurations
+    - name: Update standard MCP configurations
       ansible.builtin.copy:
         content: >-
           {{
@@ -114,3 +115,38 @@
       become: yes
       become_user: "{{ gemini_user }}"
       when: item is success
+
+    - name: Read OpenCode configuration file
+      ansible.builtin.slurp:
+        src: "{{ opencode_config }}"
+      register: slurped_opencode
+      become: yes
+      become_user: "{{ gemini_user }}"
+      ignore_errors: true
+
+    - name: Update OpenCode configuration
+      ansible.builtin.copy:
+        content: >-
+          {{
+            ( (slurped_opencode.content | b64decode | from_json) if (slurped_opencode.content | b64decode | trim | length > 0) else {'$schema': 'https://opencode.ai/config.json', 'mcp': {}} )
+            | combine({
+                'mcp': {
+                  'homeassistant': {
+                    'type': 'local',
+                    'command': [venv_python, mcp_script],
+                    'environment': {
+                      'HASS_URL': 'http://hass.home.arpa/api/mcp',
+                      'HASS_TOKEN': hass_gemini_api_key
+                    }
+                  }
+                }
+              }, recursive=True)
+            | to_nice_json
+          }}
+        dest: "{{ opencode_config }}"
+        mode: '0644'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+      become: yes
+      become_user: "{{ gemini_user }}"
+      when: slurped_opencode is success
