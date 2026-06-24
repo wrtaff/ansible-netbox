@@ -1,0 +1,114 @@
+---
+# ==============================================================================
+# Filename:       playbooks/configure_hass_mcp.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-06-24
+# Context:        http://trac.gafla.us.com/ticket/3431
+#
+# Purpose:
+#   Configures the Home Assistant MCP server for use on Antigravity/Claude Code
+#   on any Debian host.
+#
+# Use Case:
+#   Enables AI agents to interact with the smart home via the Model Context Protocol.
+#
+# Installation Method:
+#   Ansible playbook modifying ~/.gemini/antigravity-cli/mcp_config.json
+#   and ~/.mcp.json.
+#
+# Prerequisites:
+#   - ansible-netbox repository cloned to ~/ansible-netbox
+#   - Python 3 with fastmcp available in the venv
+#
+# Configuration:
+#   - ~/.gemini/antigravity-cli/mcp_config.json
+#   - ~/.mcp.json
+#
+# Secrets:
+#   - hass_gemini_api_key (vault.yml) — Long-lived access token for Home Assistant
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/configure_hass_mcp.yml --limit <host>
+#
+# Removal Instructions:
+#   Remove the 'homeassistant' block from the mcp config files.
+#
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/configure_hass_mcp.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/configure_hass_mcp.yml
+# ==============================================================================
+
+- name: Configure Home Assistant MCP Server for Agents
+  hosts: all
+  vars_files:
+    - ../vault.yml
+  vars:
+    gemini_user: "will"
+    repo_path: "/home/{{ gemini_user }}/ansible-netbox"
+    venv_python: "{{ repo_path }}/.venv/bin/python3"
+    mcp_script: "{{ repo_path }}/mcp-servers/homeassistant/server.py"
+    config_files:
+      - "/home/{{ gemini_user }}/.gemini/antigravity-cli/mcp_config.json"
+      - "/home/{{ gemini_user }}/.mcp.json"
+
+  tasks:
+    - name: Ensure target configuration directories exist
+      ansible.builtin.file:
+        path: "{{ item | dirname }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+      loop: "{{ config_files }}"
+      become: yes
+      become_user: "{{ gemini_user }}"
+
+    - name: Ensure configuration files exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: touch
+        mode: '0644'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+      loop: "{{ config_files }}"
+      become: yes
+      become_user: "{{ gemini_user }}"
+      changed_when: false
+
+    - name: Read current configuration files
+      ansible.builtin.slurp:
+        src: "{{ item }}"
+      register: slurped_configs
+      loop: "{{ config_files }}"
+      become: yes
+      become_user: "{{ gemini_user }}"
+      ignore_errors: true
+
+    - name: Update configurations
+      ansible.builtin.copy:
+        content: >-
+          {{
+            ( (item.content | b64decode | from_json) if (item.content | b64decode | trim | length > 0) else {'mcpServers': {}} )
+            | combine({
+                'mcpServers': {
+                  'homeassistant': {
+                    'type': 'stdio',
+                    'command': venv_python,
+                    'args': [mcp_script],
+                    'env': {
+                      'HASS_URL': 'http://hass.home.arpa/api/mcp',
+                      'HASS_TOKEN': hass_gemini_api_key
+                    }
+                  }
+                }
+              }, recursive=True)
+            | to_nice_json
+          }}
+        dest: "{{ item.source }}"
+        mode: '0644'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+      loop: "{{ slurped_configs.results }}"
+      become: yes
+      become_user: "{{ gemini_user }}"
+      when: item is success
