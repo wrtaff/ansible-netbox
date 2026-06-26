@@ -36,7 +36,7 @@ GROUP_URL = "https://www.facebook.com/groups/473971729877417/"
 STATE_FILE = "/home/will/pops/tmp/fb_group_state.json"
 PROFILE_DIR = "/home/will/.cache/ms-playwright/mcp-chrome-for-testing-f96f1ec" # Default Playwright MCP chrome profile
 CHROME_PATH = "/usr/bin/google-chrome"
-EMAIL_TO = "will@gafla.us.com"
+EMAIL_TO = "wrtaff@gmail.com"
 
 def notify_via_email(subject, message):
     """Call Google Workspace Manager to send an email notification."""
