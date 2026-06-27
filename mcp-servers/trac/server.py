@@ -2,20 +2,23 @@
 """
 ================================================================================
 Filename:       mcp-servers/trac/server.py
-Version:        2.0
+Version:        2.2
 Author:         Gemini CLI
-Last Modified:  2026-04-12
+Last Modified:  2026-06-27
 Context:        http://trac.home.arpa/ticket/2933
 
 Purpose:
     Model Context Protocol (MCP) server for Trac integration.
     Provides tools for ticket management (get, update, create, search)
+    and wiki management (get, create, update, delete, list)
     directly within AI agent sessions.
 
 Notes:
     Always bump version and annotate changes in Revision History below.
 
 Revision History:
+    v2.2 (2026-06-27): Added remaining tools (changelog, actions, ticket fields, delete ticket, milestone operations, recent wiki changes, list methods).
+    v2.1 (2026-06-27): Added trac_wiki_get, trac_wiki_create, trac_wiki_update, trac_wiki_delete, trac_wiki_list tools.
     v2.0 (2026-04-12): Improved update_ticket docstring to clarify ticket
                         closing workflow (action='resolve' + resolution).
                         Added auto-correction: if status='closed' is passed
@@ -36,6 +39,7 @@ Revision History:
 ================================================================================
 """
 import os
+import json
 import xmlrpc.client
 import logging
 from typing import Optional
@@ -314,6 +318,263 @@ def search_tickets(query: str) -> str:
     except Exception as e:
         logger.error(f"Error searching tickets: {str(e)}")
         return f"Error searching tickets: {str(e)}"
+
+@mcp.tool(name="trac_wiki_get")
+def wiki_get(page_name: str, version: Optional[int] = None) -> str:
+    """
+    Get a wiki page's content and metadata.
+    Returns the raw MoinMoin syntax for the page.
+    """
+    logger.info(f"Fetching wiki page {page_name}")
+    try:
+        proxy = get_proxy()
+        if version is None:
+            content = proxy.wiki.getPage(page_name)
+            info = proxy.wiki.getPageInfo(page_name)
+        else:
+            content = proxy.wiki.getPageVersion(page_name, version)
+            info = proxy.wiki.getPageInfoVersion(page_name, version)
+            
+        output = [f"Wiki Page: {page_name}"]
+        output.append(f"Version: {info.get('version', 'Unknown')}")
+        output.append(f"Author: {info.get('author', 'Unknown')}")
+        output.append(f"Last Modified: {info.get('lastModified', 'Unknown')}")
+        output.append("-" * 20)
+        output.append(content)
+        
+        logger.info(f"Successfully fetched wiki page {page_name}")
+        return "\n".join(output)
+    except Exception as e:
+        logger.error(f"Error fetching wiki page {page_name}: {str(e)}")
+        return f"Error fetching wiki page {page_name}: {str(e)}"
+
+@mcp.tool(name="trac_wiki_create")
+def wiki_create(page_name: str, content: str, comment: str = "") -> str:
+    """
+    Create a new wiki page.
+    IMPORTANT: You MUST use MoinMoin syntax for 'content'.
+    """
+    logger.info(f"Creating wiki page {page_name}")
+    try:
+        proxy = get_proxy()
+        attributes = {"comment": comment}
+        
+        result = proxy.wiki.putPage(page_name, content, attributes)
+        if result:
+            logger.info(f"Successfully created wiki page {page_name}")
+            return f"Successfully created wiki page {page_name}."
+        else:
+            return f"Failed to create wiki page {page_name}."
+    except Exception as e:
+        logger.error(f"Error creating wiki page {page_name}: {str(e)}")
+        return f"Error creating wiki page {page_name}: {str(e)}"
+
+@mcp.tool(name="trac_wiki_update")
+def wiki_update(page_name: str, content: str, version: int, comment: str = "") -> str:
+    """
+    Update an existing wiki page with optimistic locking.
+    IMPORTANT: You MUST use MoinMoin syntax for 'content'.
+    Requires the current 'version' of the page for conflict detection.
+    """
+    logger.info(f"Updating wiki page {page_name} version {version}")
+    try:
+        proxy = get_proxy()
+        attributes = {"comment": comment, "version": version}
+        
+        result = proxy.wiki.putPage(page_name, content, attributes)
+        if result:
+            logger.info(f"Successfully updated wiki page {page_name}")
+            return f"Successfully updated wiki page {page_name}."
+        else:
+            return f"Failed to update wiki page {page_name}."
+    except Exception as e:
+        logger.error(f"Error updating wiki page {page_name}: {str(e)}")
+        return f"Error updating wiki page {page_name}: {str(e)}"
+
+@mcp.tool(name="trac_wiki_delete")
+def wiki_delete(page_name: str) -> str:
+    """
+    Delete a wiki page. Warning: This cannot be undone.
+    """
+    logger.info(f"Deleting wiki page {page_name}")
+    try:
+        proxy = get_proxy()
+        result = proxy.wiki.deletePage(page_name)
+        if result:
+            logger.info(f"Successfully deleted wiki page {page_name}")
+            return f"Successfully deleted wiki page {page_name}."
+        else:
+            return f"Failed to delete wiki page {page_name}."
+    except Exception as e:
+        logger.error(f"Error deleting wiki page {page_name}: {str(e)}")
+        return f"Error deleting wiki page {page_name}: {str(e)}"
+
+@mcp.tool(name="trac_wiki_list")
+def wiki_list() -> str:
+    """
+    List all wiki page names in Trac.
+    """
+    logger.info("Listing wiki pages")
+    try:
+        proxy = get_proxy()
+        pages = proxy.wiki.getAllPages()
+        logger.info(f"Successfully listed {len(pages)} wiki pages")
+        return f"Wiki Pages ({len(pages)}):\n" + "\n".join(f"- {p}" for p in pages)
+    except Exception as e:
+        logger.error(f"Error listing wiki pages: {str(e)}")
+        return f"Error listing wiki pages: {str(e)}"
+
+@mcp.tool(name="trac_get_ticket_changelog")
+def get_ticket_changelog(ticket_id: int) -> str:
+    """Get the changelog (history) of a ticket."""
+    logger.info(f"Fetching changelog for ticket {ticket_id}")
+    try:
+        proxy = get_proxy()
+        changelog = proxy.ticket.changeLog(ticket_id)
+        return json.dumps(changelog, indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Error fetching ticket changelog: {str(e)}")
+        return f"Error fetching ticket changelog: {str(e)}"
+
+@mcp.tool(name="trac_get_ticket_actions")
+def get_ticket_actions(ticket_id: int) -> str:
+    """Get available workflow actions for a ticket's current state."""
+    logger.info(f"Fetching actions for ticket {ticket_id}")
+    try:
+        proxy = get_proxy()
+        actions = proxy.ticket.getActions(ticket_id)
+        return json.dumps(actions, indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Error fetching ticket actions: {str(e)}")
+        return f"Error fetching ticket actions: {str(e)}"
+
+@mcp.tool(name="trac_delete_ticket")
+def delete_ticket(ticket_id: int) -> str:
+    """Delete a ticket. WARNING: This cannot be undone."""
+    logger.info(f"Deleting ticket {ticket_id}")
+    try:
+        proxy = get_proxy()
+        proxy.ticket.delete(ticket_id)
+        return f"Successfully deleted ticket {ticket_id}."
+    except Exception as e:
+        logger.error(f"Error deleting ticket: {str(e)}")
+        return f"Error deleting ticket: {str(e)}"
+
+@mcp.tool(name="trac_get_ticket_fields")
+def get_ticket_fields() -> str:
+    """Get all ticket field definitions (standard + custom)."""
+    logger.info("Fetching ticket fields")
+    try:
+        proxy = get_proxy()
+        fields = proxy.ticket.getTicketFields()
+        return json.dumps(fields, indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Error fetching ticket fields: {str(e)}")
+        return f"Error fetching ticket fields: {str(e)}"
+
+@mcp.tool(name="trac_milestone_list")
+def milestone_list() -> str:
+    """List all milestone names in Trac."""
+    logger.info("Listing milestones")
+    try:
+        proxy = get_proxy()
+        milestones = proxy.ticket.milestone.getAll()
+        return json.dumps(milestones, indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Error listing milestones: {str(e)}")
+        return f"Error listing milestones: {str(e)}"
+
+@mcp.tool(name="trac_milestone_get")
+def milestone_get(name: str) -> str:
+    """Get milestone details by name."""
+    logger.info(f"Fetching milestone {name}")
+    try:
+        proxy = get_proxy()
+        milestone = proxy.ticket.milestone.get(name)
+        return json.dumps(milestone, indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Error fetching milestone: {str(e)}")
+        return f"Error fetching milestone: {str(e)}"
+
+@mcp.tool(name="trac_milestone_create")
+def milestone_create(name: str, description: str = "", due: Optional[int] = None, completed: Optional[int] = None) -> str:
+    """Create a new milestone."""
+    logger.info(f"Creating milestone {name}")
+    try:
+        proxy = get_proxy()
+        attributes = {}
+        if description: attributes['description'] = description
+        if due: attributes['due'] = due
+        if completed: attributes['completed'] = completed
+        proxy.ticket.milestone.create(name, attributes)
+        return f"Successfully created milestone {name}."
+    except Exception as e:
+        logger.error(f"Error creating milestone: {str(e)}")
+        return f"Error creating milestone: {str(e)}"
+
+@mcp.tool(name="trac_milestone_update")
+def milestone_update(name: str, description: Optional[str] = None, due: Optional[int] = None, completed: Optional[int] = None) -> str:
+    """Update an existing milestone."""
+    logger.info(f"Updating milestone {name}")
+    try:
+        proxy = get_proxy()
+        attributes = {}
+        if description is not None: attributes['description'] = description
+        if due is not None: attributes['due'] = due
+        if completed is not None: attributes['completed'] = completed
+        proxy.ticket.milestone.update(name, attributes)
+        return f"Successfully updated milestone {name}."
+    except Exception as e:
+        logger.error(f"Error updating milestone: {str(e)}")
+        return f"Error updating milestone: {str(e)}"
+
+@mcp.tool(name="trac_milestone_delete")
+def milestone_delete(name: str) -> str:
+    """Delete a milestone. WARNING: This cannot be undone."""
+    logger.info(f"Deleting milestone {name}")
+    try:
+        proxy = get_proxy()
+        proxy.ticket.milestone.delete(name)
+        return f"Successfully deleted milestone {name}."
+    except Exception as e:
+        logger.error(f"Error deleting milestone: {str(e)}")
+        return f"Error deleting milestone: {str(e)}"
+
+@mcp.tool(name="trac_wiki_recent_changes")
+def wiki_recent_changes(since_timestamp: int = 0) -> str:
+    """Get recently modified wiki pages."""
+    logger.info(f"Fetching recent wiki changes since {since_timestamp}")
+    try:
+        proxy = get_proxy()
+        if since_timestamp > 0:
+            import xmlrpc.client
+            dt = xmlrpc.client.DateTime(since_timestamp)
+            changes = proxy.wiki.getRecentChanges(dt)
+        else:
+            pages = proxy.wiki.getAllPages()
+            changes = []
+            for p in pages:
+                try:
+                    info = proxy.wiki.getPageInfo(p)
+                    changes.append(info)
+                except:
+                    pass
+        return json.dumps(changes, indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Error fetching recent wiki changes: {str(e)}")
+        return f"Error fetching recent wiki changes: {str(e)}"
+
+@mcp.tool(name="trac_list_methods")
+def list_methods() -> str:
+    """List available RPC methods."""
+    logger.info("Listing RPC methods")
+    try:
+        proxy = get_proxy()
+        methods = proxy.system.listMethods()
+        return json.dumps(methods, indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Error listing RPC methods: {str(e)}")
+        return f"Error listing RPC methods: {str(e)}"
 
 if __name__ == "__main__":
     logger.info("Starting Trac MCP server...")
