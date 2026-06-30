@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.28
+Version:        1.29
 Author:         Gemini CLI
-Last Modified:  2026-06-10
+Last Modified:  2026-06-30
 Context:        http://trac.gafla.us.com/ticket/3571
 
 Purpose:
@@ -21,6 +21,7 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.29 (2026-06-30): Added fallback to gmail_get_by_header to search via From/To/Subject if Message-ID is missing.
     v1.28 (2026-06-10): Added gmail_modify_labels function and gmail-modify-labels CLI subcommand to support email-handler label modification.
     v1.27 (2026-05-26): Added cc parameter to gmail_send_message; sets Cc header on
                        outgoing messages, matching gmail_create_draft behaviour.
@@ -314,7 +315,42 @@ def gmail_get_by_header(header_string, output_format='text'):
     try:
         match = re.search(r'Message-ID:\s*<([^>]+)>', header_string, re.IGNORECASE)
         if not match:
-            output({'error': 'Message-ID not found in header string'}, output_format)
+            from_match = re.search(r'From:\s*(.+)', header_string, re.IGNORECASE)
+            to_match = re.search(r'To:\s*(.+)', header_string, re.IGNORECASE)
+            subject_match = re.search(r'Subject:\s*(.+)', header_string, re.IGNORECASE)
+            
+            query_parts = []
+            if from_match:
+                from_addr = from_match.group(1).strip()
+                email_match = re.search(r'<([^>]+)>', from_addr)
+                if email_match:
+                    from_addr = email_match.group(1)
+                query_parts.append(f'from:{from_addr}')
+            if to_match:
+                to_addr = to_match.group(1).strip()
+                email_match = re.search(r'<([^>]+)>', to_addr)
+                if email_match:
+                    to_addr = email_match.group(1)
+                query_parts.append(f'to:{to_addr}')
+            if subject_match:
+                subject = subject_match.group(1).strip()
+                subject = subject.replace('"', '').replace("'", "")
+                query_parts.append(f'subject:"{subject}"')
+
+            if not query_parts:
+                output({'error': 'Message-ID not found in header string, and could not parse From/To/Subject for fallback.'}, output_format)
+                return
+
+            query = " ".join(query_parts)
+            results = service.users().messages().list(userId='me', q=query).execute()
+            messages = results.get('messages', [])
+            
+            if not messages:
+                output({'error': f'No message found for fallback query: {query}'}, output_format)
+                return
+            
+            gmail_id = messages[0]['id']
+            gmail_get_message(gmail_id, output_format)
             return
 
         msg_id_header = match.group(1).strip()
@@ -498,8 +534,10 @@ def drive_upload_file(file_path, mimetype=None, parent_id=None, target_mimetype=
         media = MediaFileUpload(file_path, mimetype=mimetype, resumable=True)
         file = service.files().create(body=file_metadata, media_body=media, fields='id, name').execute()
         output(file, output_format)
+        return file
     except HttpError as error:
         output({'error': str(error)}, output_format)
+        return None
 
 def drive_update_file(file_id, name=None, description=None, parent_id=None, output_format='text'):
     creds = get_creds()
