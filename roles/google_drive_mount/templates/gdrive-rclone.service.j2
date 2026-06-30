@@ -12,6 +12,7 @@ Type=forking
 User={{ ansible_user }}
 Group={{ ansible_user }}
 Environment="HOME=/home/{{ ansible_user }}"
+ExecStartPre=-/bin/fusermount -uz /home/{{ ansible_user }}/gDrive
 ExecStart=/usr/bin/rclone mount --daemon \
   --config=/home/{{ ansible_user }}/.config/rclone/rclone.conf \
   --vfs-cache-mode writes \
@@ -19,6 +20,7 @@ ExecStart=/usr/bin/rclone mount --daemon \
   --vfs-cache-max-age 24h \
   will-gDrive: /home/{{ ansible_user }}/gDrive
 ExecStop=/bin/fusermount -u /home/{{ ansible_user }}/gDrive
+ExecStopPost=-/bin/fusermount -uz /home/{{ ansible_user }}/gDrive
 Restart=on-failure
 RestartSec=30
 
