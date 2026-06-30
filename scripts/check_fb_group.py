@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """
-================================================================================
 Filename:       check_fb_group.py
 Version:        2.0
 Author:         Antigravity
@@ -21,7 +20,6 @@ Revision History:
 
 Usage:
     /opt/venvs/gemini_projects/bin/python3 check_fb_group.py
-================================================================================
 """
 import os
 import sys
@@ -29,6 +27,8 @@ import json
 import time
 import subprocess
 import hashlib
+import urllib.parse
+import re
 from playwright.sync_api import sync_playwright
 
 # Configuration
@@ -37,6 +37,32 @@ STATE_FILE = "/home/will/pops/tmp/fb_group_state.json"
 PROFILE_DIR = "/home/will/.cache/ms-playwright/mcp-chrome-for-testing-f96f1ec" # Default Playwright MCP chrome profile
 CHROME_PATH = "/usr/bin/google-chrome"
 EMAIL_TO = "wrtaff@gmail.com"
+
+def get_canonical_url(url):
+    """Strips dynamic tracking parameters from Facebook URLs to create a stable unique ID."""
+    if not url:
+        return ""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        qs = urllib.parse.parse_qs(parsed.query)
+        canonical_qs = {}
+        # Keep only the parameters that uniquely identify a post or comment
+        if 'comment_id' in qs:
+            canonical_qs['comment_id'] = qs['comment_id']
+        if 'multi_permalinks' in qs:
+            canonical_qs['multi_permalinks'] = qs['multi_permalinks']
+            
+        new_query = urllib.parse.urlencode(canonical_qs, doseq=True)
+        return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, ''))
+    except Exception:
+        return url
+
+def clean_author(author):
+    """Strips relative time strings that Facebook occasionally includes in author elements."""
+    if not author:
+        return "Unknown Author"
+    pattern = r'\s+(a week ago|yesterday|just now|\d+\s+(h|m|d|w|y|hr|hrs|min|mins|day|days|week|weeks|month|months|year|years)\s+ago|last night).*$'
+    return re.sub(pattern, '', author, flags=re.IGNORECASE).strip()
 
 def notify_via_email(subject, message):
     """Call Google Workspace Manager to send an email notification."""
@@ -141,6 +167,13 @@ def main():
             postMessages.forEach((msg) => {
                 if (!msg.hasAttribute('data-target-item')) {
                     msg.setAttribute('data-target-item', 'post');
+                    const article = msg.closest('div[role="article"]');
+                    if (article) {
+                        const timeLinks = Array.from(article.querySelectorAll('a')).filter(a => a.href && (a.href.includes('/permalink/') || a.href.includes('/user/') || a.href.includes('/posts/') || a.href.includes('multi_permalinks=')));
+                        if (timeLinks.length > 0) {
+                            msg.setAttribute('data-url', timeLinks[0].href);
+                        }
+                    }
                     count++;
                 }
             });
@@ -156,6 +189,25 @@ def main():
                         textDiv.setAttribute('data-target-item', 'comment');
                         let author = label.replace("Comment by ", "").replace("Comment from ", "");
                         textDiv.setAttribute('data-author', author);
+                        const timeLinks = Array.from(article.querySelectorAll('a')).filter(a => a.href && (a.href.includes('comment_id=') || a.href.includes('reply_comment_id=')));
+                        if (timeLinks.length > 0) {
+                            textDiv.setAttribute('data-url', timeLinks[0].href);
+                        } else {
+                            // Fallback to the parent post's URL if comment URL is not found
+                            let currentElement = article.parentElement;
+                            let parentPostUrl = '';
+                            while (currentElement && currentElement !== document.body) {
+                                const postMsg = currentElement.querySelector('div[data-ad-comet-preview="message"]');
+                                if (postMsg && postMsg.hasAttribute('data-url')) {
+                                    parentPostUrl = postMsg.getAttribute('data-url');
+                                    break;
+                                }
+                                currentElement = currentElement.parentElement;
+                            }
+                            if (parentPostUrl) {
+                                textDiv.setAttribute('data-url', parentPostUrl);
+                            }
+                        }
                         count++;
                     }
                 }
@@ -171,6 +223,7 @@ def main():
             for idx in range(min(item_count, 15)): # Parse up to 15 items to ensure we catch everything
                 try:
                     item_type = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].getAttribute('data-target-item')''')
+                    url = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].getAttribute('data-url') || ""''')
                     
                     if item_type == 'post':
                         author = page.evaluate(f'''() => {{
@@ -189,9 +242,10 @@ def main():
 
                     if content:
                         posts.append({
-                            "author": author,
+                            "author": clean_author(author),
                             "content": content,
-                            "is_comment": is_comment
+                            "is_comment": is_comment,
+                            "url": get_canonical_url(url)
                         })
                 except Exception as e:
                     print(f"Error parsing item {idx}: {e}")
@@ -234,14 +288,21 @@ def main():
     # Process from oldest to newest if we want to notify in order, but we grabbed them top-down (newest first).
     # Reversing the list so we process older items first if they are on the page.
     for post in reversed(posts):
-        post_hash = hashlib.md5((post["author"] + post["content"]).encode('utf-8')).hexdigest()
-        if post_hash not in notified_hashes:
+        # Graceful migration: check both new URL and old MD5 hash
+        url_id = post.get("url")
+        old_hash = hashlib.md5((post["author"] + post["content"]).encode('utf-8')).hexdigest()
+        
+        unique_id = url_id if url_id else old_hash
+            
+        if unique_id not in notified_hashes and old_hash not in notified_hashes:
             print(f"New {'comment' if post['is_comment'] else 'post'} detected by {post['author']}!")
             subject = f"EPSC FB {'Comment' if post['is_comment'] else 'Post'}: {post['author']}"
             msg_body = f"Author: {post['author']}\n\n{post['content']}"
+            if post.get("url"):
+                msg_body += f"\n\nLink: {post['url']}"
             notify_via_email(subject, msg_body)
             
-            notified_hashes.append(post_hash)
+            notified_hashes.append(unique_id)
             new_items_found = True
 
     if new_items_found:
