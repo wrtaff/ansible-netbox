@@ -1,0 +1,125 @@
+---
+# Filename:       playbooks/provision_agent_runner.yml
+# Version:        1.0
+# Author:         Antigravity
+# Last Modified:  2026-07-02
+# Trac Ticket:    #3774
+#
+# Purpose:
+#     Unified playbook to fully provision a new AI agent runner LXC container
+#     (or bare metal host). Automates repository cloning, bashrc templating with secrets,
+#     agent installations, and netbox registration.
+#
+# Use Case:
+#     Eliminates configuration drift and manual SSH steps when scaling the agent fleet.
+#
+# Installation Method:
+#     Ansible playbook invoking tasks and importing component playbooks.
+#
+# Prerequisites:
+#     Host must be accessible via SSH (usually after cloning from VMID 117 template).
+#
+# Configuration:
+#     Templates ~/.bashrc for the `will` user.
+#
+# Secrets:
+#                   netbox_api_token (vault.yml) — writes tags/entries to NetBox
+#                   wwos_password (vault.yml)
+#                   trac_password (vault.yml)
+#                   nextcloud_password (vault.yml)
+#                   gemini_api_key (vault.yml)
+#                   anthropic_api_key (vault.yml)
+#                   openrouter_api_key (vault.yml)
+#
+# Usage:
+#     ansible-playbook -i inventory.ini playbooks/provision_agent_runner.yml --limit <host>
+#
+# Removal Instructions:
+#     Destroy the target LXC container.
+#
+# WWOS:
+#     http://wwos.home.arpa/index.php/Playbooks/provision_agent_runner.yml
+# GitHub:
+#     https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/provision_agent_runner.yml
+
+- name: Provision Agent Runner Environment
+  hosts: all
+  become: yes
+  vars:
+    target_user: will
+    target_home: "/home/{{ target_user }}"
+
+  tasks:
+    - name: Ensure target user exists
+      ansible.builtin.user:
+        name: "{{ target_user }}"
+        shell: /bin/bash
+        state: present
+
+    - name: Deploy lab SSH public key to target user
+      ansible.posix.authorized_key:
+        user: "{{ target_user }}"
+        state: present
+        key: "{{ ssh_lab_pub_key }}"
+        exclusive: no
+      when: ssh_lab_pub_key is defined
+
+    - name: Ensure git and rsync are installed
+      ansible.builtin.apt:
+        name: 
+          - git
+          - rsync
+        state: present
+        update_cache: yes
+
+    - name: Synchronize pops repository from control node
+      ansible.posix.synchronize:
+        src: "/home/will/pops/"
+        dest: "{{ target_home }}/pops/"
+        archive: yes
+      become_user: "{{ target_user }}"
+
+    - name: Synchronize ansible-netbox repository from control node
+      ansible.posix.synchronize:
+        src: "/home/will/ansible-netbox/"
+        dest: "{{ target_home }}/ansible-netbox/"
+        archive: yes
+        rsync_opts:
+          - "--exclude=.venv"
+      become_user: "{{ target_user }}"
+
+    - name: Ensure repository ownership
+      ansible.builtin.file:
+        path: "{{ target_home }}/{{ item }}"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        recurse: yes
+      loop:
+        - pops
+        - ansible-netbox
+
+    - name: Template .bashrc with vault secrets and sync hook
+      ansible.builtin.template:
+        src: agent_bashrc.j2
+        dest: "{{ target_home }}/.bashrc"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0644'
+
+    - name: Register agent runner in NetBox
+      netbox.netbox.netbox_virtual_machine:
+        netbox_url: "{{ netbox_url | default('http://netbox1.home.arpa:80') }}"
+        netbox_token: "{{ netbox_api_token }}"
+        data:
+          name: "{{ inventory_hostname }}"
+          cluster: "pve6"
+          status: "active"
+      delegate_to: localhost
+      run_once: false
+      ignore_errors: yes
+
+- import_playbook: install_antigravity.yml
+- import_playbook: install_opencode.yml
+- import_playbook: install_claude_code.yml
+- import_playbook: configure_mcp_servers_remote.yml
+- import_playbook: install_tmux.yml

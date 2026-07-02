@@ -1,0 +1,49 @@
+# ~/.bashrc: executed by bash(1) for non-login shells.
+
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+HISTCONTROL=ignoreboth
+shopt -s histappend
+HISTSIZE=1000
+HISTFILESIZE=2000
+shopt -s checkwinsize
+
+PS1='\u@\h:\w\$ '
+
+# Agent Auth Tokens & API Keys (Injected via Ansible Vault)
+export GEMINI_API_KEY="{{ gemini_api_key | default('UNSET') }}"
+export GOOGLE_API_KEY="{{ gemini_api_key | default('UNSET') }}"
+export OPENAI_API_KEY="{{ openai_api_key | default('UNSET') }}"
+export ANTHROPIC_API_KEY="{{ anthropic_api_key | default('UNSET') }}"
+export OPENROUTER_API_KEY="{{ openrouter_api_key | default('UNSET') }}"
+export OPENAI_API_BASE="https://openrouter.ai/api/v1"
+
+# MCP Service Credentials
+export WWOS_PASSWORD="{{ wwos_password | default('UNSET') }}"
+export TRAC_PASSWORD="{{ trac_password | default('UNSET') }}"
+export NEXTCLOUD_PASSWORD="{{ nextcloud_password | default('UNSET') }}"
+export NETBOX_TOKEN="{{ netbox_api_token | default('UNSET') }}"
+export NETBOX_API="http://netbox1.home.arpa:80"
+export VIKUNJA_API_TOKEN="{{ vikunja_api_token | default('UNSET') }}"
+
+# Paths
+export PATH="$HOME/.local/bin:$HOME/go/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+# Aliases
+alias oc='opencode'
+alias cdp='cd $HOME/pops'
+alias cdpc='clear; cd $HOME/pops; claude'
+alias cdpo='clear; cd $HOME/pops; opencode'
+alias cdpg='clear; cd $HOME/pops; agy'
+
+# BEGIN ANSIBLE MANAGED BLOCK: Agent Sync Check
+# Run agent sync check on session start (for Antigravity, OpenCode, and human sessions)
+if [ -z "$AGENT_SYNC_CHECK_DONE" ] && [ -x "$HOME/pops/scripts/agent-sync-check.sh" ]; then
+    export AGENT_SYNC_CHECK_DONE=1
+    "$HOME/pops/scripts/agent-sync-check.sh"
+fi
+# END ANSIBLE MANAGED BLOCK: Agent Sync Check
