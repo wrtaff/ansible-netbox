@@ -5,6 +5,10 @@ import sys
 import os
 
 def get_hass_token():
+    token = os.environ.get('HASS_TOKEN')
+    if token:
+        return token
+    
     config_path = '/home/will/pops/.mcp.json'
     try:
         with open(config_path, 'r') as f:
