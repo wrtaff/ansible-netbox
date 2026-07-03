@@ -129,11 +129,11 @@ def main():
             
             # Corrected and safer regex
             pattern = re.compile(
-                r"\\\[\\\\[\s*Category\s*:\s*" + re.escape(old_cat_name) + r"\s*(\|.*?)?\s*\\\\]\\\\]",
+                r"\[\[\s*Category\s*:\s*" + re.escape(old_cat_name) + r"\s*(\|.*?)?\s*\]\]",
                 re.IGNORECASE
             )
             
-            replacement_str = f"[[Category:{new_cat_name}]]"
+            replacement_str = f"[[Category:{new_cat_name}\\1]]"
             
             modified_content, num_replacements = pattern.subn(replacement_str, current_content)
 

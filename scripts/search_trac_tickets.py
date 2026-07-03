@@ -2,7 +2,7 @@ import xmlrpc.client
 import os
 import sys
 
-TRAC_URL = "http://will:8675309@trac-lxc.home.arpa/login/xmlrpc"
+TRAC_URL = f"http://will:{os.environ.get('TRAC_PASSWORD', 'YOUR_PASSWORD')}@trac-lxc.home.arpa/login/xmlrpc"
 
 def search_tickets(query_string):
     try:

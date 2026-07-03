@@ -5,7 +5,7 @@ import os
 import base64
 
 def attach_to_trac(ticket_id, file_path, description="Uploaded by script"):
-    trac_url = "http://will:8675309@trac.home.arpa/login/xmlrpc"
+    trac_url = f"http://will:{os.environ.get('TRAC_PASSWORD', 'YOUR_PASSWORD')}@trac.home.arpa/login/xmlrpc"
     server = xmlrpc.client.ServerProxy(trac_url)
     
     filename = os.path.basename(file_path)

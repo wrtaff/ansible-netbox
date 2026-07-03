@@ -237,28 +237,68 @@ class NextcloudContactManager:
             print(f"Error deleting contact: {response.status_code} - {response.text}", file=sys.stderr)
             return False
 
+    def _unfold_vcard(self, vcard_text):
+        # Unfold: Join lines that start with space or tab
+        lines = vcard_text.splitlines()
+        if not lines: return ""
+        unfolded = []
+        for line in lines:
+            if line.startswith((' ', '\t')) and unfolded:
+                unfolded[-1] += line[1:]
+            else:
+                unfolded.append(line)
+        return "\n".join(unfolded)
+
+    def _fold_vcard_line(self, line):
+        # Fold: Max 75 octets per line (simplified to chars here)
+        if len(line) <= 75: return line
+        folded = [line[:75]]
+        for i in range(75, len(line), 74):
+            folded.append(" " + line[i:i+74])
+        return "\r\n".join(folded)
+
+    def _escape_vcard_value(self, val):
+        if not val: return ""
+        return val.replace('\\', '\\\\').replace(',', '\\,').replace(';', '\\;').replace('\n', '\\n')
+
+    def _unescape_vcard_value(self, val):
+        if not val: return ""
+        return val.replace('\\n', '\n').replace('\\N', '\n').replace('\\,', ',').replace('\\;', ';').replace('\\\\', '\\')
+
     def _parse_vcard_lines(self, vcard_text):
         """Parses VCard text into a dict of lists."""
         data = defaultdict(list)
-        for line in vcard_text.splitlines():
+        unfolded = self._unfold_vcard(vcard_text)
+        for line in unfolded.splitlines():
             line = line.strip()
-            if not line or line == "BEGIN:VCARD" or line == "END:VCARD":
-                continue
+            if not line or line in ["BEGIN:VCARD", "END:VCARD"]: continue
             if ":" in line:
                 key, value = line.split(":", 1)
-                data[key].append(value)
+                data[key].append(self._unescape_vcard_value(value))
         return data
 
     def _construct_vcard(self, vcard_data):
         """Rebuilds VCard string from dict of lists."""
         lines = ["BEGIN:VCARD"]
-        # Ensure VERSION is first
-        for ver in vcard_data.pop('VERSION', ['3.0']):
+        version = vcard_data.pop('VERSION', ['3.0'])
+        for ver in version:
             lines.append(f"VERSION:{ver}")
         
         for key, values in vcard_data.items():
+            base_key = key.split(';')[0]
             for val in values:
-                lines.append(f"{key}:{val}")
+                if base_key in ['N', 'ADR', 'ORG']:
+                    # Structured fields: escape components but keep semicolons
+                    parts = val.split(';')
+                    val_esc = ';'.join(self._escape_vcard_value(p) for p in parts)
+                elif base_key == 'CATEGORIES':
+                    # Multi-value field separated by comma
+                    parts = val.split(',')
+                    val_esc = ','.join(self._escape_vcard_value(p.strip()) for p in parts)
+                else:
+                    val_esc = self._escape_vcard_value(val)
+                line = f"{key}:{val_esc}"
+                lines.append(self._fold_vcard_line(line))
         
         lines.append("END:VCARD")
         return "\r\n".join(lines)

@@ -1,0 +1,32 @@
+# ==============================================================================
+# Filename:       install_w3m.yml
+# Version:        1.0
+# Author:         Claude Code
+# Last Modified:  2026-06-03
+# Context:        http://trac.home.arpa/ticket/3540
+#
+# Purpose:
+#    Installs w3m (text-based web browser with table support) on Debian-based systems.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/install_w3m.yml -l <host>
+#
+# Revision History:
+#    1.0: Initial automation script for w3m installation.
+# ==============================================================================
+---
+- name: Install w3m
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: 01. Install w3m package
+      ansible.builtin.package:
+        name: w3m
+        state: present
+        update_cache: yes
+      register: install_result
+
+    - name: 02. Report installation status
+      ansible.builtin.debug:
+        msg: "w3m installation status: {{ install_result.changed }}"

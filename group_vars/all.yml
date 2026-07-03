@@ -1,6 +1,9 @@
 ---
 system_timezone: "America/New_York"
 
+# SSH Key Configuration
+ssh_public_key_path: "~/.ssh/id_rsa_lab.pub"
+
 # Tailscale cert defaults — overridden per group (e.g. yunohost_servers)
 tailscale_cert_domain_override: ""
 tailscale_cert_dir_base: "/etc/ssl/tailscale"

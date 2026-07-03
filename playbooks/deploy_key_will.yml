@@ -13,6 +13,6 @@
       raw: mkdir -p /home/will/.ssh && chown will:will /home/will/.ssh && chmod 700 /home/will/.ssh
       changed_when: false
 
-    - name: Deploy SSH key
-      raw: echo "{{ lookup('file', '~/.ssh/id_rsa.pub') }}" > /home/will/.ssh/authorized_keys && chown will:will /home/will/.ssh/authorized_keys && chmod 600 /home/will/.ssh/authorized_keys
+    - name: Deploy SSH key to will user
+      raw: echo "{{ lookup('file', ssh_public_key_path) }}" > /home/will/.ssh/authorized_keys && chown will:will /home/will/.ssh/authorized_keys && chmod 600 /home/will/.ssh/authorized_keys
       changed_when: false

@@ -70,10 +70,10 @@
       ansible.posix.authorized_key:
         user: "{{ admin_user }}"
         state: present
-        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+        key: "{{ lookup('file', ssh_public_key_path) }}"
 
     - name: 4. Deploy SSH key for the root user
       ansible.posix.authorized_key:
         user: root
         state: present
-        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+        key: "{{ lookup('file', ssh_public_key_path) }}"

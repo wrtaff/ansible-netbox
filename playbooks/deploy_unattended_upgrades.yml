@@ -1,0 +1,18 @@
+# ==============================================================================
+# Playbook: deploy_unattended_upgrades.yml
+# Path: /home/will/ansible-netbox/playbooks/deploy_unattended_upgrades.yml
+# Trac Ticket: #3204 (related to patching/maintenance)
+#
+# Purpose:
+#   Deploy and configure unattended-upgrades for automatic security updates.
+#   Initially targeted at the 'patch_pilot' group for verification.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/deploy_unattended_upgrades.yml --limit patch_pilot
+# ==============================================================================
+---
+- name: Deploy unattended-upgrades to pilot group
+  hosts: patch_pilot
+  become: yes
+  roles:
+    - unattended_upgrades

@@ -19,7 +19,7 @@ import argparse
 # Configuration
 DEFAULT_DIRS = ["scripts", "playbooks"]
 IGNORE_EXTENSIONS = [".pyc", ".zip", ".tar", ".gz", ".log", ".retry", ".swp"]
-IGNORE_FILES = ["vault.yml"] # Encrypted files
+IGNORE_FILES = ["vault.yml", "github_safety_scan.py", "trac_formatter.py"] # Encrypted files and scanner/formatters that have regexes
 
 # Regex patterns for finding potential secrets
 # captured group 'secret' is the value to check
@@ -49,6 +49,12 @@ WHITELIST = [
     "os.getenv",
     "os.environ",
     "lookup(",
+    "YOUR_KEY_HERE",
+    "your_token_here",
+    "your_long_lived_access_token",
+    "{TRAC_PASSWORD}",
+    "[^@]+",
+    "[^:\s]+",
 ]
 
 def is_suspicious(value):
@@ -64,7 +70,7 @@ def is_suspicious(value):
             return False
             
     # Heuristic: variable references often look like {{ var }} or $VAR
-    if value.startswith("{{") or value.startswith("${ "):
+    if value.startswith("{{") or value.startswith("${") or value.startswith("$"):
         return False
         
     return True

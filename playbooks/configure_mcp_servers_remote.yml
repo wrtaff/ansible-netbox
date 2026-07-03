@@ -97,7 +97,7 @@
           export TRAC_PASSWORD='{{ vault_trac_user_password_will }}'
           export NEXTCLOUD_PASSWORD='{{ nextcloud_user_will_pass }}'
           export WWOS_PASSWORD='{{ vault_wwos_password }}'
-          export NETBOX_TOKEN='664350da3a91fb42a7ae2d0dda5614e869fd50cd'
+          export NETBOX_TOKEN='{{ vault_netbox_token }}'
           export NETBOX_API='http://netbox1.home.arpa:80'
       become: yes
       become_user: "{{ gemini_user }}"

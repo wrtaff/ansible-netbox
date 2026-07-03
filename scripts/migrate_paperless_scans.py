@@ -25,26 +25,28 @@ GDRIVE_FOLDER_ID = "1Qa1jqZB5nbK4OWNfMZkpG7HjwXvLMCzV"
 
 def main():
     headers = {"Authorization": f"Token {TOKEN}"}
-    today = datetime.now().strftime("%Y-%m-%d")
+    print(f"Fetching all documents from Paperless-ngx...")
     
-    print(f"Fetching documents added today ({today}) from Paperless-ngx...")
-    response = requests.get(PAPERLESS_URL, headers=headers)
-    response.raise_for_status()
+    docs = []
+    next_url = PAPERLESS_URL
+    while next_url:
+        response = requests.get(next_url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        docs.extend(data.get('results', []))
+        next_url = data.get('next')
     
-    docs = response.json().get('results', [])
-    docs_today = [d for d in docs if d.get('added', '').startswith(today)]
-    
-    if not docs_today:
-        print("No documents found for today.")
+    if not docs:
+        print("No documents found in Paperless.")
         return
         
-    print(f"Found {len(docs_today)} documents.")
+    print(f"Found {len(docs)} documents to process.")
     
     # Import google_workspace_manager
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     from google_workspace_manager import drive_upload_file
     
-    for doc in docs_today:
+    for doc in docs:
         doc_id = doc['id']
         title = doc['title']
         if not title.endswith('.pdf'):
@@ -71,8 +73,20 @@ def main():
                 target_mimetype="application/pdf"
             )
             print(f"Successfully uploaded {title} to Drive: {result}")
+            
+            # Verify and delete from Paperless
+            if result and 'id' in result:
+                print(f"Verification successful. Deleting {title} from Paperless...")
+                del_url = f"http://paperless-ngx.home.arpa/api/documents/{doc_id}/"
+                del_resp = requests.delete(del_url, headers=headers)
+                del_resp.raise_for_status()
+                print("Deleted from Paperless successfully.")
+            else:
+                print(f"Warning: Upload result missing ID. Did not delete from Paperless.")
+                
         except Exception as e:
             print(f"Failed to upload {title}: {e}")
+            print(f"Skipping deletion from Paperless for safety.")
         finally:
             # Cleanup local file
             if os.path.exists(local_path):

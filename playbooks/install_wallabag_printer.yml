@@ -1,0 +1,204 @@
+# ==============================================================================
+# Filename:       playbooks/install_wallabag_printer.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-06-10
+# Trac Ticket:    #3574
+# Wiki Page:      http://wwos.home.arpa/index.php/Playbooks/install_wallabag_printer.yml
+#
+# Purpose:
+#   Installs and configures the wallabag-printer LXC as a network AirPrint
+#   virtual printer. Print jobs (PDF) are forwarded to the Wallabag API via
+#   the existing ingest_pdf.py script. The printer is advertised via Avahi
+#   mDNS so it auto-discovers on macOS, iOS, Android, Windows 11, and Linux.
+#
+# Prerequisites:
+#   - bootstrap.yml and site.yml already run on target
+#   - Tailscale joined (ynh2.van-bee.ts.net must be reachable)
+#   - WALLABAG_* credentials available in /etc/wallabag-printer/credentials
+#     (deployed by this playbook from Ansible Vault vars)
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/install_wallabag_printer.yml \
+#     --limit wallabag-printer --ask-vault-pass
+# ==============================================================================
+---
+- name: Install and configure wallabag-printer (CUPS + Avahi AirPrint)
+  hosts: wallabag-printer
+  become: yes
+  gather_facts: yes
+
+  vars_files:
+    - "{{ playbook_dir }}/../vault.yml"
+
+  vars:
+    wallabag_url: "https://ynh2.van-bee.ts.net/wallabag"
+    wallabag_username: "will"
+    cups_printer_name: "Wallabag"
+    cups_printer_info: "Save to Wallabag"
+    cups_printer_location: "Home Network"
+    ingest_script_dest: "/usr/local/lib/wallabag-printer/ingest_pdf.py"
+    backend_script_dest: "/usr/lib/cups/backend/wallabag"
+    credentials_file: "/etc/wallabag-printer/credentials"
+
+  tasks:
+
+    - name: Install CUPS, Avahi, and Python dependencies
+      ansible.builtin.apt:
+        name:
+          - cups
+          - cups-bsd
+          - avahi-daemon
+          - avahi-utils
+          - python3
+          - python3-requests
+          - poppler-utils
+        state: present
+        update_cache: yes
+
+    - name: Create wallabag-printer lib directory
+      ansible.builtin.file:
+        path: /usr/local/lib/wallabag-printer
+        state: directory
+        mode: '0755'
+
+    - name: Create credentials directory
+      ansible.builtin.file:
+        path: /etc/wallabag-printer
+        state: directory
+        mode: '0700'
+
+    - name: Deploy wallabag credentials file
+      ansible.builtin.template:
+        src: wallabag_credentials.j2
+        dest: "{{ credentials_file }}"
+        mode: '0600'
+      # vars wallabag_client_id, wallabag_client_secret, wallabag_password
+      # come from Ansible Vault (vars/vault.yml)
+
+    - name: Deploy ingest_pdf.py from controller
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/wallabag/ingest_pdf.py"
+        dest: "{{ ingest_script_dest }}"
+        mode: '0755'
+
+    - name: Deploy CUPS wallabag backend script
+      ansible.builtin.copy:
+        dest: "{{ backend_script_dest }}"
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # CUPS backend: receive PDF print job, ingest to Wallabag
+          # Called by CUPS as: wallabag job-id user title copies options [file]
+          if [ $# -eq 0 ]; then
+            echo 'network wallabag "Wallabag" "Save to Wallabag read-it-later"'
+            exit 0
+          fi
+          JOB_FILE="${6:-}"
+          JOB_TITLE="${3:-Untitled}"
+          TMPFILE=""
+          if [ -z "$JOB_FILE" ]; then
+            TMPFILE=$(mktemp /tmp/wallabag-job-XXXXXX.pdf)
+            cat > "$TMPFILE"
+            JOB_FILE="$TMPFILE"
+          fi
+          source /etc/wallabag-printer/credentials
+          python3 /usr/local/lib/wallabag-printer/ingest_pdf.py \
+            "$JOB_FILE" --title "$JOB_TITLE" --tags "print"
+          EXIT_CODE=$?
+          [ -n "$TMPFILE" ] && rm -f "$TMPFILE"
+          exit $EXIT_CODE
+
+    - name: Add lp user to needed groups for CUPS backend
+      ansible.builtin.user:
+        name: lp
+        groups: lp
+        append: yes
+
+    - name: Configure CUPS to listen on all interfaces
+      ansible.builtin.lineinfile:
+        path: /etc/cups/cupsd.conf
+        regexp: '^Listen '
+        line: 'Listen 0.0.0.0:631'
+        backrefs: no
+
+    - name: Allow network access to CUPS
+      ansible.builtin.blockinfile:
+        path: /etc/cups/cupsd.conf
+        marker: "# {mark} ANSIBLE MANAGED: network access"
+        block: |
+          <Location />
+            Order allow,deny
+            Allow @LOCAL
+          </Location>
+          <Location /admin>
+            Order allow,deny
+            Allow @LOCAL
+          </Location>
+
+    - name: Ensure CUPS and Avahi are enabled and started
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop:
+        - cups
+        - avahi-daemon
+
+    - name: Add Wallabag virtual printer to CUPS
+      ansible.builtin.command: >
+        lpadmin -p {{ cups_printer_name }}
+        -E
+        -v wallabag:/wallabag
+        -m drv:///sample.drv/generic.ppd
+        -D "{{ cups_printer_info }}"
+        -L "{{ cups_printer_location }}"
+      args:
+        creates: /etc/cups/ppd/{{ cups_printer_name }}.ppd
+
+    - name: Set Wallabag as default printer
+      ansible.builtin.command: lpoptions -d {{ cups_printer_name }}
+      changed_when: false
+
+    - name: Deploy Avahi AirPrint service descriptor
+      ansible.builtin.copy:
+        dest: /etc/avahi/services/wallabag-airprint.service
+        mode: '0644'
+        content: |
+          <?xml version="1.0" standalone='no'?>
+          <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+          <service-group>
+            <name replace-wildcards="yes">Wallabag @ %h</name>
+            <service>
+              <type>_ipp._tcp</type>
+              <subtype>_universal._sub._ipp._tcp</subtype>
+              <port>631</port>
+              <txt-record>txtvers=1</txt-record>
+              <txt-record>qtotal=1</txt-record>
+              <txt-record>rp=printers/{{ cups_printer_name }}</txt-record>
+              <txt-record>ty={{ cups_printer_info }}</txt-record>
+              <txt-record>adminurl=http://wallabag-printer.home.arpa:631</txt-record>
+              <txt-record>note={{ cups_printer_location }}</txt-record>
+              <txt-record>priority=0</txt-record>
+              <txt-record>Transparent=T</txt-record>
+              <txt-record>URF=none</txt-record>
+              <txt-record>pdl=application/octet-stream,application/pdf,image/jpeg,image/png</txt-record>
+              <txt-record>Color=F</txt-record>
+              <txt-record>Duplex=F</txt-record>
+              <txt-record>usb_MFG=Wallabag</txt-record>
+              <txt-record>usb_MDL=Virtual PDF Printer</txt-record>
+              <txt-record>air=none</txt-record>
+            </service>
+          </service-group>
+      notify: Restart avahi-daemon
+
+  handlers:
+    - name: Restart avahi-daemon
+      ansible.builtin.systemd:
+        name: avahi-daemon
+        state: restarted
+
+    - name: Restart cups
+      ansible.builtin.systemd:
+        name: cups
+        state: restarted

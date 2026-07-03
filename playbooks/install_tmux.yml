@@ -1,0 +1,22 @@
+---
+# install_tmux.yml, Version 1.0, Will Taff, 2026-07-01, Trac #3739
+# Purpose       — Install tmux terminal multiplexer
+# Use Case      — Replaces screen for session management
+# Installation Method — apt
+# Prerequisites — None
+# Configuration — None
+# Secrets       — ansible_become_pass (vault.yml) — sudo on target hosts
+# Usage         — ansible-playbook -i inventory.ini playbooks/install_tmux.yml --limit athena,ar0,ar1
+# Removal Instructions — apt-get remove tmux
+# WWOS          — http://wwos.home.arpa/index.php/Playbooks/install_tmux.yml
+# GitHub        — https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_tmux.yml
+
+- name: Install tmux
+  hosts: all
+  become: yes
+  tasks:
+    - name: Ensure tmux is installed
+      ansible.builtin.apt:
+        name: tmux
+        state: present
+        update_cache: yes

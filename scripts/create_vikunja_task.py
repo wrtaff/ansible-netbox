@@ -98,7 +98,7 @@ def get_all_labels(host, token):
     }
     try:
         req = urllib.request.Request(url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, context=get_ssl_context()) as response:
+        with urllib.request.urlopen(req, context=get_ssl_context(), timeout=10) as response:
             if response.status == 200:
                 return json.loads(response.read().decode('utf-8'))
     except Exception as e:
@@ -114,7 +114,7 @@ def create_label(host, token, title):
     payload = json.dumps({"title": title}).encode('utf-8')
     try:
         req = urllib.request.Request(url, data=payload, headers=headers, method="PUT")
-        with urllib.request.urlopen(req, context=get_ssl_context()) as response:
+        with urllib.request.urlopen(req, context=get_ssl_context(), timeout=10) as response:
             if response.status in (200, 201):
                 return json.loads(response.read().decode('utf-8'))
     except Exception as e:
@@ -130,7 +130,8 @@ def add_label_to_task(host, token, task_id, label_id):
     payload = json.dumps({"label_id": label_id}).encode('utf-8')
     try:
         req = urllib.request.Request(url, data=payload, headers=headers, method="PUT")
-        with urllib.request.urlopen(req, context=get_ssl_context()) as response:
+        with urllib.request.urlopen(req, context=get_ssl_context(), timeout=10) as response:
+            response.read()
             if response.status in (200, 201):
                 return True
     except Exception as e:
@@ -185,7 +186,7 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
     
     try:
         req = urllib.request.Request(url, data=json_payload, headers=headers, method="PUT")
-        with urllib.request.urlopen(req, context=get_ssl_context()) as response:
+        with urllib.request.urlopen(req, context=get_ssl_context(), timeout=10) as response:
             if response.status in (200, 201):
                 result = json.loads(response.read().decode('utf-8'))
                 task_id = result.get('id')

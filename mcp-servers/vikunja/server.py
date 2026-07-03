@@ -160,7 +160,7 @@ def ping() -> str:
     return "pong"
 
 @mcp.tool(name="vikunja_create_task")
-def create_task(title: str, description: str = "", project_id: int = 1, project: Optional[str] = None, labels: Optional[List[str]] = None, due_date: Optional[str] = None) -> str:
+def create_task(title: str, description: str = "", project_id: int = 1, project: Optional[str] = None, labels: list = None, due_date: Optional[str] = None) -> str:
     """
     Create a new task in Vikunja.
     title: Task title (words starting with * are extracted as labels).
@@ -219,6 +219,68 @@ def get_task(task_id: int) -> str:
     except Exception as e:
         logger.error(f"Error fetching Vikunja task: {e}")
         return f"Error fetching Vikunja task {task_id}: {e}"
+
+@mcp.tool(name="vikunja_update_task")
+def update_task(task_id: int, title: Optional[str] = None, description: Optional[str] = None, labels: list = None, due_date: Optional[str] = None, is_favorite: Optional[bool] = None, done: Optional[bool] = None) -> str:
+    """
+    Update an existing Vikunja task.
+    task_id: The ID of the task to update.
+    title: Updated task title.
+    description: Updated detailed description (Markdown supported).
+    labels: List of labels to attach.
+    due_date: ISO format date (e.g., 2026-03-04T13:00:00).
+    is_favorite: Boolean to mark as favorite.
+    done: Boolean to mark task as done or open.
+    """
+    logger.info(f"Vikunja: Update task {task_id}")
+    try:
+        import requests
+        token = os.getenv("VIKUNJA_API_TOKEN")
+        host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
+        
+        url = f"{host}/api/v1/tasks/{task_id}"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {}
+        if title is not None:
+            payload["title"] = title
+        if description is not None:
+            payload["description"] = description
+        if due_date is not None:
+            payload["due_date"] = due_date
+        if is_favorite is not None:
+            payload["is_favorite"] = is_favorite
+        if done is not None:
+            payload["done"] = done
+            
+        if payload:
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            
+        if labels:
+            resolved_labels = []
+            existing_labels = cvt.get_all_labels(host, token)
+            label_map = {l['title'].lower(): l for l in existing_labels}
+            
+            for label_name in labels:
+                existing = label_map.get(label_name.lower())
+                if existing:
+                    resolved_labels.append({"id": existing['id'], "title": existing['title']})
+                else:
+                    new_label = cvt.create_label(host, token, label_name)
+                    if new_label:
+                        resolved_labels.append({"id": new_label['id'], "title": new_label['title']})
+                        
+            for label in resolved_labels:
+                cvt.add_label_to_task(host, token, task_id, label['id'])
+                
+        return f"Successfully updated Vikunja task {task_id}"
+    except Exception as e:
+        logger.error(f"Error updating Vikunja task: {e}")
+        return f"Error updating Vikunja task {task_id}: {e}"
 
 @mcp.tool(name="vikunja_create_trac_ticket")
 def create_trac_ticket(task_id: int, component: str = "recreation", priority: str = "major", keywords: str = "awp, crdo, Jen") -> str:

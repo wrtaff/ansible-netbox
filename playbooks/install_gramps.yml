@@ -1,0 +1,33 @@
+# ==============================================================================
+# Filename:       install_gramps.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-05-18
+# Context:        http://trac.home.arpa/ticket/3464
+#
+# Purpose:
+#    Installs Gramps (Genealogy Research and Analysis Management Programming System)
+#    on Debian-based systems.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/install_gramps.yml -l <host>
+#
+# Revision History:
+#    1.0: Initial automation script for Gramps installation.
+# ==============================================================================
+---
+- name: Install Gramps
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: 01. Install gramps package
+      ansible.builtin.package:
+        name: gramps
+        state: present
+        update_cache: yes
+      register: install_result
+
+    - name: 02. Report installation status
+      ansible.builtin.debug:
+        msg: "Gramps installation status: {{ install_result.changed }}"

@@ -1,0 +1,73 @@
+---
+# install_jellyfin_syncthing.yml, 1.0, gemini, 2026-06-29, #3748, #3750
+# Purpose       — Installs Jellyfin Media Server and Syncthing
+# Use Case      — Serves media and syncs downloads (e.g. NewPipe)
+# Installation Method — apt (official Jellyfin and Syncthing repos)
+# Prerequisites — Debian/Ubuntu system
+# Configuration — Syncthing runs as jellyfin user for shared access
+# Secrets       — None — no vault variables required
+# Usage         — ansible-playbook -i inventory.ini playbooks/install_jellyfin_syncthing.yml --limit <host>
+# Removal Instructions — apt-get remove jellyfin syncthing
+# WWOS          — http://wwos.home.arpa/index.php/Playbooks/install_jellyfin_syncthing.yml
+# GitHub        — https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_jellyfin_syncthing.yml
+
+- name: Install Jellyfin and Syncthing
+  hosts: all
+  become: yes
+  tasks:
+    - name: Ensure apt transport https and gnupg are installed
+      apt:
+        name:
+          - apt-transport-https
+          - gnupg
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Download Jellyfin GPG key
+      get_url:
+        url: https://repo.jellyfin.org/jellyfin_team.gpg.key
+        dest: /usr/share/keyrings/jellyfin.asc
+
+    - name: Add Jellyfin repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/jellyfin.asc] https://repo.jellyfin.org/debian bookworm main"
+        state: present
+        filename: jellyfin
+
+    - name: Install Jellyfin
+      apt:
+        name: jellyfin
+        state: present
+        update_cache: yes
+
+    - name: Download Syncthing GPG key
+      get_url:
+        url: https://syncthing.net/release-key.gpg
+        dest: /usr/share/keyrings/syncthing-archive-keyring.gpg
+
+    - name: Add Syncthing repository
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/syncthing-archive-keyring.gpg] https://apt.syncthing.net/ syncthing stable"
+        state: present
+        filename: syncthing
+
+    - name: Install Syncthing
+      apt:
+        name: syncthing
+        state: present
+        update_cache: yes
+
+    - name: Configure Syncthing systemd service for jellyfin user
+      systemd:
+        name: syncthing@jellyfin.service
+        enabled: yes
+        state: started
+
+    - name: Verify mount point exists and is accessible by jellyfin
+      file:
+        path: /mnt/media/newpipe
+        state: directory
+        owner: jellyfin
+        group: jellyfin
+        mode: '0755'

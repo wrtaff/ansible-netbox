@@ -241,6 +241,10 @@ class NextcloudContactManager:
                     # Structured fields: escape components but keep semicolons
                     parts = val.split(';')
                     val_esc = ';'.join(self._escape_vcard_value(p) for p in parts)
+                elif base_key == 'CATEGORIES':
+                    # Multi-value field separated by comma
+                    parts = val.split(',')
+                    val_esc = ','.join(self._escape_vcard_value(p.strip()) for p in parts)
                 else:
                     val_esc = self._escape_vcard_value(val)
                 line = f"{key}:{val_esc}"

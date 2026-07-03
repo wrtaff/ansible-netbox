@@ -1,0 +1,53 @@
+# ------------------------------------------------------------------------------
+# Playbook: remediate_ssh_keys.yml
+# Path: /home/will/ansible-netbox/playbooks/remediate_ssh_keys.yml
+# Trac Ticket: #3435
+# Wiki Page: http://wwos.home.arpa/mediawiki/index.php/Playbooks/remediate_ssh_keys.yml
+#
+# Revision History:
+#   2026-05-12  v1.0  Gemini  Initial version for SSH key remediation.
+#
+# Use Case: 
+#   Fixes misconfigured hosts that are missing the 'id_rsa_lab.pub' key, 
+#   ensuring athena (controller) has passwordless root and admin access.
+#
+# Installation Method: 
+#   Ansible Playbook (ansible.posix.authorized_key module)
+#
+# Purpose:
+#   Ensures the correct lab SSH key (id_rsa_lab.pub) is present in the 
+#   authorized_keys file for both 'root' and 'will' users across all hosts.
+#
+# Prerequisites:
+#   - User must have existing password or key access to the remote host.
+#   - Variables 'ssh_public_key_path' must be defined in inventory or group_vars.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini remediate_ssh_keys.yml --ask-pass --ask-become-pass
+#
+# Removal Instructions:
+#   Manual removal from /root/.ssh/authorized_keys and /home/will/.ssh/authorized_keys
+#
+# Links:
+#   - Trac: http://trac.home.arpa/ticket/3435
+# ------------------------------------------------------------------------------
+---
+- name: Remediate SSH Keys across all hosts
+  hosts: all
+  gather_facts: no
+  become: yes
+
+  tasks:
+    - name: 1. Deploy lab SSH key for the 'will' user
+      ansible.posix.authorized_key:
+        user: will
+        state: present
+        key: "{{ lookup('file', ssh_public_key_path) }}"
+      ignore_errors: yes
+
+    - name: 2. Deploy lab SSH key for the root user
+      ansible.posix.authorized_key:
+        user: root
+        state: present
+        key: "{{ lookup('file', ssh_public_key_path) }}"
+      ignore_errors: yes

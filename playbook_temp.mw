@@ -1,0 +1,10 @@
+'''[[Playbooks/brother_scanner]]''' deploys the driver and automation for the Brother ADS-2000 Document Scanner.
+
+== See also ==
+* '''[[Brother ADS2000 High Speed Document Scanner]]''' — Device details and manual configuration notes.
+
+== Trac ==
+'''[http://trac.home.arpa/ticket/3607 trac #3607 "Provision Brother ADS-2000 Scanner software on zeus"]'''
+
+{{bop}}
+[[Category:Playbooks]]

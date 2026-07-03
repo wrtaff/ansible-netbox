@@ -13,4 +13,4 @@
   ansible.posix.authorized_key:
     user: will
     state: present
-    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+    key: "{{ lookup('file', ssh_public_key_path) }}"

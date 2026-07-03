@@ -1,0 +1,99 @@
+---
+# ==============================================================================
+# Filename:       install_sweethome3d.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-05-15
+# Context:        http://trac.home.arpa/ticket/3458
+#
+# Purpose:
+#    Installs Sweet Home 3D and its associated editors and furniture sets.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/install_sweethome3d.yml -l athena
+#
+# Revision History:
+#    1.0: Initial automation script for host athena.
+# ==============================================================================
+# This playbook installs Sweet Home 3D, a free architectural design application,
+# along with its furniture and texture editors.
+
+- name: Install Sweet Home 3D
+  hosts: all
+  become: yes
+  vars:
+    install_xpra: false
+
+  tasks:
+    - name: 00. Install Sweet Home 3D and related packages
+      ansible.builtin.apt:
+        name:
+          - sweethome3d
+          - sweethome3d-furniture
+          - sweethome3d-furniture-editor
+          - sweethome3d-textures-editor
+        state: present
+        update_cache: yes
+      register: apt_result
+
+    - name: Xpra Support Block
+      when: install_xpra | bool
+      block:
+        - name: 01. Install repo prerequisites
+          ansible.builtin.apt:
+            name:
+              - wget
+              - ca-certificates
+            state: present
+
+        - name: 02. Download Xpra GPG key
+          ansible.builtin.get_url:
+            url: https://xpra.org/xpra.asc
+            dest: /usr/share/keyrings/xpra.asc
+            mode: '0644'
+          when: ansible_distribution == 'Debian' and (ansible_distribution_release == 'trixie' or ansible_distribution_release == 'sid')
+
+        - name: 03. Add Xpra Beta repository (for Python 3.13 support on Trixie/Sid)
+          ansible.builtin.apt_repository:
+            repo: "deb [signed-by=/usr/share/keyrings/xpra.asc] https://xpra.org/beta/ {{ ansible_distribution_release }} main"
+            state: present
+            filename: xpra-beta
+          when: ansible_distribution == 'Debian' and (ansible_distribution_release == 'trixie' or ansible_distribution_release == 'sid')
+
+        - name: 04. Install Xpra
+          ansible.builtin.apt:
+            name:
+              - "{{ 'xpra-server' if (ansible_distribution == 'Debian' and (ansible_distribution_release == 'trixie' or ansible_distribution_release == 'sid')) else 'xpra' }}"
+              - "{{ 'xpra-client' if (ansible_distribution == 'Debian' and (ansible_distribution_release == 'trixie' or ansible_distribution_release == 'sid')) else '' }}"
+              - "{{ 'xpra-common' if (ansible_distribution == 'Debian' and (ansible_distribution_release == 'trixie' or ansible_distribution_release == 'sid')) else '' }}"
+              - "{{ 'xpra-x11' if (ansible_distribution == 'Debian' and (ansible_distribution_release == 'trixie' or ansible_distribution_release == 'sid')) else '' }}"
+            state: present
+            update_cache: yes
+          # Filter out empty strings if standard 'xpra' is used
+          vars:
+            ansible_apt_packages: "{{ ansible_apt_packages | reject('equalto', '') | list }}"
+
+        - name: 05. Create Xpra-compatible launcher script
+          ansible.builtin.copy:
+            dest: /usr/local/bin/sweethome3d-xpra
+            mode: '0755'
+            content: |
+              #!/bin/bash
+              # Launcher to start Sweet Home 3D inside an Xpra session
+              # This allows high-performance remote access on local networks.
+              
+              # Check if an xpra session is already running on :100
+              if ! xpra list | grep -q ":100"; then
+                echo "Starting new Xpra session for Sweet Home 3D..."
+                xpra start :100 --start-child=sweethome3d --exit-with-children --daemon=yes
+                sleep 2
+              else
+                echo "Xpra session already running. Use 'xpra attach' from your client."
+              fi
+              
+              echo "Xpra session is ready on display :100"
+              echo "Client command: xpra attach ssh://will@$(hostname)/100"
+
+    - name: 06. Verify installation result
+      ansible.builtin.debug:
+        msg: "Sweet Home 3D installation completed. Xpra installed: {{ install_xpra }}"

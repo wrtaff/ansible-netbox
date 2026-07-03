@@ -223,15 +223,19 @@ def create_wwos_page(page_name, categories, summary="Page created by script", co
     # 4. Construct page content
     if content_body and content_body.strip().upper().startswith("#REDIRECT"):
         content = content_body.strip()
+    elif page_name.startswith("Module:"):
+        # Module: pages use the Scribunto content model — pass Lua source verbatim,
+        # no wikitext title/bop/categories.
+        content = content_body or ""
     else:
         content = f"'''{page_name}'''\n\n"
         if content_body:
             content += content_body + "\n\n"
-        
+
         # Only add {{baseOfPage}} if it's not a Category page
         if not page_name.startswith("Category:"):
             content += "{{baseOfPage}}\n\n"
-        
+
         # Parse and add multiple categories
         category_list = [cat.strip() for cat in categories.split(",") if cat.strip()]
         for cat in category_list:

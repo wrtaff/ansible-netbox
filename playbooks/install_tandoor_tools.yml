@@ -1,0 +1,41 @@
+# ==============================================================================
+# Filename:       playbooks/install_tandoor_tools.yml
+# Version:        1.0
+# Author:         Claude Code
+# Last Modified:  2026-05-15
+# Context:        http://trac.gafla.us.com/ticket/2943
+#
+# Purpose:
+#    Installs Python dependencies for Tandoor automation scripts on athena.
+#    Adds pdfplumber to the shared gemini_projects venv at /opt/venvs/gemini_projects.
+#    (requests is already present in the venv.)
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/install_tandoor_tools.yml
+# ==============================================================================
+
+- name: Install Tandoor automation dependencies
+  hosts: athena
+  gather_facts: false
+  become: true
+
+  vars:
+    venv_path: /opt/venvs/gemini_projects
+
+  tasks:
+    - name: Install pdfplumber into shared venv
+      ansible.builtin.pip:
+        name: pdfplumber
+        state: present
+        virtualenv: "{{ venv_path }}"
+      become_user: will
+
+    - name: Verify pdfplumber installation
+      ansible.builtin.command:
+        cmd: "{{ venv_path }}/bin/python3 -c 'import pdfplumber; print(pdfplumber.__version__)'"
+      register: pdf_check
+      changed_when: false
+
+    - name: Show pdfplumber version
+      ansible.builtin.debug:
+        msg: "pdfplumber {{ pdf_check.stdout }} installed in {{ venv_path }}"

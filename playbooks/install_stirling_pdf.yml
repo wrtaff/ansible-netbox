@@ -1,0 +1,56 @@
+---
+- name: Install and configure Stirling PDF
+  hosts: stirling-pdf-pve5-01
+  become: true
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: present
+        update_cache: yes
+
+    - name: Create Stirling PDF directory
+      file:
+        path: /opt/stirling-pdf
+        state: directory
+        mode: '0755'
+
+    - name: Create trainingData directory
+      file:
+        path: /opt/stirling-pdf/trainingData
+        state: directory
+
+    - name: Create extraConfigs directory
+      file:
+        path: /opt/stirling-pdf/extraConfigs
+        state: directory
+
+    - name: Create customFiles directory
+      file:
+        path: /opt/stirling-pdf/customFiles
+        state: directory
+
+    - name: Copy docker-compose.yml
+      copy:
+        dest: /opt/stirling-pdf/docker-compose.yml
+        content: |
+          version: '3.3'
+          services:
+            stirling-pdf:
+              image: frooodle/s-pdf:latest
+              restart: always
+              ports:
+                - '80:8080'
+              volumes:
+                - ./trainingData:/usr/share/tesseract-ocr/5/tessdata
+                - ./extraConfigs:/configs
+                - ./customFiles:/customFiles/
+              environment:
+                - DOCKER_ENABLE_SECURITY=false
+
+    - name: Start Stirling PDF container
+      command: docker-compose up -d
+      args:
+        chdir: /opt/stirling-pdf

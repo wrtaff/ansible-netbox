@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.4
+Version:        2.5
 Author:         Gemini CLI
-Last Modified:  2026-06-10
+Last Modified:  2026-06-29
 Context:        http://trac.gafla.us.com/ticket/3571
 
 Purpose:
@@ -13,6 +13,8 @@ Purpose:
     Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
 
 Revision History:
+    v2.5 (2026-06-29): Updated gmail_get_message to download image attachments 
+                       (skipping small inline images) to fix Trac #3746.
     v2.4 (2026-06-10): Added gmail_modify_labels tool to modify Gmail labels (add/remove).
     v2.3 (2026-05-26): Added cc parameter to gmail_send_message tool; passes through
                        to google_workspace_manager.gmail_send_message and included
@@ -82,7 +84,7 @@ logger = logging.getLogger("google-workspace-mcp")
 # Initialize FastMCP server
 mcp = FastMCP("google-workspace-server")
 
-logger.info("Initializing Google Workspace MCP Server v2.0")
+logger.info("Initializing Google Workspace MCP Server v2.5")
 
 def handle_auth_error(e):
     logger.error(f"Authentication Error: {e}")
@@ -155,12 +157,12 @@ def format_gmail_for_trac(msg_data: dict, type: str = "Fetched", drive_attachmen
 
 
 def upload_gmail_attachments_to_drive(message_id: str, attachments: list, drive_parent_id: str) -> list:
-    """Download non-image Gmail attachments and upload them to Drive. Returns list of {filename, drive_id, drive_link}."""
+    """Download Gmail attachments and upload them to Drive (skips small inline images). Returns list of {filename, drive_id, drive_link}."""
     import tempfile
     results = []
     for att in attachments:
-        if att.get('mimeType', '').startswith('image/'):
-            continue
+        if att.get('disposition') == 'inline' and att.get('body', {}).get('size', 0) < 50000:
+            continue   # skip small inline images (signatures, logos)
         filename = att.get('filename', 'unknown')
         att_id = att.get('id')
         if not att_id:
@@ -207,9 +209,9 @@ def list_messages(query: str = "", max_results: int = 10) -> str:
 @mcp.tool(name="gmail_get_message")
 def get_message(message_id: str, trac_ticket: Optional[str] = None, drive_parent: Optional[str] = None) -> str:
     """Get full details of a Gmail message by its ID. Optionally append to a Trac ticket.
-    If drive_parent (Drive folder ID) is provided, non-image attachments are automatically
-    downloaded from Gmail and uploaded to that Drive folder; links are included in the
-    Trac comment when trac_ticket is also provided."""
+    If drive_parent (Drive folder ID) is provided, attachments (excluding small inline images) 
+    are automatically downloaded from Gmail and uploaded to that Drive folder; links are 
+    included in the Trac comment when trac_ticket is also provided."""
     logger.info(f"Gmail: Get message {message_id}")
     import io
     from contextlib import redirect_stdout

@@ -1,0 +1,59 @@
+---
+# ==============================================================================
+# Filename:       playbooks/install_czkawka.yml
+# Version:        1.0
+# Author:         Will Taff
+# Last Modified:  2026-06-30
+# Trac Ticket:    #TODO (Install Czkawka)
+#
+# Purpose:
+#     Install Czkawka CLI and GUI for duplicate file finding.
+#
+# Use Case:
+#     Removing duplicate files from local directories.
+#
+# Installation Method:
+#     apt package
+#
+# Prerequisites:
+#     - Debian/Ubuntu system
+#
+# Configuration:
+#     - None
+#
+# Secrets:
+#     None — no vault variables required
+#
+# Usage:
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/install_czkawka.yml \
+#         --limit <host> --check --diff
+#
+#     # Live run
+#     ansible-playbook -i inventory.ini playbooks/install_czkawka.yml \
+#         --limit <host>
+#
+# Removal Instructions:
+#     apt remove czkawka-cli czkawka-gui
+#
+# Revision History:
+#     1.0 - Initial playbook.
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_czkawka.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/install_czkawka.yml
+# ==============================================================================
+
+- name: Install Czkawka
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update apt cache and install Czkawka
+      ansible.builtin.apt:
+        name:
+          - czkawka-cli
+          - czkawka-gui
+        state: present
+        update_cache: yes
