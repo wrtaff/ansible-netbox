@@ -46,6 +46,10 @@
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/netbox/server.py"
+      homeassistant:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/homeassistant/server.py"
     gemini_context:
       includeDirectories:
         - "{{ gemini_project_dir }}"
@@ -99,6 +103,8 @@
           export WWOS_PASSWORD='{{ vault_wwos_password }}'
           export NETBOX_TOKEN='{{ vault_netbox_token }}'
           export NETBOX_API='http://netbox1.home.arpa:80'
+          export HASS_TOKEN='{{ vault_hass_token }}'
+          export HASS_URL='http://hass.home.arpa/api/mcp'
       become: yes
       become_user: "{{ gemini_user }}"
 
