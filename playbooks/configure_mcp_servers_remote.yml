@@ -13,7 +13,7 @@
 # ==============================================================================
 
 - name: Configure MCP Servers on Remote Desktops
-  hosts: desktops
+  hosts: desktops, agent_runners
   vars_files:
     - ../vault.yml
   vars:
@@ -60,7 +60,7 @@
     - name: 1. Ensure Python Venv exists
       ansible.builtin.command:
         cmd: "python3 -m venv {{ venv_path }}"
-        creates: "{{ venv_path }}/bin/activate"
+        creates: "{{ venv_path }}/pyvenv.cfg"
       become: yes
       become_user: "{{ gemini_user }}"
 
@@ -98,12 +98,12 @@
         path: "/home/{{ gemini_user }}/.bashrc"
         marker: "# {mark} ANSIBLE MANAGED BLOCK FOR MCP CREDENTIALS"
         block: |
-          export TRAC_PASSWORD='{{ vault_trac_user_password_will }}'
-          export NEXTCLOUD_PASSWORD='{{ nextcloud_user_will_pass }}'
-          export WWOS_PASSWORD='{{ vault_wwos_password }}'
-          export NETBOX_TOKEN='{{ vault_netbox_token }}'
+          export TRAC_PASSWORD='{{ vault_trac_user_password_will | default(trac_password) | default("") }}'
+          export NEXTCLOUD_PASSWORD='{{ nextcloud_user_will_pass | default(nextcloud_password) | default("") }}'
+          export WWOS_PASSWORD='{{ vault_wwos_password | default(wwos_password) | default("") }}'
+          export NETBOX_TOKEN='{{ vault_netbox_token | default(netbox_api_token) | default("") }}'
           export NETBOX_API='http://netbox1.home.arpa:80'
-          export HASS_TOKEN='{{ vault_hass_token }}'
+          export HASS_TOKEN='{{ vault_hass_token | default(hass_token) | default("") }}'
           export HASS_URL='http://hass.home.arpa/api/mcp'
       become: yes
       become_user: "{{ gemini_user }}"
@@ -124,7 +124,7 @@
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
       loop:
-        - { name: 'trac_pass.txt', content: '{{ vault_trac_user_password_will }}' }
-        - { name: 'nextcloud_pass.txt', content: '{{ nextcloud_user_will_pass }}' }
-        - { name: 'wwos_pass.txt', content: '{{ vault_wwos_password }}' }
+        - { name: 'trac_pass.txt', content: '{{ vault_trac_user_password_will | default(trac_password) | default("") }}' }
+        - { name: 'nextcloud_pass.txt', content: '{{ nextcloud_user_will_pass | default(nextcloud_password) | default("") }}' }
+        - { name: 'wwos_pass.txt', content: '{{ vault_wwos_password | default(wwos_password) | default("") }}' }
       no_log: true

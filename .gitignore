@@ -26,6 +26,7 @@ host_vars/vault.yml
 # Python cache
 __pycache__/
 *.pyc
+.venv/
 
 # Temporary files and logs
 *.log

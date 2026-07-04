@@ -26,7 +26,7 @@
 # ==============================================================================
 ---
 - name: Install or Update Claude Code CLI (Native)
-  hosts: desktops
+  hosts: desktops, agent_runners
   become: false
   gather_facts: true
 

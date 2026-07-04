@@ -1,5 +1,12 @@
 # ~/.bashrc: executed by bash(1) for non-login shells.
 
+# Source MCP secrets above interactivity guard so non-interactive shells get them
+if [ -f "$HOME/.config/mcp-secrets.env" ]; then
+    set -a
+    source "$HOME/.config/mcp-secrets.env"
+    set +a
+fi
+
 # If not running interactively, don't do anything
 case $- in
     *i*) ;;
@@ -14,21 +21,7 @@ shopt -s checkwinsize
 
 PS1='\u@\h:\w\$ '
 
-# Agent Auth Tokens & API Keys (Injected via Ansible Vault)
-export GEMINI_API_KEY="{{ gemini_api_key | default('UNSET') }}"
-export GOOGLE_API_KEY="{{ gemini_api_key | default('UNSET') }}"
-export OPENAI_API_KEY="{{ openai_api_key | default('UNSET') }}"
-export ANTHROPIC_API_KEY="{{ anthropic_api_key | default('UNSET') }}"
-export OPENROUTER_API_KEY="{{ openrouter_api_key | default('UNSET') }}"
-export OPENAI_API_BASE="https://openrouter.ai/api/v1"
-
-# MCP Service Credentials
-export WWOS_PASSWORD="{{ wwos_password | default('UNSET') }}"
-export TRAC_PASSWORD="{{ trac_password | default('UNSET') }}"
-export NEXTCLOUD_PASSWORD="{{ nextcloud_password | default('UNSET') }}"
-export NETBOX_TOKEN="{{ netbox_api_token | default('UNSET') }}"
-export NETBOX_API="http://netbox1.home.arpa:80"
-export VIKUNJA_API_TOKEN="{{ vikunja_api_token | default('UNSET') }}"
+# (Secrets are now sourced from ~/.config/mcp-secrets.env above)
 
 # Paths
 export PATH="$HOME/.local/bin:$HOME/go/bin:/usr/local/bin:/usr/bin:/bin:$PATH"

@@ -45,6 +45,8 @@
 - name: Provision Agent Runner Environment
   hosts: all
   become: yes
+  vars_files:
+    - ../vault.yml
   vars:
     target_user: will
     target_home: "/home/{{ target_user }}"
@@ -98,7 +100,23 @@
         - pops
         - ansible-netbox
 
-    - name: Template .bashrc with vault secrets and sync hook
+    - name: Ensure .config directory exists
+      ansible.builtin.file:
+        path: "{{ target_home }}/.config"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+
+    - name: Template mcp-secrets.env with vault secrets
+      ansible.builtin.template:
+        src: mcp-secrets.env.j2
+        dest: "{{ target_home }}/.config/mcp-secrets.env"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+
+    - name: Template .bashrc with sync hook
       ansible.builtin.template:
         src: agent_bashrc.j2
         dest: "{{ target_home }}/.bashrc"

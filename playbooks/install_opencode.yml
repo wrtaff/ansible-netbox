@@ -38,7 +38,7 @@
 # ==============================================================================
 ---
 - name: Install and Configure OpenCode CLI
-  hosts: "{{ target | default('athena') }}"
+  hosts: "{{ target | default('desktops, agent_runners') }}"
   become: true
   gather_facts: true
 
@@ -49,7 +49,7 @@
   tasks:
     - name: 0. Check current OpenCode version (if any)
       ansible.builtin.command:
-        cmd: /usr/local/bin/opencode --version
+        cmd: opencode --version
       register: opencode_version_before
       changed_when: false
       failed_when: false
@@ -64,7 +64,7 @@
 
     - name: 2. Verify OpenCode CLI is installed
       ansible.builtin.command:
-        cmd: /usr/local/bin/opencode --version
+        cmd: opencode --version
       register: opencode_version_output
       changed_when: false
       tags: verify
