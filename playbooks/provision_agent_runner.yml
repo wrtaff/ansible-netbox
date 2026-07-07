@@ -74,13 +74,23 @@
         state: present
         update_cache: yes
 
+    - name: Check if pops git repository exists on target
+      ansible.builtin.stat:
+        path: "{{ target_home }}/pops/.git"
+      register: pops_git_stat
+
+    - name: Check if ansible-netbox git repository exists on target
+      ansible.builtin.stat:
+        path: "{{ target_home }}/ansible-netbox/.git"
+      register: netbox_git_stat
+
     - name: Synchronize pops repository from control node
       ansible.posix.synchronize:
         src: "/home/will/pops/"
         dest: "{{ target_home }}/pops/"
         archive: yes
-      become_user: "{{ target_user }}"
-      when: inventory_hostname != 'ynh2'
+      become: no
+      when: inventory_hostname != 'ynh2' or not pops_git_stat.stat.exists
 
     - name: Synchronize ansible-netbox repository from control node
       ansible.posix.synchronize:
@@ -89,8 +99,8 @@
         archive: yes
         rsync_opts:
           - "--exclude=.venv"
-      become_user: "{{ target_user }}"
-      when: inventory_hostname != 'ynh2'
+      become: no
+      when: inventory_hostname != 'ynh2' or not netbox_git_stat.stat.exists
 
     - name: Ensure repository ownership
       ansible.builtin.file:
