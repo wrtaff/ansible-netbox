@@ -80,6 +80,7 @@
         dest: "{{ target_home }}/pops/"
         archive: yes
       become_user: "{{ target_user }}"
+      when: inventory_hostname != 'ynh2'
 
     - name: Synchronize ansible-netbox repository from control node
       ansible.posix.synchronize:
@@ -89,6 +90,7 @@
         rsync_opts:
           - "--exclude=.venv"
       become_user: "{{ target_user }}"
+      when: inventory_hostname != 'ynh2'
 
     - name: Ensure repository ownership
       ansible.builtin.file:
@@ -116,10 +118,43 @@
         group: "{{ target_user }}"
         mode: '0600'
 
-    - name: Template .bashrc with sync hook
-      ansible.builtin.template:
-        src: agent_bashrc.j2
-        dest: "{{ target_home }}/.bashrc"
+    - name: Ensure MCP secrets are sourced in .bashrc
+      ansible.builtin.blockinfile:
+        path: "{{ target_home }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK: MCP Secrets"
+        insertbefore: BOF
+        block: |
+          # Source MCP secrets so non-interactive shells get them
+          if [ -f "$HOME/.config/mcp-secrets.env" ]; then
+              set -a
+              source "$HOME/.config/mcp-secrets.env"
+              set +a
+          fi
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0644'
+
+    - name: Ensure Agent Runner path, aliases, and sync check are in .bashrc
+      ansible.builtin.blockinfile:
+        path: "{{ target_home }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK: Agent Runner Settings"
+        insertafter: EOF
+        block: |
+          # Paths
+          export PATH="$HOME/.local/bin:$HOME/go/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+          # Aliases
+          alias oc='opencode'
+          alias cdp='cd $HOME/pops'
+          alias cdpc='clear; cd $HOME/pops; claude'
+          alias cdpo='clear; cd $HOME/pops; opencode'
+          alias cdpg='clear; cd $HOME/pops; agy'
+
+          # Run agent sync check on session start (for Antigravity, OpenCode, and human sessions)
+          if [ -z "$AGENT_SYNC_CHECK_DONE" ] && [ -x "$HOME/pops/scripts/agent-sync-check.sh" ]; then
+              export AGENT_SYNC_CHECK_DONE=1
+              "$HOME/pops/scripts/agent-sync-check.sh"
+          fi
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0644'
