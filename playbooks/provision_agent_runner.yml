@@ -165,7 +165,7 @@
         netbox_token: "{{ netbox_api_token }}"
         data:
           name: "{{ inventory_hostname }}"
-          cluster: "pve6"
+          cluster: "{{ netbox_cluster | default('pve6') }}"
           status: "active"
       delegate_to: localhost
       run_once: false

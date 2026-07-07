@@ -78,12 +78,15 @@
 ---
 - name: Install Google Antigravity CLI
   hosts: all
-  become: false
+  become: "{{ (ansible_user | default('will')) == 'root' }}"
+  become_user: will
+  become_method: su
   gather_facts: true
 
   vars:
     antigravity_install_script: "https://antigravity.google/cli/install.sh"
-    antigravity_binary: "{{ ansible_facts['env']['HOME'] }}/.local/bin/agy"
+    target_user: "will"
+    antigravity_binary: "/home/{{ target_user }}/.local/bin/agy"
 
   tasks:
 
