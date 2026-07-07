@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.3
+Version:        1.4
 Author:         Gemini CLI
-Last Modified:  2026-06-11
+Last Modified:  2026-07-07
 Context:        http://trac.home.arpa/ticket/3321
 
 Purpose:
@@ -13,6 +13,12 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.4 (2026-07-07): vikunja_create_trac_ticket now builds a properly cited MoinMoin
+                       wiki link (task title as link text, WWOS-style <ref> citation)
+                       back to the Vikunja task instead of a bare URL, and converts the
+                       embedded task description from HTML to wiki markup. component is
+                       now optional and auto-guessed from the task's Vikunja project name,
+                       falling back to 'recreation' with a note when unconfident.
     v1.3 (2026-06-11): Added vikunja_list_projects tool. vikunja_create_task now accepts a
                        'project' NAME that is matched (case-insensitive) to an existing
                        project; it never creates a project. Context: http://trac.gafla.us.com/ticket/3584
@@ -27,8 +33,11 @@ Notes:
 """
 import os
 import sys
+import re
+import html
 import logging
 import json
+import datetime
 from typing import Optional, List
 
 # Add project root to path to allow importing from scripts
@@ -151,6 +160,52 @@ def _resolve_project_id(project, host, token):
         return None, f"Ambiguous project '{project}'. Candidates: {cand}. All projects: {catalog}"
     return None, (f"No project named '{project}' exists. Projects are matched, never created. "
                   f"Existing projects: {catalog}")
+
+
+def _html_desc_to_wiki(desc_html):
+    """Convert a Vikunja task's rich-text HTML description into MoinMoin wiki markup."""
+    if not desc_html:
+        return ""
+    text = desc_html
+    text = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r'[[\1|\2]]', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'</p>\s*<p[^>]*>', '\n\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</?p[^>]*>', '', text, flags=re.IGNORECASE)
+    text = html.unescape(text)
+    return text.strip()
+
+
+# Valid Trac `component` values (per trac_get_ticket_fields). Vikunja project titles are
+# matched against this set (case-insensitive), with a few common aliases, to auto-pick a
+# component. If nothing matches confidently (e.g. project is "Inbox"), the caller is told
+# so it can ask the user or override explicitly.
+VALID_TRAC_COMPONENTS = {
+    "board", "church", "eldercare", "finance", "food", "geeks", "healthcare",
+    "maintenance", "persdev", "pops-kms", "recreation", "sysadmin",
+}
+COMPONENT_ALIASES = {
+    "health": "healthcare", "medical": "healthcare",
+    "sys admin": "sysadmin", "it": "sysadmin", "systems": "sysadmin",
+    "personal development": "persdev", "kms": "pops-kms",
+}
+
+
+def _guess_component_for_project(project_id, host, token):
+    """
+    Returns (component_or_None, project_title, confident_bool).
+    """
+    try:
+        projects = _get_all_projects(host, token)
+    except Exception:
+        return None, None, False
+    proj = next((p for p in projects if p.get("id") == project_id), None)
+    proj_title = (proj or {}).get("title", "")
+    key = str(proj_title).strip().lower()
+    if key in VALID_TRAC_COMPONENTS:
+        return key, proj_title, True
+    if key in COMPONENT_ALIASES:
+        return COMPONENT_ALIASES[key], proj_title, True
+    return None, proj_title, False
 
 
 @mcp.tool(name="vikunja_ping")
@@ -283,37 +338,64 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
         return f"Error updating Vikunja task {task_id}: {e}"
 
 @mcp.tool(name="vikunja_create_trac_ticket")
-def create_trac_ticket(task_id: int, component: str = "recreation", priority: str = "major", keywords: str = "awp, crdo, Jen") -> str:
+def create_trac_ticket(task_id: int, component: Optional[str] = None, priority: str = "major", keywords: str = "awp, crdo, Jen") -> str:
     """
     Create a Trac ticket based on a Vikunja task and link them.
     task_id: The ID of the Vikunja task.
-    component: Trac component (e.g., 'recreation', 'sysadmin').
+    component: Trac component (e.g., 'recreation', 'sysadmin'). If omitted, it is guessed
+        from the task's Vikunja project name (matched against valid Trac components); if
+        that guess isn't confident (e.g. project is "Inbox"), defaults to 'recreation' and
+        the response flags this so the caller can confirm/correct with the user.
     priority: Trac priority.
     keywords: Comma-separated keywords.
     """
     logger.info(f"Vikunja: Create Trac ticket from task {task_id}")
     try:
-        # We can't easily call ctfv.main() because of argparse.
-        # We'll re-implement the orchestration here using functions from ctfv.
-        
+        token = os.getenv("VIKUNJA_API_TOKEN")
+        host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
+
         # 1. Fetch Vikunja Task
         task = ctfv.get_vikunja_task(task_id)
         summary = task.get('title')
         vikunja_desc = task.get('description', '')
         vikunja_link = f"http://todo.gafla.us.com/tasks/{task_id}"
-        description = f"Refers to Vikunja Task: {vikunja_link}\n\n{vikunja_desc}"
-        
+
+        # 1a. Auto-pick a component from the task's Vikunja project if not given explicitly.
+        component_note = ""
+        if not component:
+            guessed, proj_title, confident = _guess_component_for_project(task.get("project_id"), host, token)
+            if guessed:
+                component = guessed
+            else:
+                component = "recreation"
+                component_note = (
+                    f"\n\nNote: Vikunja project '{proj_title}' didn't map confidently to a "
+                    f"Trac component, defaulted to 'recreation'. Valid components: "
+                    f"{', '.join(sorted(VALID_TRAC_COMPONENTS))}."
+                )
+
+        # 1b. Build a properly cited wiki link back to the Vikunja task (title as link text,
+        # WWOS-style citation), followed by the task description converted to wiki markup.
+        today = datetime.date.today().isoformat()
+        description = (
+            f"'''[[{vikunja_link}|{summary}]]''' "
+            f"<ref>Vikunja Task: [[{vikunja_link}|{summary}]] retrieved {today}</ref>"
+        )
+        wiki_desc = _html_desc_to_wiki(vikunja_desc)
+        if wiki_desc:
+            description += f"\n\n{wiki_desc}"
+
         # 2. Create XML Payload
         xml_payload = ctfv.create_trac_ticket_xml(summary, description, component, priority, keywords)
-        
+
         # 3. Send to Trac
         response_xml = ctfv.send_to_trac(xml_payload)
-        
+
         # 4. Parse Response
         if "<int>" in response_xml:
             ticket_id = response_xml.split("<int>")[1].split("</int>")[0]
             trac_public_url = f"{ctfv.TRAC_PUBLIC_URL_BASE}/{ticket_id}"
-            
+
             # 5. Update Vikunja Task
             if trac_public_url not in vikunja_desc:
                 new_desc = vikunja_desc
@@ -321,11 +403,14 @@ def create_trac_ticket(task_id: int, component: str = "recreation", priority: st
                     new_desc += "<br><br>"
                 new_desc += f'<a href="{trac_public_url}">Trac Ticket #{ticket_id}: {summary}</a>'
                 ctfv.update_vikunja_task(task_id, new_desc)
-                
-            return f"Successfully created Trac Ticket #{ticket_id} and linked to Vikunja Task {task_id}."
+
+            return (
+                f"Successfully created Trac Ticket #{ticket_id} (component={component}) "
+                f"and linked to Vikunja Task {task_id}.{component_note}"
+            )
         else:
             return f"Failed to create Trac ticket. Response: {response_xml}"
-            
+
     except Exception as e:
         logger.error(f"Error creating Trac ticket from Vikunja task: {e}")
         return f"Error: {e}"
