@@ -170,6 +170,8 @@
       delegate_to: localhost
       run_once: false
       ignore_errors: yes
+      vars:
+        ansible_python_interpreter: "{{ lookup('env', 'VIRTUAL_ENV') | default('/home/will/ansible-netbox/.venv', true) }}/bin/python3"
 
 - import_playbook: install_antigravity.yml
 - import_playbook: install_opencode.yml
