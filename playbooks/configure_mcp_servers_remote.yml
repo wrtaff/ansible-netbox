@@ -63,6 +63,7 @@
         creates: "{{ venv_path }}/pyvenv.cfg"
       become: yes
       become_user: "{{ gemini_user }}"
+      become_method: su
 
     - name: 2. Install MCP Python Dependencies
       ansible.builtin.pip:
@@ -76,6 +77,7 @@
         state: present
       become: yes
       become_user: "{{ gemini_user }}"
+      become_method: su
 
     - name: 3. Ensure .gemini directory exists in project
       ansible.builtin.file:
@@ -107,6 +109,7 @@
           export HASS_URL='http://hass.home.arpa/api/mcp'
       become: yes
       become_user: "{{ gemini_user }}"
+      become_method: su
 
     - name: 5.5 Ensure tmp directory exists in repo
       ansible.builtin.file:
