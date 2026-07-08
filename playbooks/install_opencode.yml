@@ -47,9 +47,19 @@
     npm_package: opencode-ai
 
   tasks:
+    - name: Ensure npm is installed (for Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: npm
+        state: present
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+      tags: install
+
     - name: 0. Check current OpenCode version (if any)
       ansible.builtin.command:
         cmd: opencode --version
+      environment:
+        PATH: "/usr/local/bin:/usr/bin:{{ ansible_env.PATH | default('/usr/bin:/bin') }}"
       register: opencode_version_before
       changed_when: false
       failed_when: false
@@ -65,6 +75,8 @@
     - name: 2. Verify OpenCode CLI is installed
       ansible.builtin.command:
         cmd: opencode --version
+      environment:
+        PATH: "/usr/local/bin:/usr/bin:{{ ansible_env.PATH | default('/usr/bin:/bin') }}"
       register: opencode_version_output
       changed_when: false
       tags: verify
