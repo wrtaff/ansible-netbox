@@ -2,13 +2,18 @@
 """
 ================================================================================
 Filename:       create_trac_from_vikunja.py
-Version:        1.1
+Version:        1.2
 Author:         Gemini CLI
-Last Modified:  2026-04-16
+Last Modified:  2026-07-07
 Context:        http://trac.home.arpa/ticket/3321
 
 Purpose:
     Creates a Trac ticket based on a Vikunja task and links them.
+
+    Update 1.2 (2026-07-07):
+    - Description now links back to the Vikunja task with a properly cited MoinMoin
+      wiki link (task title as link text, WWOS-style <ref> citation) instead of a bare
+      URL, and the embedded task description is converted from HTML to wiki markup.
 
     Update 1.1 (2026-04-16):
     - Refactored functions to raise exceptions instead of calling sys.exit(1)
@@ -19,9 +24,12 @@ Purpose:
 import argparse
 import requests
 import json
+import re
+import html
 import subprocess
 import os
 import sys
+import datetime
 from xml.sax.saxutils import escape
 
 def get_trac_password():
@@ -87,6 +95,19 @@ def update_vikunja_task(task_id, description_with_link):
         print(f"Successfully updated Vikunja Task {task_id} description with Trac link.")
     except requests.exceptions.RequestException as e:
         raise Exception(f"Error updating Vikunja task {task_id}: {e}")
+
+def html_desc_to_wiki(desc_html):
+    """Convert a Vikunja task's rich-text HTML description into MoinMoin wiki markup."""
+    if not desc_html:
+        return ""
+    text = desc_html
+    text = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r'[[\1|\2]]', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'</p>\s*<p[^>]*>', '\n\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</?p[^>]*>', '', text, flags=re.IGNORECASE)
+    text = html.unescape(text)
+    return text.strip()
+
 
 def create_trac_ticket_xml(summary, description, component, priority, keywords):
     # Construct XML payload manually to ensure correct structure for Trac XML-RPC
@@ -174,8 +195,15 @@ def main():
         # Check for empty description
         vikunja_desc = task.get('description', '')
         vikunja_link = f"http://todo.gafla.us.com/tasks/{args.task_id}"
-        
-        description = f"Refers to Vikunja Task: {vikunja_link}\n\n{vikunja_desc}"
+
+        today = datetime.date.today().isoformat()
+        description = (
+            f"'''[[{vikunja_link}|{summary}]]''' "
+            f"<ref>Vikunja Task: [[{vikunja_link}|{summary}]] retrieved {today}</ref>"
+        )
+        wiki_desc = html_desc_to_wiki(vikunja_desc)
+        if wiki_desc:
+            description += f"\n\n{wiki_desc}"
         
         keywords = args.keywords
         if args.add_keywords:
