@@ -1,13 +1,17 @@
 # ==============================================================================
 # Filename:       install_opencode.yml
-# Version:        1.3
+# Version:        1.4
 # Author:         Antigravity CLI
-# Last Modified:  2026-06-16
+# Last Modified:  2026-07-08
 # Trac Ticket:    #3284
 #
 # Purpose:
 #   Installs the OpenCode CLI tool (via opencode-ai package) globally via NPM 
 #   on target hosts and configures environment for user 'will'.
+#
+# Update 1.4:
+#   - Added NPM installation for Debian/Ubuntu hosts.
+#   - Fixed opencode binary resolution during verification step by explicitly providing PATH.
 #
 # Use Case:
 #   Provides developers with the OpenCode CLI tool configured with OpenRouter.

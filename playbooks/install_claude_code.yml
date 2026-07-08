@@ -1,13 +1,16 @@
 # ==============================================================================
 # Filename:       install_claude_code.yml
-# Version:        2.1
+# Version:        2.2
 # Author:         Gemini CLI
-# Last Modified:  2026-05-20
+# Last Modified:  2026-07-08
 # Context:        http://trac.home.arpa/ticket/3092
 #
 # Purpose:
 #   Migrates Claude Code CLI from NPM to the new native installer and ensures
 #   it is installed/updated on target desktop hosts.
+#
+# Update 2.2:
+#   - Removed become_method: su to fix sudo timeouts on Debian/LXC hosts.
 #
 # Update 2.1:
 #   - Added PATH management in .bashrc for ~/.local/bin.
