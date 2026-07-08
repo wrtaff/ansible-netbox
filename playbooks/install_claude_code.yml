@@ -29,7 +29,6 @@
   hosts: desktops, agent_runners
   become: "{{ (ansible_user | default('will')) == 'root' }}"
   become_user: will
-  become_method: su
   gather_facts: true
 
   vars:
