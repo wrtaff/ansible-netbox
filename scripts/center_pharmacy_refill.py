@@ -21,7 +21,7 @@ import xmlrpc.client
 from playwright.sync_api import sync_playwright
 
 def update_trac_ticket():
-    ticket_id = 2763
+    ticket_id = 2019
     trac_user = os.environ.get('TRAC_USER', 'will')
     trac_pass = os.environ.get('TRAC_PASSWORD')
     
@@ -33,11 +33,19 @@ def update_trac_ticket():
     server_url = "http://" + auth_part + "@trac.home.arpa/login/xmlrpc"
     server = xmlrpc.client.ServerProxy(server_url)
     
-    comment = "'''Automated Note:''' Center Pharmacy refill was successfully submitted via automated script."
+    comment = "'''Automated Note:''' Center Pharmacy refill (NALTREXONE 4.5MG CAPS) was successfully submitted via automated script."
     
     try:
+        # Fetch current ticket state to determine if we need to reopen it
+        ticket = server.ticket.get(ticket_id)
+        current_status = ticket[3].get('status', '')
+        
+        attributes = {}
+        if current_status == 'closed':
+            attributes['action'] = 'reopen'
+            
         # Update ticket with the comment
-        server.ticket.update(ticket_id, comment, {}, False)
+        server.ticket.update(ticket_id, comment, attributes, False)
         print(f"Successfully added confirmation comment to Trac ticket #{ticket_id}")
     except Exception as e:
         print(f"Failed to update Trac ticket #{ticket_id}: {e}")
