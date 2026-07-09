@@ -2,13 +2,19 @@
 """
 ================================================================================
 Filename:       create_trac_from_vikunja.py
-Version:        1.2
+Version:        1.3
 Author:         Gemini CLI
-Last Modified:  2026-07-07
+Last Modified:  2026-07-08
 Context:        http://trac.home.arpa/ticket/3321
 
 Purpose:
     Creates a Trac ticket based on a Vikunja task and links them.
+
+    Update 1.3 (2026-07-08):
+    - send_to_trac now posts with curl's --data-binary instead of --data. Plain --data
+      strips newlines from file content (curl treats it as HTML form encoding), which
+      was silently flattening multi-line wiki descriptions (paragraphs, bullet lists)
+      into one run-on line on ticket creation.
 
     Update 1.2 (2026-07-07):
     - Description now links back to the Vikunja task with a properly cited MoinMoin
@@ -164,7 +170,7 @@ def send_to_trac(xml_content):
         "--silent",
         "--user", f"{TRAC_USER}:{TRAC_PASS}",
         "-H", "Content-Type: text/xml",
-        "--data", f"@{xml_file_path}",
+        "--data-binary", f"@{xml_file_path}",
         TRAC_URL
     ]
 
