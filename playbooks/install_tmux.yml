@@ -1,10 +1,10 @@
 ---
-# install_tmux.yml, Version 1.0, Will Taff, 2026-07-01, Trac #3739
-# Purpose       — Install tmux terminal multiplexer
+# install_tmux.yml, Version 1.1, Will Taff, 2026-07-11, Trac #3830
+# Purpose       — Install tmux terminal multiplexer and configure mouse support
 # Use Case      — Replaces screen for session management
 # Installation Method — apt
 # Prerequisites — None
-# Configuration — None
+# Configuration — ~/.tmux.conf for will user (mouse support, escape-time)
 # Secrets       — ansible_become_pass (vault.yml) — sudo on target hosts
 # Usage         — ansible-playbook -i inventory.ini playbooks/install_tmux.yml --limit athena,ar0,ar1
 # Removal Instructions — apt-get remove tmux
@@ -20,3 +20,15 @@
         name: tmux
         state: present
         update_cache: yes
+
+    - name: Configure ~/.tmux.conf for the will user
+      ansible.builtin.blockinfile:
+        path: "/home/will/.tmux.conf"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK: tmux config"
+        create: yes
+        owner: "will"
+        group: "will"
+        mode: '0644'
+        block: |
+          set -g escape-time 10
+          set -g mouse on
