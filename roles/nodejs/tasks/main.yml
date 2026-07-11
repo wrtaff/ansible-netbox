@@ -1,0 +1,34 @@
+---
+- name: Remove legacy Debian nodejs and npm packages to prevent conflicts
+  ansible.builtin.apt:
+    name: 
+      - nodejs
+      - npm
+      - libnode108
+      - libnode72
+    state: absent
+    purge: yes
+
+- name: Ensure curl and gpg are installed
+  ansible.builtin.apt:
+    name: 
+      - curl
+      - gpg
+    state: present
+
+- name: Ensure NodeSource APT key is installed
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
+    creates: /usr/share/keyrings/nodesource.gpg
+
+- name: Configure NodeSource APT repository (Node.js 22.x)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main"
+    state: present
+    filename: nodesource
+
+- name: Install modern Node.js (includes npm)
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+    update_cache: yes

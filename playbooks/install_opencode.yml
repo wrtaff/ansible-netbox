@@ -1,13 +1,16 @@
 # ==============================================================================
 # Filename:       install_opencode.yml
-# Version:        1.4
+# Version:        1.5
 # Author:         Antigravity CLI
-# Last Modified:  2026-07-08
+# Last Modified:  2026-07-11
 # Trac Ticket:    #3284
 #
 # Purpose:
 #   Installs the OpenCode CLI tool (via opencode-ai package) globally via NPM 
 #   on target hosts and configures environment for user 'will'.
+#
+# Update 1.5:
+#   - Refactored to use the unified 'nodejs' Ansible role instead of installing npm via apt.
 #
 # Update 1.4:
 #   - Added NPM installation for Debian/Ubuntu hosts.
@@ -51,11 +54,9 @@
     npm_package: opencode-ai
 
   tasks:
-    - name: Ensure npm is installed (for Debian/Ubuntu)
-      ansible.builtin.apt:
-        name: npm
-        state: present
-        update_cache: yes
+    - name: Ensure Node.js and NPM are installed (via role)
+      ansible.builtin.include_role:
+        name: nodejs
       when: ansible_os_family == 'Debian'
       tags: install
 
