@@ -1,14 +1,17 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Antigravity
-# Last Modified:  2026-07-08
-# Trac Ticket:    #3774
+# Last Modified:  2026-07-11
+# Trac Ticket:    #3829, #3774
 #
 # Purpose:
 #     Unified playbook to fully provision a new AI agent runner LXC container
 #     (or bare metal host). Automates repository cloning, bashrc templating with secrets,
-#     agent installations, and netbox registration.
+#     agent installations, netbox registration, and passwordless SSH configuration.
+#
+# Update 1.2:
+#     - Deploy lab SSH private key and SSH config for passwordless connections (Trac #3829).
 #
 # Update 1.1:
 #     - Synced with upstream playbooks 2026-07-08 to fix sudo timeouts and npm pathing.
@@ -68,6 +71,30 @@
         key: "{{ ssh_lab_pub_key }}"
         exclusive: no
       when: ssh_lab_pub_key is defined
+
+    - name: Deploy lab SSH private key to target user
+      ansible.builtin.copy:
+        src: "/home/will/.ssh/id_rsa_lab"
+        dest: "{{ target_home }}/.ssh/id_rsa_lab"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+      become: yes
+
+    - name: Configure SSH client to use lab key by default
+      ansible.builtin.blockinfile:
+        path: "{{ target_home }}/.ssh/config"
+        create: yes
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+        marker: "# {mark} ANSIBLE MANAGED BLOCK: Default Lab Key"
+        block: |
+          Host *
+              IdentityFile ~/.ssh/id_rsa_lab
+              IdentityFile ~/.ssh/id_rsa
+              IdentityFile ~/.ssh/id_ed25519
+      become: yes
 
     - name: Ensure git and rsync are installed
       ansible.builtin.apt:
