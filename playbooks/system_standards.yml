@@ -21,3 +21,4 @@
   roles:
     - admin_user
     - system_common
+    - unattended_upgrades
