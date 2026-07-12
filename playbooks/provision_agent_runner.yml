@@ -1,6 +1,6 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        1.3
+# Version:        1.4
 # Author:         Antigravity
 # Last Modified:  2026-07-12
 # Trac Ticket:    #3829, #3774, #3838
@@ -9,6 +9,13 @@
 #     Unified playbook to fully provision a new AI agent runner LXC container
 #     (or bare metal host). Automates repository cloning, bashrc templating with secrets,
 #     agent installations, netbox registration, and passwordless SSH configuration.
+#
+# Update 1.4:
+#     - Add athena's SSH host key to known_hosts wherever a wiki/ clone exists (Trac #3838).
+#       LXC clones (ar0, ar1) inherit a `Host *.home.arpa` / StrictHostKeyChecking accept-new
+#       block baked into the VMID 117 template, but non-LXC hosts (titan2) never get it, so
+#       non-interactive git operations against the `athena` remote failed host key verification
+#       even after the remote URL itself was corrected.
 #
 # Update 1.3:
 #     - Correct the wiki repo `athena` remote to an SSH URL where a wiki/ clone
@@ -171,6 +178,16 @@
         value: "will@athena.home.arpa:/home/will/git/pops-kms.git"
         scope: local
         repo: "{{ target_home }}/pops/wiki"
+      become: yes
+      become_user: "{{ target_user }}"
+      when: wiki_git_stat.stat.exists
+
+    - name: Ensure athena's SSH host key is trusted for non-interactive git operations
+      ansible.builtin.known_hosts:
+        name: athena.home.arpa
+        key: "athena.home.arpa ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINIt2g/nHU94Ks0XTwRXTi/0VRGsxrYeYmyK5Y9MeNQe"
+        path: "{{ target_home }}/.ssh/known_hosts"
+        state: present
       become: yes
       become_user: "{{ target_user }}"
       when: wiki_git_stat.stat.exists
