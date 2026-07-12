@@ -1,14 +1,19 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        1.2
+# Version:        1.3
 # Author:         Antigravity
-# Last Modified:  2026-07-11
-# Trac Ticket:    #3829, #3774
+# Last Modified:  2026-07-12
+# Trac Ticket:    #3829, #3774, #3838
 #
 # Purpose:
 #     Unified playbook to fully provision a new AI agent runner LXC container
 #     (or bare metal host). Automates repository cloning, bashrc templating with secrets,
 #     agent installations, netbox registration, and passwordless SSH configuration.
+#
+# Update 1.3:
+#     - Correct the wiki repo `athena` remote to an SSH URL where a wiki/ clone
+#       already exists on the target (Trac #3838). Does not clone wiki/ itself —
+#       wiki/ and raw/ remain athena-only by design (see AGENTS.md, agent-runner.md).
 #
 # Update 1.2:
 #     - Deploy lab SSH private key and SSH config for passwordless connections (Trac #3829).
@@ -154,6 +159,21 @@
       loop:
         - pops
         - ansible-netbox
+
+    - name: Check if pops/wiki git repository exists on target
+      ansible.builtin.stat:
+        path: "{{ target_home }}/pops/wiki/.git"
+      register: wiki_git_stat
+
+    - name: Ensure wiki repo athena remote uses an SSH URL, not a bare local path
+      community.general.git_config:
+        name: remote.athena.url
+        value: "will@athena.home.arpa:/home/will/git/pops-kms.git"
+        scope: local
+        repo: "{{ target_home }}/pops/wiki"
+      become: yes
+      become_user: "{{ target_user }}"
+      when: wiki_git_stat.stat.exists
 
     - name: Ensure .config directory exists
       ansible.builtin.file:
