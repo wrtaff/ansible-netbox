@@ -1,0 +1,81 @@
+---
+# Filename:       playbooks/configure_mcp_sse_proxies.yml
+# Version:        1.0
+# Author:         Claude Fable 5
+# Last Modified:  2026-07-12
+# Trac Ticket:    #3813
+#
+# Purpose:
+#     Deploys mcp-servers/sse_runner.py and the systemd --user units that
+#     expose stdio-only MCP servers (trac, vikunja, wwos) as SSE endpoints
+#     for Home Assistant's MCP Client integration (see Trac #3669).
+#
+#     Replaces hand-created, untracked systemd units (which had secrets
+#     baked in via inline Environment= lines and were never committed to
+#     git -- the sse_runner.py script itself was lost this way once already)
+#     with Ansible-managed units that share the same EnvironmentFile
+#     (~/.config/mcp-secrets.env) used by interactive shells, so there is
+#     exactly one place secrets live and rotating one updates both paths.
+#
+# Usage:
+#     ansible-playbook -i inventory.ini playbooks/configure_mcp_sse_proxies.yml --limit ar0
+
+- name: Configure MCP SSE Proxies for Home Assistant integration
+  hosts: ar0
+  become: no
+  vars:
+    target_user: will
+    target_home: "/home/{{ target_user }}"
+    mcp_sse_allowed_hosts:
+      - "192.168.0.186"  # homeassistant.home.arpa
+      - "192.168.0.114"  # pops (historical; kept for parity with prior working config)
+    mcp_sse_services:
+      - { name: trac, port: 8091 }
+      - { name: vikunja, port: 8092 }
+      - { name: wwos, port: 8093 }
+
+  tasks:
+    - name: Ensure systemd user directory exists
+      ansible.builtin.file:
+        path: "{{ target_home }}/.config/systemd/user"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy MCP SSE systemd user units
+      ansible.builtin.template:
+        src: mcp-sse.service.j2
+        dest: "{{ target_home }}/.config/systemd/user/mcp-sse-{{ item.name }}.service"
+        mode: '0644'
+      loop: "{{ mcp_sse_services }}"
+
+    - name: Reload systemd user daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+        scope: user
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/1000"
+
+    - name: Enable and restart MCP SSE proxy services
+      ansible.builtin.systemd:
+        name: "mcp-sse-{{ item.name }}.service"
+        enabled: yes
+        state: restarted
+        scope: user
+      loop: "{{ mcp_sse_services }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/1000"
+
+    - name: Verify each SSE endpoint responds
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ item.port }}/sse"
+        method: GET
+        status_code: 200
+        timeout: 5
+      loop: "{{ mcp_sse_services }}"
+      register: sse_check
+      ignore_errors: yes
+
+    - name: Report SSE endpoint check results
+      ansible.builtin.debug:
+        msg: "{{ item.item.name }} (port {{ item.item.port }}): {{ 'OK' if item.status == 200 else 'FAILED - ' + (item.msg | default('unknown error')) }}"
+      loop: "{{ sse_check.results }}"

@@ -1,0 +1,14 @@
+[Unit]
+Description=MCP SSE Proxy — {{ item.name }}
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={{ target_home }}/ansible-netbox
+EnvironmentFile={{ target_home }}/.config/mcp-secrets.env
+ExecStart={{ target_home }}/ansible-netbox/.venv/bin/python3 mcp-servers/sse_runner.py mcp-servers/{{ item.name }}/server.py {{ item.port }} {{ mcp_sse_allowed_hosts | join(' ') }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
