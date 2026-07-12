@@ -1,0 +1,9 @@
+---
+# roles/pops_kms_editor/handlers/main.yml
+
+- name: Reload systemd and remount KMS
+  ansible.builtin.systemd:
+    name: "{{ pops_kms_mount_point | trim('/') | replace('/', '-') }}.mount"
+    state: restarted
+    daemon_reload: yes
+  become: true

@@ -1,0 +1,116 @@
+---
+# roles/pops_kms_editor/tasks/main.yml
+# Trac Ticket: #3840 (parent: #3269)
+#
+# Implements the Foam/Coder KMS editor: sshfs-mounts the private Pops KMS
+# from athena onto ynh2, and installs the Foam extension into code-server.
+# Split by inventory_hostname since the two hosts play different roles
+# (athena = sshfs "server" being mounted from; ynh2 = sshfs client + editor).
+
+# ---------------------------------------------------------------------------
+# athena side: authorize the dedicated, restricted mount key
+# ---------------------------------------------------------------------------
+- name: athena | Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "/home/{{ pops_kms_source_user }}/.ssh"
+    state: directory
+    mode: '0700'
+    owner: "{{ pops_kms_source_user }}"
+    group: "{{ pops_kms_source_user }}"
+  when: inventory_hostname == pops_kms_source_host
+
+- name: athena | Read dedicated mount public key
+  ansible.builtin.set_fact:
+    pops_kms_mount_pubkey: "{{ lookup('file', pops_kms_ssh_key_src + '.pub') }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: "athena | Authorize restricted mount key (sftp-only, chdir'd into KMS path)"
+  ansible.builtin.authorized_key:
+    user: "{{ pops_kms_source_user }}"
+    state: present
+    exclusive: no
+    key: "{{ pops_kms_mount_pubkey }}"
+    key_options: 'restrict,command="internal-sftp -d {{ pops_kms_source_path }}"'
+  when: inventory_hostname == pops_kms_source_host
+
+# ---------------------------------------------------------------------------
+# ynh2 side: sshfs client + mount unit + Foam extension
+# ---------------------------------------------------------------------------
+- name: ynh2 | Install sshfs and fuse
+  ansible.builtin.apt:
+    name:
+      - sshfs
+      - fuse3
+    state: present
+    update_cache: yes
+  become: true
+  when: inventory_hostname == pops_kms_editor_host
+
+- name: ynh2 | Deploy dedicated mount private key
+  ansible.builtin.copy:
+    src: "{{ pops_kms_ssh_key_src }}"
+    dest: "{{ pops_kms_ssh_key_dest }}"
+    mode: '0600'
+    owner: "{{ pops_kms_editor_user }}"
+    group: "{{ pops_kms_editor_user }}"
+  when: inventory_hostname == pops_kms_editor_host
+
+- name: ynh2 | Ensure mount point exists
+  ansible.builtin.file:
+    path: "{{ pops_kms_mount_point }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ pops_kms_editor_user }}"
+    group: "{{ pops_kms_editor_user }}"
+  become: true
+  when: inventory_hostname == pops_kms_editor_host
+
+- name: ynh2 | Look up target user's uid/gid (mount must be owned by will, not the connecting user)
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ pops_kms_editor_user }}"
+  when: inventory_hostname == pops_kms_editor_host
+
+- name: ynh2 | Deploy systemd mount unit for KMS sshfs mount
+  ansible.builtin.template:
+    src: mnt-pops_kms.mount.j2
+    dest: "/etc/systemd/system/{{ pops_kms_mount_point | trim('/') | replace('/', '-') }}.mount"
+    owner: root
+    group: root
+    mode: '0644'
+  vars:
+    pops_kms_editor_user_uid: "{{ ansible_facts.getent_passwd[pops_kms_editor_user][1] }}"
+    pops_kms_editor_user_gid: "{{ ansible_facts.getent_passwd[pops_kms_editor_user][2] }}"
+  become: true
+  notify: Reload systemd and remount KMS
+  when: inventory_hostname == pops_kms_editor_host
+
+- name: ynh2 | Ensure KMS mount is started and enabled
+  ansible.builtin.systemd:
+    name: "{{ pops_kms_mount_point | trim('/') | replace('/', '-') }}.mount"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: true
+  when: inventory_hostname == pops_kms_editor_host
+
+- name: ynh2 | Install Foam extension into code-server (Open VSX)
+  ansible.builtin.command: "{{ code_server_bin }} --install-extension {{ foam_extension_id }}"
+  become: true
+  become_user: "{{ pops_kms_editor_user }}"
+  register: foam_install
+  changed_when: "'already installed' not in foam_install.stdout"
+  when: inventory_hostname == pops_kms_editor_host
+
+- name: ynh2 | Verify KMS mount is populated
+  ansible.builtin.stat:
+    path: "{{ pops_kms_mount_point }}/AGENTS.md"
+  register: kms_agents_md
+  when: inventory_hostname == pops_kms_editor_host
+
+- name: ynh2 | Fail if KMS mount did not come up correctly
+  ansible.builtin.assert:
+    that: kms_agents_md.stat.exists
+    fail_msg: "{{ pops_kms_mount_point }}/AGENTS.md not found -- sshfs mount did not come up correctly."
+  when: inventory_hostname == pops_kms_editor_host

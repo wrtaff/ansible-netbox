@@ -1,0 +1,22 @@
+# {{ pops_kms_mount_point }}.mount (managed by Ansible)
+# Trac Ticket: #3840
+#
+# sshfs mount of the private Pops KMS (wiki/, raw/) from {{ pops_kms_source_host }}
+# onto {{ pops_kms_editor_host }}, so Foam/Coder can browse it directly.
+# Uses a dedicated, restricted-purpose SSH key (see id_pops_kms_mount) that is
+# limited to sftp only and starts chdir'd into {{ pops_kms_source_path }}.
+
+[Unit]
+Description=sshfs mount of Pops KMS from {{ pops_kms_source_host }}
+After=network-online.target
+Wants=network-online.target
+
+[Mount]
+What={{ pops_kms_source_user }}@{{ pops_kms_source_host }}.home.arpa:{{ pops_kms_source_path }}
+Where={{ pops_kms_mount_point }}
+Type=fuse.sshfs
+Options=IdentityFile={{ pops_kms_ssh_key_dest }},allow_other,default_permissions,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,uid={{ pops_kms_editor_user_uid }},gid={{ pops_kms_editor_user_gid }},_netdev,StrictHostKeyChecking=accept-new
+LazyUnmount=true
+
+[Install]
+WantedBy=multi-user.target

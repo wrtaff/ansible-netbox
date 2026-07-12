@@ -1,0 +1,22 @@
+---
+# roles/pops_kms_editor/defaults/main.yml
+# Trac Ticket: #3840 (parent: #3269)
+
+# Host that physically holds the private Pops KMS (wiki/, raw/, AGENTS.md)
+pops_kms_source_host: athena
+pops_kms_source_user: will
+pops_kms_source_path: /home/will/pops
+
+# Host running Coder/code-server that will mount the KMS for editing
+pops_kms_editor_host: ynh2
+pops_kms_editor_user: will
+pops_kms_mount_point: /mnt/pops_kms
+
+# Dedicated, restricted key for this mount only (never reused elsewhere).
+# Generated once on the controller: ssh-keygen -t ed25519 -f <path> -N ""
+pops_kms_ssh_key_src: "/home/will/.ssh/id_pops_kms_mount"
+pops_kms_ssh_key_dest: "/home/{{ pops_kms_editor_user }}/.ssh/id_pops_kms_mount"
+
+# code-server binary + extension (Open VSX gallery, not MS Marketplace)
+code_server_bin: /opt/yunohost/code-server/bin/code-server
+foam_extension_id: foam.foam-vscode

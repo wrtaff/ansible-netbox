@@ -1,0 +1,36 @@
+# ------------------------------------------------------------------------------
+# Playbook: configure_pops_kms_editor.yml
+# Path: /home/will/ansible-netbox/playbooks/configure_pops_kms_editor.yml
+# Trac Ticket: #3840 (parent: #3269)
+# Wiki Page: http://192.168.0.99/mediawiki/index.php/Playbooks/configure_pops_kms_editor.yml
+#
+# Purpose:
+#   Implements the Foam + Coder KMS editor decision (WWOS: Foam):
+#     - athena: authorizes a dedicated, restricted (sftp-only) SSH key for the mount.
+#     - ynh2:   sshfs-mounts athena's private Pops KMS (wiki/, raw/, AGENTS.md)
+#               at /mnt/pops_kms, and installs the Foam extension into the
+#               existing code-server (Coder) instance via Open VSX.
+#
+# Security note:
+#   This exposes the private KMS (medical, tax, financial notes) to ynh2, which
+#   runs the browser-facing coder.home.arpa service. The mount key is restricted
+#   to internal-sftp only (no shell, no port/agent forwarding) and chdir'd into
+#   the KMS path. Run only with explicit go-ahead -- see #3840 for the tradeoff
+#   discussion.
+#
+# Prerequisites:
+#   - Dedicated keypair generated once on the controller:
+#       ssh-keygen -t ed25519 -f /home/will/.ssh/id_pops_kms_mount -N ""
+#   - athena and ynh2 both present and reachable in inventory.ini.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/configure_pops_kms_editor.yml --ask-vault-pass
+# ------------------------------------------------------------------------------
+---
+- name: Configure Pops KMS Foam/Coder editor (sshfs mount + Foam extension)
+  hosts: athena,ynh2
+  become: false
+  vars_files:
+    - ../vault.yml
+  roles:
+    - pops_kms_editor
