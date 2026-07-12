@@ -27,8 +27,10 @@
     target_user: will
     target_home: "/home/{{ target_user }}"
     mcp_sse_allowed_hosts:
-      - "192.168.0.186"  # homeassistant.home.arpa
-      - "192.168.0.114"  # pops (historical; kept for parity with prior working config)
+      - "homeassistant.home.arpa"
+      - "192.168.0.186"  # homeassistant.home.arpa (IP, in case DNS is unavailable)
+      - "agent-runner-pve6-01.home.arpa"
+      - "{{ ansible_facts['default_ipv4']['address'] }}"  # current IP, so a future DHCP change doesn't require an edit here
     mcp_sse_services:
       - { name: trac, port: 8091 }
       - { name: vikunja, port: 8092 }
