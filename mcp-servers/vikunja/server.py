@@ -215,7 +215,7 @@ def ping() -> str:
     return "pong"
 
 @mcp.tool(name="vikunja_create_task")
-def create_task(title: str, description: str = "", project_id: int = 1, project: Optional[str] = None, labels: list = None, due_date: Optional[str] = None) -> str:
+def create_task(title: str, description: str = "", project_id: int = 1, project: Optional[str] = None, labels: Optional[List[str]] = None, due_date: Optional[str] = None) -> str:
     """
     Create a new task in Vikunja.
     title: Task title (words starting with * are extracted as labels).
@@ -276,7 +276,7 @@ def get_task(task_id: int) -> str:
         return f"Error fetching Vikunja task {task_id}: {e}"
 
 @mcp.tool(name="vikunja_update_task")
-def update_task(task_id: int, title: Optional[str] = None, description: Optional[str] = None, labels: list = None, due_date: Optional[str] = None, is_favorite: Optional[bool] = None, done: Optional[bool] = None) -> str:
+def update_task(task_id: int, title: Optional[str] = None, description: Optional[str] = None, labels: Optional[List[str]] = None, due_date: Optional[str] = None, is_favorite: Optional[bool] = None, done: Optional[bool] = None) -> str:
     """
     Update an existing Vikunja task.
     task_id: The ID of the task to update.
