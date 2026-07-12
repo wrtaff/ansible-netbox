@@ -9,7 +9,7 @@ unattended_upgrades_install_on_shutdown: false
 unattended_upgrades_mail: "root"
 unattended_upgrades_remove_unused_kernel_packages: true
 unattended_upgrades_remove_unused_dependencies: true
-unattended_upgrades_automatic_reboot: false
+unattended_upgrades_automatic_reboot: true
 unattended_upgrades_automatic_reboot_time: "04:00"
 
 # Daily update configuration (20auto-upgrades)
