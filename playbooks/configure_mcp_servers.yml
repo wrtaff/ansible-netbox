@@ -1,8 +1,8 @@
 # ==============================================================================
 # Filename:       playbooks/configure_mcp_servers.yml
-# Version:        1.4
+# Version:        1.5
 # Author:         Gemini CLI
-# Last Modified:  2026-04-10
+# Last Modified:  2026-07-14
 # Context:        http://trac.gafla.us.com/ticket/2933
 #
 # Purpose:
@@ -10,6 +10,7 @@
 #   Configures FastMCP and updates settings for Trac integration.
 #
 # Revision History:
+#   v1.5 (2026-07-14): Added graylog MCP server configuration.
 #   v1.4 (2026-04-10): Added wwos, nextcloud, and porkbun MCP server configurations.
 #   v1.3 (2026-02-27): Added Google Workspace MCP server configuration.
 #   v1.2 (2026-02-18): Added project-level .gemini/settings.json support and corrected schema.
@@ -49,6 +50,10 @@
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ venv_path }}/mcp-servers/netbox/server.py"
+      graylog:
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ venv_path }}/mcp-servers/graylog/server.py"
 
   tasks:
     - name: 1. Install MCP Python Dependencies (FastMCP)
