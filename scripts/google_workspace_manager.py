@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.29
+Version:        1.30
 Author:         Gemini CLI
-Last Modified:  2026-06-30
+Last Modified:  2026-07-14
 Context:        http://trac.gafla.us.com/ticket/3571
 
 Purpose:
@@ -21,6 +21,7 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.30 (2026-07-14): Automatically extract time from tasks due date and append to notes to bypass API limitation.
     v1.29 (2026-06-30): Added fallback to gmail_get_by_header to search via From/To/Subject if Message-ID is missing.
     v1.28 (2026-06-10): Added gmail_modify_labels function and gmail-modify-labels CLI subcommand to support email-handler label modification.
     v1.27 (2026-05-26): Added cc parameter to gmail_send_message; sets Cc header on
@@ -858,6 +859,17 @@ def tasks_create_task(title, notes=None, due_date_str=None, output_format='text'
         }
         if due_date_str:
             task['due'] = due_date_str
+            if 'T' in due_date_str:
+                try:
+                    time_part = due_date_str.split('T')[1][:5]
+                    if time_part != "00:00":
+                        time_note = f"[Due at: {time_part}]"
+                        if task.get('notes'):
+                            task['notes'] = task['notes'] + f"\\n{time_note}"
+                        else:
+                            task['notes'] = time_note
+                except Exception:
+                    pass
         result = service.tasks().insert(tasklist='@default', body=task).execute()
         output(result, output_format)
     except HttpError as error:
@@ -874,6 +886,18 @@ def tasks_update_task(task_id, title=None, notes=None, due_date_str=None, output
             task['notes'] = notes
         if due_date_str:
             task['due'] = due_date_str
+            if 'T' in due_date_str:
+                try:
+                    time_part = due_date_str.split('T')[1][:5]
+                    if time_part != "00:00":
+                        time_note = f"[Due at: {time_part}]"
+                        current_notes = task.get('notes', '')
+                        if current_notes:
+                            task['notes'] = current_notes + f"\\n{time_note}"
+                        else:
+                            task['notes'] = time_note
+                except Exception:
+                    pass
         
         result = service.tasks().update(tasklist='@default', task=task_id, body=task).execute()
         output(result, output_format)
