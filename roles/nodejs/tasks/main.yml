@@ -8,6 +8,7 @@
       - libnode72
       - libnode137
       - node-corepack
+      - nodejs-doc
     state: absent
     purge: yes
 
@@ -31,8 +32,6 @@
 
 - name: Install modern Node.js (includes npm)
   ansible.builtin.apt:
-    name: 
-      - nodejs
-      - npm
+    name: "nodejs=22.*"
     state: present
     update_cache: yes
