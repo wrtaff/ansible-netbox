@@ -43,3 +43,4 @@
     name: nodejs
     state: present
     update_cache: yes
+    dpkg_options: "force-overwrite"
