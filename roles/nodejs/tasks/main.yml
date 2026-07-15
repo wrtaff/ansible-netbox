@@ -30,8 +30,16 @@
     state: present
     filename: nodesource
 
+- name: Pin NodeSource repository priority
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/nodesource
+    content: |
+      Package: *
+      Pin: origin deb.nodesource.com
+      Pin-Priority: 1001
+
 - name: Install modern Node.js (includes npm)
   ansible.builtin.apt:
-    name: "nodejs=22.*"
+    name: nodejs
     state: present
     update_cache: yes
