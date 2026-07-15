@@ -1,0 +1,197 @@
+# ==============================================================================
+# Filename:       playbooks/install_netbox.yml
+# Version:        1.2
+# Author:         gemini
+# Last Modified:  2026-07-13
+# Trac Ticket:    #3849 (Rebuild CT 105 netbox1 on pve5 off failing proxmox1 sda)
+#
+# Purpose:
+#     Installs NetBox v4.1.6 and configures Nginx, Gunicorn, systemd, and services.
+#
+# Use Case:
+#     Bypass github clone/proxy issues during NetBox provisioning by using release tarball.
+#
+# Installation Method:
+#     Download release tar.gz, extract, pip install in venv.
+#
+# Prerequisites:
+#     - Debian 12 LXC (postgresql, redis, nginx packages installed)
+#
+# Configuration:
+#     - /opt/netbox/netbox/netbox/configuration.py
+#     - /opt/netbox/gunicorn.py
+#     - /etc/nginx/conf.d/netbox.conf
+#
+# Secrets:
+#     None — no vault variables required (DB credentials and secrets are in configuration.py)
+#
+# Usage:
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/install_netbox.yml \
+#         --limit netbox1 --check --diff
+#
+#     # Live run
+#     ansible-playbook -i inventory.ini playbooks/install_netbox.yml \
+#         --limit netbox1
+#
+#     # Optional custom inventory file path if not in the default directory
+#
+# Removal Instructions:
+#     Stop systemd services (netbox, netbox-rq, nginx), rm -rf /opt/netbox, remove nginx conf.
+#
+# Revision History:
+#     1.0 - Initial playbook. Trac #3849.
+#     1.1 - Added Nginx configuration tasks and service reload handler. Trac #3849.
+#     1.2 - Corrected NetBox version from 5.0.9 (Django version) to 4.1.6. Trac #3849.
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_netbox.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/install_netbox.yml
+# ==============================================================================
+
+- name: Install NetBox from Release Tarball
+  hosts: all
+  become: yes
+  vars:
+    netbox_version: "4.1.6"
+    netbox_home: "/opt/netbox"
+    netbox_user: "netbox"
+    netbox_group: "netbox"
+    netbox_tarball_url: "https://github.com/netbox-community/netbox/archive/refs/tags/v{{ netbox_version }}.tar.gz"
+
+  tasks:
+    - name: Ensure netbox group exists
+      ansible.builtin.group:
+        name: "{{ netbox_group }}"
+        state: present
+
+    - name: Ensure netbox user exists
+      ansible.builtin.user:
+        name: "{{ netbox_user }}"
+        group: "{{ netbox_group }}"
+        home: "{{ netbox_home }}"
+        create_home: no
+        system: yes
+        state: present
+
+    - name: Create NetBox home directory
+      ansible.builtin.file:
+        path: "{{ netbox_home }}"
+        state: directory
+        owner: "{{ netbox_user }}"
+        group: "{{ netbox_group }}"
+        mode: '0755'
+
+    - name: Install required system packages
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-venv
+          - python3-pip
+          - python3-dev
+          - build-essential
+          - libxml2-dev
+          - libxslt1-dev
+          - libffi-dev
+          - libpq-dev
+          - libssl-dev
+          - zlib1g-dev
+          - nginx
+        state: present
+        update_cache: yes
+
+    - name: Download and extract NetBox release
+      ansible.builtin.unarchive:
+        src: "{{ netbox_tarball_url }}"
+        dest: "{{ netbox_home }}"
+        remote_src: yes
+        extra_opts:
+          - --strip-components=1
+        owner: "{{ netbox_user }}"
+        group: "{{ netbox_group }}"
+        creates: "{{ netbox_home }}/netbox/netbox/settings.py"
+
+    - name: Create Python virtual environment and install requirements
+      ansible.builtin.pip:
+        requirements: "{{ netbox_home }}/requirements.txt"
+        virtualenv: "{{ netbox_home }}/venv"
+        virtualenv_command: "python3 -m venv"
+        virtualenv_site_packages: no
+      environment:
+        # Needed sometimes to build certain python packages
+        PATH: "{{ netbox_home }}/venv/bin:{{ ansible_env.PATH }}"
+
+    - name: Ensure permissions on netbox directory
+      ansible.builtin.file:
+        path: "{{ netbox_home }}"
+        state: directory
+        owner: "{{ netbox_user }}"
+        group: "{{ netbox_group }}"
+        recurse: yes
+
+    - name: Deploy configuration.py
+      ansible.builtin.template:
+        src: "templates/netbox/configuration.py.j2"
+        dest: "{{ netbox_home }}/netbox/netbox/configuration.py"
+        owner: "{{ netbox_user }}"
+        group: "{{ netbox_group }}"
+        mode: '0640'
+      # NOTE: Place your rescued configuration.py in ansible-netbox/playbooks/files/netbox/
+
+    - name: Deploy gunicorn.py
+      ansible.builtin.copy:
+        src: "files/netbox/gunicorn.py"
+        dest: "{{ netbox_home }}/gunicorn.py"
+        owner: "{{ netbox_user }}"
+        group: "{{ netbox_group }}"
+        mode: '0644'
+
+    - name: Deploy netbox.service
+      ansible.builtin.copy:
+        src: "files/netbox/netbox.service"
+        dest: "/etc/systemd/system/netbox.service"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload systemd
+
+    - name: Deploy netbox-rq.service
+      ansible.builtin.copy:
+        src: "files/netbox/netbox-rq.service"
+        dest: "/etc/systemd/system/netbox-rq.service"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload systemd
+
+    - name: Deploy nginx configuration
+      ansible.builtin.copy:
+        src: "files/netbox/netbox.conf"
+        dest: "/etc/nginx/conf.d/netbox.conf"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload nginx
+
+    - name: Enable and start NetBox services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      loop:
+        - netbox
+        - netbox-rq
+        - nginx
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded

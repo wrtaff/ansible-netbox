@@ -1,0 +1,28 @@
+---
+- name: Upgrade Node.js to v20+ on vik-01
+  hosts: vikunja_servers
+  become: yes
+  tasks:
+    - name: Remove existing Node.js and npm to prevent conflicts
+      apt:
+        name: 
+          - nodejs
+          - npm
+          - libnode108
+          - libnode72
+        state: absent
+        purge: yes
+
+    - name: Ensure curl is installed
+      apt:
+        name: curl
+        state: present
+
+    - name: Download and execute NodeSource setup script for Node.js 22.x
+      shell: "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -"
+
+    - name: Install Node.js 22.x
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
