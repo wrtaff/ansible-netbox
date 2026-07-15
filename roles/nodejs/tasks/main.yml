@@ -31,6 +31,8 @@
 
 - name: Install modern Node.js (includes npm)
   ansible.builtin.apt:
-    name: nodejs
+    name: 
+      - nodejs
+      - npm
     state: present
     update_cache: yes
