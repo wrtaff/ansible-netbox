@@ -11,6 +11,7 @@
       - nodejs-doc
     state: absent
     purge: yes
+    dpkg_options: "force-overwrite"
 
 - name: Ensure curl and gpg are installed
   ansible.builtin.apt:
