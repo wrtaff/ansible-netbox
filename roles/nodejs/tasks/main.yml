@@ -6,6 +6,7 @@
       - npm
       - libnode108
       - libnode72
+      - libnode137
     state: absent
     purge: yes
 
