@@ -76,6 +76,13 @@
         shell: /bin/bash
         state: present
 
+    - name: Ensure Trac DNS overrides are present in /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "192.168.0.144 trac.home.arpa trac.gafla.us.com"
+        state: present
+      become: yes
+
     - name: Deploy lab SSH public key to target user
       ansible.posix.authorized_key:
         user: "{{ target_user }}"
