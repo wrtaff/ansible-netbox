@@ -1,0 +1,3 @@
+Added a Local DNS record in the primary Pi-hole (192.168.0.88) to map {{{trac.gafla.us.com}}} to {{{192.168.0.144}}} (trac-lxc). This overrides the public Tailscale IP ({{{100.73.104.2}}}) for local clients like {{{agent-runner-pve5-01}}} that don't have Tailscale installed.
+
+Currently testing the fix. If successful, we will persist this configuration in the {{{install_pihole.yml}}} Ansible playbook.

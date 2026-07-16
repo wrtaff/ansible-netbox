@@ -1,0 +1,8 @@
+= Step 1 Complete =
+
+The dedicated disposable SSH key for X2Go has been successfully generated on the `athena` controller:
+* '''Path''': `/home/will/.ssh/id_ed25519_x2go`
+* '''Type''': ED25519
+* '''Comment''': `will@x2go_dedicated`
+
+Ready to proceed to Step 2 (distributing the private key to client desktops).

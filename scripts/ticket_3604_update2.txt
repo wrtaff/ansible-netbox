@@ -1,0 +1,3 @@
+Updated {{{.mcp.json}}} to hardcode {{{TRAC_URL=http://trac.home.arpa/login/xmlrpc}}} for the Trac MCP server. Pushed the update to the hub and synchronized it across the entire agent fleet ({{{agent-runner-pve5-01}}}, {{{agent-runner-pve6-01}}}, {{{titan2}}}). 
+
+All agent runners now have the fix and can reliably use the Trac MCP tools without being impacted by public DNS overrides or Tailscale routing requirements.

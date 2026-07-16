@@ -1,0 +1,12 @@
+= Revised Resolution Plan (Disposable X2Go Key) =
+
+Instead of distributing the highly privileged `id_rsa_lab` management key to all desktop clients, we will use a dedicated disposable key specifically for X2Go sessions.
+
+== Steps ==
+1. '''Generate Keypair''': Generate a dedicated SSH keypair on the `athena` controller (e.g., `id_ed25519_x2go`).
+2. '''Distribute Private Key (Clients)''': Update `deploy_x2go_client.yml` to deploy the `id_ed25519_x2go` private key to `~/.ssh/` on all client machines (`[desktops]`).
+3. '''Distribute Public Key (Servers)''': Update the playbook (or `deploy_ssh_keys.yml`) to append the `id_ed25519_x2go.pub` public key to the `authorized_keys` of all target X2Go servers.
+4. '''Update Profiles''': Configure `deploy_x2go_client.yml` so that all X2Go auto-login sessions explicitly point to `key=/home/will/.ssh/id_ed25519_x2go`.
+5. '''Verify''': Test passwordless X2Go login from a desktop client (`opti-CC76`) to a target server (`athena`).
+
+If a desktop is ever compromised or retired, this dedicated key can be easily regenerated and replaced across the environment without affecting the primary `id_rsa` or `id_rsa_lab` keys.
