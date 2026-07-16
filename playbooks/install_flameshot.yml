@@ -1,0 +1,59 @@
+---
+# ==============================================================================
+# Filename:       playbooks/install_flameshot.yml
+# Version:        1.0
+# Author:         Gemini
+# Last Modified:  2026-07-16
+# Trac Ticket:    None
+#
+# Purpose:
+#     Installs Flameshot screenshot software
+#
+# Use Case:
+#     Provides a powerful yet simple to use screenshot software for graphical desktop users
+#
+# Installation Method:
+#     apt package manager
+#
+# Prerequisites:
+#     - Debian/Ubuntu based OS with GUI
+#
+# Configuration:
+#     - None
+#
+# Secrets:
+#     ansible_become_pass  (vault.yml) — sudo on target hosts
+#
+# Usage:
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/install_flameshot.yml \
+#         --limit <host> --check --diff
+#
+#     # Live run
+#     ansible-playbook -i inventory.ini playbooks/install_flameshot.yml \
+#         --limit <host>
+#
+# Removal Instructions:
+#     apt purge flameshot
+#
+# Revision History:
+#     1.0 - Initial playbook.
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_flameshot.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_flameshot.yml
+# ==============================================================================
+
+- name: Install Flameshot on desktops
+  hosts: desktops
+  become: yes
+  vars_files:
+    - ../vault.yml
+  tasks:
+    - name: Ensure flameshot is installed
+      ansible.builtin.apt:
+        name: flameshot
+        state: present
+        update_cache: yes
