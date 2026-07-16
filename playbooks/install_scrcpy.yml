@@ -1,9 +1,9 @@
 # ==============================================================================
 # Filename:       install_scrcpy.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini CLI
-# Last Modified:  2026-02-10
-# Context:        http://trac.gafla.us.com/ticket/2840
+# Last Modified:  2026-07-16
+# Context:        http://trac.gafla.us.com/ticket/3917
 #
 # Purpose:
 #   Installs scrcpy screen mirroring application on Debian-based desktops
@@ -45,7 +45,7 @@
       git:
         repo: https://github.com/Genymobile/scrcpy
         dest: /tmp/scrcpy
-        version: master
+        version: v3.1
         force: true
 
     - name: Run scrcpy install script
