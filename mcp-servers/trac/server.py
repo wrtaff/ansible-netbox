@@ -83,7 +83,7 @@ def get_trac_password():
     return None
 
 # Trac Configuration
-TRAC_URL = "http://trac.home.arpa/login/xmlrpc"
+TRAC_URL = os.getenv("TRAC_URL", "http://trac.home.arpa/login/xmlrpc")
 TRAC_USER = os.getenv("TRAC_USER", "will")
 TRAC_PASSWORD = get_trac_password()
 

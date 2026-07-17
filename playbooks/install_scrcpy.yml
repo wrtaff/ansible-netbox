@@ -1,17 +1,50 @@
 # ==============================================================================
-# Filename:       install_scrcpy.yml
-# Version:        1.0
+# Filename:       playbooks/install_scrcpy.yml
+# Version:        1.1
 # Author:         Gemini CLI
-# Last Modified:  2026-02-10
-# Context:        http://trac.gafla.us.com/ticket/2840
+# Last Modified:  2026-07-16
+# Trac Ticket:    #2840 (make ansible playbook to install scrcpy on desktops)
 #
 # Purpose:
-#   Installs scrcpy screen mirroring application on Debian-based desktops
-#   by building from source using the official install script.
+#     Installs scrcpy screen mirroring application on Debian-based desktops
+#     by building from source using the official install script.
+#
+# Use Case:
+#     Provides Android device screen mirroring and control from desktop.
+#
+# Installation Method:
+#     Compiled from source via official install_release.sh script.
+#
+# Prerequisites:
+#     - ffmpeg, adb, and various build dependencies (installed via playbook)
+#
+# Configuration:
+#     - Default settings; run `scrcpy` in terminal when a device is connected via adb.
+#
+# Secrets:
+#     None — no vault variables required
+#
+# Usage:
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/install_scrcpy.yml \
+#         --limit <host> --check --diff
+#
+#     # Live run
+#     ansible-playbook -i inventory.ini playbooks/install_scrcpy.yml \
+#         --limit <host>
+#
+# Removal Instructions:
+#     Delete /usr/local/bin/scrcpy and /usr/local/share/scrcpy/scrcpy-server.
+#
+# Revision History:
+#     1.0 - Initial playbook. Trac #2840.
+#     1.1 - 2026-07-16 - Updated header to comply with WWOS standards.
 #
 # NOTES:
-#   Remember to always "bump" your versions when you make a change to the
-#   code, and annotate any changes as well.
+#     Always bump versions when making changes and annotate them here.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_scrcpy.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/install_scrcpy.yml
 # ==============================================================================
 ---
 - name: Install scrcpy

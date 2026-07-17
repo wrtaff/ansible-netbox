@@ -37,5 +37,7 @@
           # Press Prefix + M to monitor the pane for silence (agent waiting for input)
           bind M set-window-option monitor-silence 5 \; display-message "Agent Monitor Mode enabled (5s silence)"
           bind m set-window-option monitor-silence 0 \; display-message "Agent Monitor Mode disabled"
-          set -g visual-silence on
+          set -g visual-silence both
+          set -g visual-bell on
           set -g bell-action any
+          set -g silence-action any
