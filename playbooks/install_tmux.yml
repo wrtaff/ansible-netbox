@@ -1,5 +1,5 @@
 ---
-# install_tmux.yml, Version 1.1, Will Taff, 2026-07-11, Trac #3830
+# install_tmux.yml, Version 1.2, Will Taff, 2026-07-17, Trac #3830, #3922
 # Purpose       — Install tmux terminal multiplexer and configure mouse support
 # Use Case      — Replaces screen for session management
 # Installation Method — apt
@@ -32,3 +32,10 @@
         block: |
           set -g escape-time 10
           set -g mouse on
+          
+          # Trac #3922: Agent Monitor Mode (audio/visual bell on silence)
+          # Press Prefix + M to monitor the pane for silence (agent waiting for input)
+          bind M set-window-option monitor-silence 5 \; display-message "Agent Monitor Mode enabled (5s silence)"
+          bind m set-window-option monitor-silence 0 \; display-message "Agent Monitor Mode disabled"
+          set -g visual-silence on
+          set -g bell-action any
