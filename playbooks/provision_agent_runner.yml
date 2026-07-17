@@ -76,10 +76,12 @@
         shell: /bin/bash
         state: present
 
-    - name: Ensure Trac DNS overrides are present in /etc/hosts
-      ansible.builtin.lineinfile:
+    - name: Ensure Trac and NetBox DNS overrides are present in /etc/hosts
+      ansible.builtin.blockinfile:
         path: /etc/hosts
-        line: "192.168.0.144 trac.home.arpa trac.gafla.us.com"
+        block: |
+          192.168.0.144 trac.home.arpa trac.gafla.us.com
+          192.168.0.102 netbox.home.arpa netbox1.home.arpa
         state: present
       become: yes
 
