@@ -41,7 +41,7 @@
 # ==============================================================================
 ---
 - name: Install Playwright MCP server
-  hosts: athena
+  hosts: all
   become: true
   gather_facts: true
 
