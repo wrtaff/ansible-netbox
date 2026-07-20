@@ -54,7 +54,7 @@ WHITELIST = [
     "your_long_lived_access_token",
     "{TRAC_PASSWORD}",
     "[^@]+",
-    "[^:\s]+",
+    r"[^:\s]+",
 ]
 
 def is_suspicious(value):
