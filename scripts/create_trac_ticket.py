@@ -5,7 +5,7 @@ Filename:       create_trac_ticket.py
 Version:        1.6
 Author:         Gemini CLI
 Last Modified:  2026-04-10
-Context:        http://trac.home.arpa/ticket/3265
+Context:        http://trac.gafla.us.com/ticket/3265
 WWOS:           http://wwos.home.arpa/index.php/Trac_Wiki_Formatter
 
 Purpose:
@@ -59,7 +59,7 @@ def get_trac_password():
 
 TRAC_USER = os.getenv("TRAC_USER", "will")
 TRAC_PASSWORD = get_trac_password()
-TRAC_HOST = os.getenv("TRAC_HOST", "trac.home.arpa")
+TRAC_HOST = os.getenv("TRAC_HOST", "trac.gafla.us.com")
 TRAC_PATH = os.getenv("TRAC_PATH", "/login/xmlrpc")
 
 if not TRAC_PASSWORD:
@@ -138,7 +138,7 @@ def main():
 
         print("\nSuccessfully created ticket!")
         print(f"  - ID: {ticket_id}")
-        print(f"  - URL: http://trac.home.arpa/ticket/{ticket_id}")
+        print(f"  - URL: http://trac.gafla.us.com/ticket/{ticket_id}")
 
     except xmlrpc.client.Fault as err:
         print(f"\nError: XML-RPC Fault {err.faultCode}")

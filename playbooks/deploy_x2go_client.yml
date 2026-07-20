@@ -7,6 +7,8 @@
 - name: Deploy and Configure X2Go Client
   hosts: desktops
   become: true
+  vars_files:
+    - ../vault.yml
   vars:
     target_user: will
     x2go_sessions:
@@ -18,7 +20,7 @@
           - { key: "user", value: "{{ target_user }}" }
           - { key: "autologin", value: "true" }
           - { key: "usekey", value: "true" }
-          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_rsa" }
+          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_ed25519_x2go" }
           - { key: "command", value: "XFCE" }
           - { key: "speed", value: "2" }
           - { key: "quality", value: "9" }
@@ -60,7 +62,7 @@
           - { key: "user", value: "{{ target_user }}" }
           - { key: "autologin", value: "true" }
           - { key: "usekey", value: "true" }
-          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_rsa" }
+          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_ed25519_x2go" }
           - { key: "command", value: "XFCE" }
           - { key: "speed", value: "2" }
           - { key: "quality", value: "9" }
@@ -102,7 +104,7 @@
           - { key: "user", value: "{{ target_user }}" }
           - { key: "autologin", value: "true" }
           - { key: "usekey", value: "true" }
-          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_rsa" }
+          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_ed25519_x2go" }
           - { key: "command", value: "XFCE" }
           - { key: "speed", value: "2" }
           - { key: "quality", value: "9" }
@@ -143,6 +145,20 @@
         name: x2goclient
         state: present
         update_cache: true
+
+    - name: 1a. Distribute X2Go dedicated private key
+      ansible.builtin.copy:
+        content: "{{ x2go_dedicated_private_key }}"
+        dest: "/home/{{ target_user }}/.ssh/id_ed25519_x2go"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+
+    - name: 1b. Authorize X2Go dedicated public key for incoming connections
+      ansible.builtin.authorized_key:
+        user: "{{ target_user }}"
+        state: present
+        key: "{{ x2go_dedicated_public_key }}"
 
     - name: 2. Ensure .x2goclient directory exists for user
       ansible.builtin.file:

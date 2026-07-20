@@ -1,13 +1,20 @@
 # ==============================================================================
 # Filename:       install_opencode.yml
-# Version:        1.5
+# Version:        1.6
 # Author:         Antigravity CLI
-# Last Modified:  2026-07-11
-# Trac Ticket:    #3284
+# Last Modified:  2026-07-18
+# Trac Ticket:    #3284, #3933
 #
 # Purpose:
 #   Installs the OpenCode CLI tool (via opencode-ai package) globally via NPM 
 #   on target hosts and configures environment for user 'will'.
+#
+# Update 1.6 (Trac #3933):
+#   - Fixed: the blockinfile task hardcoded the literal placeholder string
+#     "YOUR_KEY_HERE" for OPENROUTER_API_KEY on every run, silently overwriting
+#     any manually-corrected key in ~/.bashrc and causing OpenRouter/OpenCode
+#     "Missing Authentication header" failures. Now renders the real key from
+#     vault variable `openrouter_api_key`.
 #
 # Update 1.5:
 #   - Refactored to use the unified 'nodejs' Ansible role instead of installing npm via apt.
@@ -30,7 +37,7 @@
 #   - /home/will/.config/opencode/
 #
 # Secrets:
-#   None — API keys are manually configured in bashrc.
+#   openrouter_api_key (vault.yml) — OpenRouter API key, rendered into ~/.bashrc
 #
 # Usage:
 #   ansible-playbook -i inventory.ini playbooks/install_opencode.yml --limit athena
@@ -48,6 +55,9 @@
   hosts: "{{ target | default('desktops, agent_runners') }}"
   become: true
   gather_facts: true
+
+  vars_files:
+    - ../vault.yml
 
   vars:
     target_user: will
@@ -105,9 +115,8 @@
         marker: "# {mark} ANSIBLE MANAGED BLOCK: OpenCode Configuration"
         block: |
           # OpenRouter API Configuration for OpenCode
-          # Replace 'YOUR_KEY_HERE' with your actual key from openrouter.ai/settings/keys
-          export OPENROUTER_API_KEY="YOUR_KEY_HERE"
-          
+          export OPENROUTER_API_KEY="{{ openrouter_api_key }}"
+
           # OpenAI-compatible compatibility layer (Required for many OpenCode versions)
           export OPENAI_API_BASE="https://openrouter.ai/api/v1"
           export OPENAI_API_KEY="$OPENROUTER_API_KEY"
