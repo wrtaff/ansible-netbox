@@ -499,7 +499,7 @@ PRIORITY_MAP = {
 def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> str:
     """
     Fetch all tasks at a given priority level, open and/or closed.
-    priority: Name ('now', 'urgent', 'high', 'medium', 'low', 'unset') or integer 0-5.
+    priority: Name ('now', 'urgent', 'high', 'medium', 'low', 'unset', 'starred') or integer 0-5.
     include_done: If True (default), return both open and closed tasks.
     Returns a compact summary table.
     """
@@ -507,11 +507,15 @@ def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> s
     try:
         import requests
 
-        # Resolve priority to int
-        if isinstance(priority, str) and not priority.isdigit():
+        is_starred = False
+        # Resolve priority to int or starred flag
+        if isinstance(priority, str) and priority.lower() in ("star", "starred", "favorite"):
+            is_starred = True
+            priority_int = -1
+        elif isinstance(priority, str) and not priority.isdigit():
             priority_int = PRIORITY_MAP.get(priority.lower())
             if priority_int is None:
-                return f"Unknown priority '{priority}'. Use: now, urgent, high, medium, low, unset, or 0-5."
+                return f"Unknown priority '{priority}'. Use: now, urgent, high, medium, low, unset, starred, or 0-5."
         else:
             priority_int = int(priority)
 
@@ -520,7 +524,11 @@ def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> s
         url = f"{host}/api/v1/tasks"
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
-        filter_str = f"priority = {priority_int}"
+        if is_starred:
+            filter_str = "is_favorite = true"
+        else:
+            filter_str = f"priority = {priority_int}"
+            
         if not include_done:
             filter_str += " && done = false"
 
@@ -528,19 +536,19 @@ def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> s
         response.raise_for_status()
         tasks = response.json()
 
-        if not tasks:
-            label = next((k for k, v in PRIORITY_MAP.items() if v == priority_int), str(priority_int))
-            return f"No tasks found with priority '{label}' ({priority_int})."
+        label = "STARRED" if is_starred else next((k for k, v in PRIORITY_MAP.items() if v == priority_int), str(priority_int))
 
-        priority_label = next((k for k, v in PRIORITY_MAP.items() if v == priority_int), str(priority_int))
+        if not tasks:
+            return f"No tasks found with priority '{label}'."
+
         open_tasks = [t for t in tasks if not t.get("done")]
         done_tasks = [t for t in tasks if t.get("done")]
 
-        lines = [f"Priority: {priority_label.upper()} ({priority_int}) — {len(tasks)} task(s) ({len(open_tasks)} open, {len(done_tasks)} done)\n"]
+        lines = [f"Priority: {label.upper()} — {len(tasks)} task(s) ({len(open_tasks)} open, {len(done_tasks)} done)\n"]
         for t in sorted(tasks, key=lambda x: (x.get("done", False), x.get("id"))):
             status = "✓" if t.get("done") else "○"
             due = t.get("due_date", "")[:10] if t.get("due_date") else ""
-            due_str = f" [due {due}]" if due else ""
+            due_str = f" [due {due}]" if due and due != "0001-01-01" else ""
             lines.append(f"  {status} [{t['id']}] {t['title']}{due_str}")
 
         return "\n".join(lines)
