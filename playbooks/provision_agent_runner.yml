@@ -1,9 +1,13 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        1.4
+# Version:        1.5
 # Author:         Antigravity
-# Last Modified:  2026-07-12
-# Trac Ticket:    #3829, #3774, #3838
+# Last Modified:  2026-07-19
+# Trac Ticket:    #3829, #3774, #3838, #3949
+#
+# Update 1.5:
+#     - Import install_yt_dlp.yml so agent runners can intake YouTube sources
+#       for the research skill (Trac #3949).
 #
 # Purpose:
 #     Unified playbook to fully provision a new AI agent runner LXC container
@@ -268,3 +272,4 @@
 - import_playbook: install_claude_code.yml
 - import_playbook: configure_mcp_servers_remote.yml
 - import_playbook: install_tmux.yml
+- import_playbook: install_yt_dlp.yml

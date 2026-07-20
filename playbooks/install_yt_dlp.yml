@@ -1,0 +1,64 @@
+---
+# ==============================================================================
+# Filename:       playbooks/install_yt_dlp.yml
+# Version:        1.0
+# Author:         Claude (athena)
+# Last Modified:  2026-07-19
+# Trac Ticket:    #3949 (Provision yt-dlp for research skill YouTube intake)
+#
+# Purpose:
+#     Install yt-dlp (and ffmpeg, required for audio extraction) so agent
+#     runners can intake YouTube sources per skills/core/research.md.
+#
+# Use Case:
+#     Research skill YouTube intake primary path:
+#         yt-dlp -x --audio-format mp3 -o "tmp/%(title)s.%(ext)s" "<URL>"
+#         python3 scripts/transcribe_audio.py "tmp/<file>.mp3"
+#
+# Installation Method:
+#     apt package (Debian forky ships a current yt-dlp; if the apt version
+#     ever lags far enough to break YouTube extraction, switch this playbook
+#     to the official release binary via get_url).
+#
+# Prerequisites:
+#     - Debian/Ubuntu system
+#
+# Configuration:
+#     - None
+#
+# Secrets:
+#     None — no vault variables required
+#
+# Usage:
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/install_yt_dlp.yml \
+#         --limit <host> --check --diff
+#
+#     # Live run
+#     ansible-playbook -i inventory.ini playbooks/install_yt_dlp.yml \
+#         --limit <host>
+#
+# Removal Instructions:
+#     apt remove yt-dlp
+#
+# Revision History:
+#     1.0 - Initial playbook (Trac #3949).
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_yt_dlp.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/install_yt_dlp.yml
+# ==============================================================================
+
+- name: Install yt-dlp
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update apt cache and install yt-dlp and ffmpeg
+      ansible.builtin.apt:
+        name:
+          - yt-dlp
+          - ffmpeg
+        state: present
+        update_cache: yes
