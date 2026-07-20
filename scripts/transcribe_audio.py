@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       transcribe_audio.py
-Version:        1.12
+Version:        1.13
 Author:         Gemini CLI
-Last Modified:  2026-06-02
+Last Modified:  2026-07-19
 Context:        http://trac.home.arpa/ticket/2966
 
 Purpose:
@@ -13,6 +13,16 @@ Purpose:
     Outputs the transcript to a .txt file in the same directory.
     Supports providing context to improve transcription accuracy.
     Automatically chunks large files (>20m) to prevent timeouts.
+
+Changes in 1.13:
+    - Updated DEFAULT_MODEL from gemini-2.5-flash to gemini-3.5-flash (now GA;
+      pinned explicitly rather than using the gemini-flash-latest alias).
+    - Replaced dead OpenRouter fallback openai/gpt-4o-audio-preview (removed
+      from OpenRouter) with openai/gpt-audio -> openai/gpt-audio-mini;
+      voxtral-small remains the last-resort backstop.
+    - Raised chunk threshold/segment time from 1200s to 2400s — the 20-minute
+      limit guarded the HTTP timeout, not an API limit; most recordings are
+      now single-chunk, avoiding overlap dedup. See trac #2966.
 
 Changes in 1.12:
     - Updated DEFAULT_MODEL from gemini-2.0-flash to gemini-2.5-flash.
@@ -90,15 +100,16 @@ import glob
 import math
 
 # --- Configuration ---
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash"
 OPENROUTER_FALLBACK_CHAIN = [
-    "openai/gpt-4o-audio-preview",
+    "openai/gpt-audio",
+    "openai/gpt-audio-mini",
     "mistralai/voxtral-small-24b-2507",
 ]
 API_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "gemini_key.txt")
 OPENROUTER_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "openrouter_key.txt")
-CHUNK_THRESHOLD_SECONDS = 1200 # 20 minutes
-CHUNK_SEGMENT_TIME = 1200      # 20 minutes
+CHUNK_THRESHOLD_SECONDS = 2400 # 40 minutes
+CHUNK_SEGMENT_TIME = 2400      # 40 minutes
 CHUNK_OVERLAP = 60             # 60 seconds overlap
 
 def get_api_key():
