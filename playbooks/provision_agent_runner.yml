@@ -183,7 +183,7 @@
     - name: Ensure pops origin remote uses the Athena hub
       community.general.git_config:
         name: remote.origin.url
-        value: "git@athena.home.arpa:/home/will/git/pops.git"
+        value: "will@athena.home.arpa:/home/will/git/pops.git"
         scope: local
         repo: "{{ target_home }}/pops"
       become: yes
@@ -192,7 +192,7 @@
     - name: Ensure ansible-netbox origin remote uses the Athena hub
       community.general.git_config:
         name: remote.origin.url
-        value: "git@athena.home.arpa:/home/will/git/ansible-netbox.git"
+        value: "will@athena.home.arpa:/home/will/git/ansible-netbox.git"
         scope: local
         repo: "{{ target_home }}/ansible-netbox"
       become: yes
