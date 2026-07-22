@@ -20,6 +20,7 @@
         name: tmux
         state: present
         update_cache: yes
+      when: inventory_hostname != 'ynh2'
 
     - name: Configure ~/.tmux.conf for the will user
       ansible.builtin.blockinfile:

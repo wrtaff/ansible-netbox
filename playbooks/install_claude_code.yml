@@ -45,6 +45,7 @@
         name: "@anthropic-ai/claude-code"
         global: true
         state: absent
+      when: inventory_hostname != 'ynh2'
       tags: cleanup
 
     - name: 2. Ensure local bin directory exists

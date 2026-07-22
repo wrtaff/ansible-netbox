@@ -62,3 +62,4 @@
           - ffmpeg
         state: present
         update_cache: yes
+      when: inventory_hostname != 'ynh2'
