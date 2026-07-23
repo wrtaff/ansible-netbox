@@ -67,7 +67,7 @@
     - name: Ensure Node.js and NPM are installed (via role)
       ansible.builtin.include_role:
         name: nodejs
-      when: ansible_os_family == 'Debian'
+      when: ansible_os_family == 'Debian' and inventory_hostname != 'ynh2'
       tags: install
 
     - name: 0. Check current OpenCode version (if any)
@@ -85,6 +85,7 @@
         name: "{{ npm_package }}"
         global: true
         state: latest
+      when: inventory_hostname != 'ynh2'
       tags: install
 
     - name: 2. Verify OpenCode CLI is installed

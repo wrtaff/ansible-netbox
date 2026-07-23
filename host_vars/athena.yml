@@ -1,0 +1,5 @@
+---
+# host_vars for athena
+
+# GnuCash book paths (Will & Jen, RNC) for gnucash-mcp
+gnucash_book_path: "/mnt/smb/share/Documents/will/Finance/Planning/GnuCash/Will_and_jen_GnuCash2.gnucash:/mnt/smb/share/Documents/will/Eldercare/Rhett_Connie/GnuCash_RNC/gnucash_rnc.gnucash"

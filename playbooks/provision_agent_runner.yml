@@ -128,6 +128,7 @@
           - rsync
         state: present
         update_cache: yes
+      when: inventory_hostname != 'ynh2'
 
     - name: Configure global git identity for target user
       community.general.git_config:
@@ -300,3 +301,4 @@
 - import_playbook: configure_mcp_servers_remote.yml
 - import_playbook: install_tmux.yml
 - import_playbook: install_yt_dlp.yml
+- import_playbook: install_gnucash_mcp.yml

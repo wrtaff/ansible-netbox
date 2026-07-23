@@ -78,6 +78,7 @@
       become: yes
       become_user: "{{ gemini_user }}"
       become_method: su
+      when: inventory_hostname != 'ynh2'
 
     - name: 3. Ensure .gemini directory exists in project
       ansible.builtin.file:
