@@ -1,0 +1,73 @@
+---
+# ==============================================================================
+# Filename:       playbooks/install_gnucash_mcp.yml
+# Version:        1.0
+# Author:         Jimmy
+# Last Modified:  2026-07-22
+# Trac Ticket:    #3985 (Finance: GnuCash MCP — deploy ninetails-io/gnucash-mcp)
+#
+# Purpose:
+#     Install the open-source ninetails-io/gnucash-mcp server on agent runners
+#     in an isolated virtual environment.
+#
+# Use Case:
+#     Replaces the native gnucash Python bindings MCP with a piecash-based
+#     implementation that supports >100 tools for financial management.
+#
+# Installation Method:
+#     pip install via git repo into a dedicated venv.
+#
+# Prerequisites:
+#     - Debian/Ubuntu system
+#     - python3-venv, python3-pip
+#
+# Configuration:
+#     - GNUCASH_BOOK_PATH is passed by host_vars at runtime
+#
+# Secrets:
+#     None — no vault variables required for installation.
+#
+# Usage:
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/install_gnucash_mcp.yml \
+#         --limit <host> --check --diff
+#
+#     # Live run
+#     ansible-playbook -i inventory.ini playbooks/install_gnucash_mcp.yml \
+#         --limit <host>
+#
+# Removal Instructions:
+#     rm -rf /home/will/ansible-netbox/mcp-servers/gnucash-mcp
+#
+# Revision History:
+#     1.0 - Initial playbook (Trac #3985).
+#
+# NOTES:
+#     Always bump versions when making changes and annotate them here.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_gnucash_mcp.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/install_gnucash_mcp.yml
+# ==============================================================================
+
+- name: Install gnucash-mcp
+  hosts: all
+  become: no
+  vars:
+    mcp_dir: "/home/will/ansible-netbox/mcp-servers/gnucash-mcp"
+  tasks:
+    - name: Ensure gnucash-mcp directory exists
+      ansible.builtin.file:
+        path: "{{ mcp_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Install gnucash-mcp and dependencies into dedicated venv
+      ansible.builtin.pip:
+        name: 
+          - "git+https://github.com/ninetails-io/gnucash-mcp.git@d993162"
+          - "piecash"
+          - "mcp[cli]"
+          - "python-dateutil"
+        virtualenv: "{{ mcp_dir }}/.venv"
+        virtualenv_command: python3 -m venv
+        state: present
