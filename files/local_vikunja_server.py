@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       local_vikunja_server.py
-Version:        1.4
+Version:        1.5
 Author:         Will
-Last Modified:  2026-05-19
-Context:        http://trac.gafla.us.com/ticket/2790
+Last Modified:  2026-07-23
+Context:        http://trac.gafla.us.com/ticket/2790, http://trac.gafla.us.com/ticket/3999
 
 Purpose:
     Lightweight HTTP bridge between the Trac bookmarklet (trac2vik.js) and the
@@ -79,9 +79,9 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                 trac_url_clean = trac_url_raw.split('#')[0]
                 trac_url_final = trac_url_clean.replace('trac.home.arpa', 'trac.gafla.us.com')
 
-                # 3. Build the task details
+                # 3. Build the task details (HTML format is parsed by Vikunja/Tiptap natively)
                 task_title = f"#{ticket_num}: {summary}"
-                task_desc = f"[Trac #{ticket_num}: {summary}]({trac_url_final})"
+                task_desc = f'<p><a href="{trac_url_final}">Trac #{ticket_num}: {summary}</a></p>'
 
                 json_payload = json.dumps({
                     "title": task_title,
