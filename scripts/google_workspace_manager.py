@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.30
+Version:        1.31
 Author:         Gemini CLI
-Last Modified:  2026-07-14
+Last Modified:  2026-07-23
 Context:        http://trac.gafla.us.com/ticket/3571
 
 Purpose:
@@ -17,10 +17,12 @@ Usage:
     python3 google_workspace_manager.py drive-search [--query "name contains '...'] [--cite]
     python3 google_workspace_manager.py drive-get "file_id" [--cite]
     python3 google_workspace_manager.py drive-update "file_id" --name "new_name"
+    python3 google_workspace_manager.py drive-delete "file_id"
     python3 google_workspace_manager.py cal-update "event_id" --summary "New Title"
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.31 (2026-07-23): Added drive-delete subcommand to delete a file in Google Drive.
     v1.30 (2026-07-14): Automatically extract time from tasks due date and append to notes to bypass API limitation.
     v1.29 (2026-06-30): Added fallback to gmail_get_by_header to search via From/To/Subject if Message-ID is missing.
     v1.28 (2026-06-10): Added gmail_modify_labels function and gmail-modify-labels CLI subcommand to support email-handler label modification.
@@ -569,6 +571,22 @@ def drive_update_file(file_id, name=None, description=None, parent_id=None, outp
         output(file, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
+        return None
+
+def drive_delete_file(file_id, output_format='text'):
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        service.files().delete(fileId=file_id).execute()
+        if output_format == 'json':
+            print(json.dumps({'result': f'Deleted file {file_id}'}, indent=2))
+        else:
+            print(f'Deleted file {file_id}')
+    except Exception as e:
+        if output_format == 'json':
+            print(json.dumps({'error': str(e)}))
+        else:
+            print(f"Error deleting file: {e}", file=sys.stderr)
 
 def drive_search(query=None, max_results=10, output_format='text', cite=False):
     creds = get_creds()
@@ -1003,6 +1021,8 @@ if __name__ == '__main__':
     parser_drive_update.add_argument('--desc', help='New description')
     parser_drive_update.add_argument('--parent', help='New parent folder ID to move file to')
 
+    parser_drive_delete = subparsers.add_parser('drive-delete', help='Delete a file from Drive')
+    parser_drive_delete.add_argument('id', help='File ID')
 
     parser_drive_download = subparsers.add_parser('drive-download', help='Download a file from Drive')
     parser_drive_download.add_argument('id', help='File ID')
@@ -1096,6 +1116,8 @@ if __name__ == '__main__':
         drive_get_file_metadata(args.id, args.format, args.cite)
     elif args.command == 'drive-update':
         drive_update_file(args.id, args.name, args.desc, args.parent, args.format)
+    elif args.command == 'drive-delete':
+        drive_delete_file(args.id, args.format)
     elif args.command == 'drive-download':
         drive_download_file(args.id, args.out, args.format)
     elif args.command == 'drive-export':
