@@ -2,17 +2,38 @@
 """
 ================================================================================
 Filename:       transcribe_audio.py
-Version:        1.13
+Version:        1.14
 Author:         Gemini CLI
-Last Modified:  2026-07-19
-Context:        http://trac.home.arpa/ticket/2966
+Last Modified:  2026-07-24
+Context:        http://trac.home.arpa/ticket/2966, http://trac.home.arpa/ticket/4001
 
 Purpose:
-    Transcribes an audio file using the Gemini 2.5 Flash API.
-    Falls back to OpenRouter (OpenAI-compatible, base64 audio) on Gemini errors.
+    Transcribes an audio file using the Gemini 3.5 Flash API.
+    Falls back to ElevenLabs Scribe (diarization-capable), then an
+    OpenRouter fallback chain, on Gemini errors.
     Outputs the transcript to a .txt file in the same directory.
     Supports providing context to improve transcription accuracy.
-    Automatically chunks large files (>20m) to prevent timeouts.
+    Automatically chunks large files (>40m) to prevent timeouts.
+
+Changes in 1.14 (#4001):
+    - ROOT CAUSE FIX for silently dropped segments (2026-06-29 board meeting):
+      transcribe_chunk() previously caught KeyError on a missing text part
+      and RETURNED a "[No transcript generated for this segment]" placeholder.
+      Because it returned normally, process_file_or_chunk()'s except block
+      never ran, so the fallback chain never fired and the placeholder was
+      written into the final transcript as if the segment had succeeded.
+      Now raises instead, so fallback always fires; also logs finishReason/
+      promptFeedback so MAX_TOKENS/SAFETY truncation is visible in the logs.
+    - Added explicit generationConfig.maxOutputTokens (65536) to reduce
+      MAX_TOKENS truncation on dense, long, multi-speaker segments.
+    - Added a post-assembly guard in main(): if any segment's transcript is
+      empty or still contains a failure placeholder after all fallbacks are
+      exhausted, the script exits non-zero instead of writing a silently
+      incomplete transcript.
+    - Added ElevenLabs Scribe (scribe_v1, diarize=true) as the new primary
+      fallback ahead of the OpenRouter chain — matches Gemini's one-call
+      diarization, often better raw accuracy. openai/gpt-audio demoted to
+      secondary fallback. See ticket #4001 model-decision comment.
 
 Changes in 1.13:
     - Updated DEFAULT_MODEL from gemini-2.5-flash to gemini-3.5-flash (now GA;
@@ -108,9 +129,12 @@ OPENROUTER_FALLBACK_CHAIN = [
 ]
 API_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "gemini_key.txt")
 OPENROUTER_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "openrouter_key.txt")
+ELEVENLABS_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "elevenlabs_key.txt")
+ELEVENLABS_MODEL = "scribe_v1"
 CHUNK_THRESHOLD_SECONDS = 2400 # 40 minutes
 CHUNK_SEGMENT_TIME = 2400      # 40 minutes
 CHUNK_OVERLAP = 60             # 60 seconds overlap
+MAX_OUTPUT_TOKENS = 65536      # generous cap to avoid MAX_TOKENS truncation on dense segments
 
 def get_api_key():
     """Retrieves the Gemini API key from environment or file."""
@@ -172,6 +196,108 @@ def get_openrouter_api_key():
     return None
 
 
+def get_elevenlabs_api_key():
+    """Retrieves the ElevenLabs API key from environment, file, or ~/.bashrc."""
+    api_key = os.getenv("ELEVENLABS_API_KEY")
+    if api_key:
+        print("Using ElevenLabs key from environment variable.")
+        return api_key
+
+    if os.path.exists(ELEVENLABS_KEY_FILE):
+        with open(ELEVENLABS_KEY_FILE, 'r') as f:
+            print(f"Using ElevenLabs key from file: {ELEVENLABS_KEY_FILE}")
+            return f.read().strip()
+
+    try:
+        cmd = "grep 'export ELEVENLABS_API_KEY=' ~/.bashrc | cut -d'\"' -f2"
+        result = subprocess.run(['bash', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        bashrc_key = result.stdout.strip()
+        if bashrc_key:
+            print("Using ElevenLabs key from ~/.bashrc.")
+            return bashrc_key
+    except Exception as e:
+        print(f"Warning: Could not extract ElevenLabs key from ~/.bashrc: {e}")
+
+    return None
+
+
+def transcribe_chunk_elevenlabs(file_path, api_key, mime_type, chunk_index=0):
+    """Transcribes a single audio chunk via ElevenLabs Scribe (speech-to-text, diarized).
+
+    Scribe has no context/prompt parameter (unlike Gemini/OpenRouter chat-completions),
+    so name-spelling/context hints are lost on this path — diarization is returned as
+    per-word speaker_id, not embedded speaker labels, so it's reconstructed here into
+    "Speaker N: ..." lines grouped on consecutive same-speaker words.
+    """
+    url = "https://api.elevenlabs.io/v1/speech-to-text"
+    headers = {"xi-api-key": api_key}
+    data = {
+        "model_id": ELEVENLABS_MODEL,
+        "diarize": "true",
+        "tag_audio_events": "false",
+        "timestamps_granularity": "word",
+    }
+
+    print(f"Requesting transcription from ElevenLabs ({ELEVENLABS_MODEL})...")
+
+    done = False
+    def spinner():
+        for c in itertools.cycle(['|', '/', '-', '\\']):
+            if done:
+                break
+            sys.stdout.write(f'\rProcessing... {c}')
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write('\rProcessing... Done!   \n')
+
+    spinner_thread = threading.Thread(target=spinner)
+    spinner_thread.start()
+
+    try:
+        with open(file_path, "rb") as f:
+            files = {"file": (os.path.basename(file_path), f, mime_type)}
+            response = requests.post(url, headers=headers, data=data, files=files, timeout=600)
+        done = True
+        spinner_thread.join()
+        response.raise_for_status()
+        result = response.json()
+
+        words = result.get("words")
+        if not words:
+            text = result.get("text", "").strip()
+            if not text:
+                raise RuntimeError("ElevenLabs returned no text or words")
+            return text
+
+        lines = []
+        current_speaker = None
+        current_words = []
+        for w in words:
+            if w.get("type") == "spacing":
+                continue
+            speaker = w.get("speaker_id", "speaker_0")
+            if speaker != current_speaker:
+                if current_words:
+                    lines.append(f"Speaker {current_speaker}: {' '.join(current_words)}")
+                current_speaker = speaker
+                current_words = []
+            current_words.append(w.get("text", ""))
+        if current_words:
+            lines.append(f"Speaker {current_speaker}: {' '.join(current_words)}")
+
+        return "\n".join(lines)
+    except Exception as e:
+        done = True
+        spinner_thread.join()
+        print(f"\nElevenLabs error: {e}")
+        try:
+            if 'response' in locals():
+                print(json.dumps(response.json(), indent=2))
+        except Exception:
+            pass
+        raise
+
+
 def transcribe_chunk_openrouter(file_path, openrouter_key, model, context, chunk_index=0):
     """Transcribes a single audio chunk via OpenRouter using base64-encoded audio."""
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -231,11 +357,14 @@ def transcribe_chunk_openrouter(file_path, openrouter_key, model, context, chunk
         response.raise_for_status()
         result = response.json()
         try:
-            return result['choices'][0]['message']['content']
+            content = result['choices'][0]['message']['content']
         except (KeyError, IndexError):
             print("\nWarning: No transcript text found in OpenRouter response.")
             print(json.dumps(result, indent=2))
-            return "[No transcript generated for this segment]"
+            raise RuntimeError(f"OpenRouter/{model} returned no transcript content")
+        if not content or not content.strip():
+            raise RuntimeError(f"OpenRouter/{model} returned empty transcript content")
+        return content
     except Exception as e:
         done = True
         spinner_thread.join()
@@ -322,21 +451,23 @@ def split_audio(file_path, segment_time=CHUNK_SEGMENT_TIME, overlap=CHUNK_OVERLA
     print(f"Created {len(chunks)} chunks.")
     return chunks
 
+def _guess_mime_type(file_path):
+    """Determines audio MIME type from file extension (shared by all providers)."""
+    if file_path.endswith(".m4a"):
+        return "audio/mp4"
+    elif file_path.endswith(".wav"):
+        return "audio/wav"
+    elif file_path.endswith(".ogg"):
+        return "audio/ogg"
+    return "audio/mpeg"  # Default (mp3)
+
 def upload_file(file_path, api_key):
     """Uploads the file to Gemini Media API."""
     url = f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={api_key}"
-    
+
     file_size = os.path.getsize(file_path)
     file_name = os.path.basename(file_path)
-    
-    # Determine MIME type
-    mime_type = "audio/mpeg" # Default
-    if file_path.endswith(".m4a"):
-        mime_type = "audio/mp4"
-    elif file_path.endswith(".wav"):
-        mime_type = "audio/wav"
-    elif file_path.endswith(".ogg"):
-        mime_type = "audio/ogg"
+    mime_type = _guess_mime_type(file_path)
 
     print(f"Uploading {file_name} ({mime_type})...")
 
@@ -415,6 +546,7 @@ def transcribe_chunk(file_uri, mime_type, api_key, model=DEFAULT_MODEL, context=
         }],
         "generationConfig": {
             "temperature": 0.0,
+            "maxOutputTokens": MAX_OUTPUT_TOKENS,
         }
     }
     
@@ -445,10 +577,15 @@ def transcribe_chunk(file_uri, mime_type, api_key, model=DEFAULT_MODEL, context=
         try:
             transcript = result['candidates'][0]['content']['parts'][0]['text']
             return transcript
-        except KeyError:
-            print("\nWarning: No transcript text found in response.")
-            return "[No transcript generated for this segment]"
-            
+        except (KeyError, IndexError):
+            candidate = (result.get('candidates') or [{}])[0]
+            finish_reason = candidate.get('finishReason', 'UNKNOWN')
+            prompt_feedback = result.get('promptFeedback')
+            print(f"\nWarning: No transcript text in response. finishReason={finish_reason}, promptFeedback={prompt_feedback}")
+            # Raise (rather than return a placeholder) so the caller's fallback
+            # chain actually fires instead of silently accepting a dropped segment.
+            raise RuntimeError(f"Gemini returned no transcript text (finishReason={finish_reason})")
+
     except requests.exceptions.Timeout:
         done = True
         spinner_thread.join()
@@ -466,18 +603,30 @@ def transcribe_chunk(file_uri, mime_type, api_key, model=DEFAULT_MODEL, context=
         raise
 
 def process_file_or_chunk(file_path, api_key, model, context, chunk_index=0,
-                          openrouter_key=None, fallback_chain=None):
+                          openrouter_key=None, fallback_chain=None, elevenlabs_key=None):
     """Orchestrates upload, wait, and transcribe for a single file/chunk.
-    On Gemini failure, walks fallback_chain of OpenRouter models in order."""
+    Fallback order on Gemini failure: ElevenLabs Scribe (diarization-capable,
+    primary fallback per #4001), then the OpenRouter fallback_chain in order."""
+    mime_type = _guess_mime_type(file_path)
     try:
         file_uri, file_name_api, mime_type = upload_file(file_path, api_key)
         wait_for_file(file_name_api, api_key)
         return transcribe_chunk(file_uri, mime_type, api_key, model, context, chunk_index)
     except Exception as gemini_err:
+        print(f"\nGemini failed ({gemini_err}).")
+
+        if elevenlabs_key:
+            print("Trying ElevenLabs Scribe fallback...")
+            try:
+                return transcribe_chunk_elevenlabs(file_path, elevenlabs_key, mime_type, chunk_index)
+            except Exception as el_err:
+                print(f"ElevenLabs Scribe failed ({el_err}). Trying OpenRouter fallback chain...")
+
         if not openrouter_key or not fallback_chain:
             raise
+
         for fallback_model in fallback_chain:
-            print(f"\nGemini failed ({gemini_err}). Trying OpenRouter fallback: {fallback_model}...")
+            print(f"Trying OpenRouter fallback: {fallback_model}...")
             try:
                 return transcribe_chunk_openrouter(file_path, openrouter_key, fallback_model, context, chunk_index)
             except Exception as or_err:
@@ -485,7 +634,7 @@ def process_file_or_chunk(file_path, api_key, model, context, chunk_index=0,
         raise RuntimeError(f"All fallbacks exhausted for {os.path.basename(file_path)}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Transcribe audio using Gemini, with OpenRouter fallback chain.")
+    parser = argparse.ArgumentParser(description="Transcribe audio using Gemini, with ElevenLabs Scribe then OpenRouter fallback chain.")
     parser.add_argument("file_path", help="Path to the audio file.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Gemini model to use (default: {DEFAULT_MODEL})")
     parser.add_argument("--fallback-chain", nargs="+", default=OPENROUTER_FALLBACK_CHAIN,
@@ -511,17 +660,22 @@ def main():
         args.file_path = new_file_path
         
     api_key = get_api_key()
+    elevenlabs_key = get_elevenlabs_api_key()
     openrouter_key = get_openrouter_api_key()
+    if elevenlabs_key:
+        print("ElevenLabs Scribe fallback: enabled (primary fallback on Gemini failure)")
+    else:
+        print("Warning: No ElevenLabs key found — falling straight through to OpenRouter chain on Gemini failure.")
     if openrouter_key:
         print(f"OpenRouter fallback chain: {' -> '.join(args.fallback_chain)}")
     else:
-        print("Warning: No OpenRouter key found — Gemini errors will not be retried.")
+        print("Warning: No OpenRouter key found — Gemini errors will not be retried past ElevenLabs.")
 
     # Check duration
     duration = get_audio_duration(args.file_path)
     full_transcript = ""
 
-    kwargs = dict(openrouter_key=openrouter_key, fallback_chain=args.fallback_chain)
+    kwargs = dict(openrouter_key=openrouter_key, fallback_chain=args.fallback_chain, elevenlabs_key=elevenlabs_key)
 
     try:
         if duration > CHUNK_THRESHOLD_SECONDS:
@@ -542,11 +696,18 @@ def main():
     except Exception as e:
         print(f"\nFatal error: {e}")
         sys.exit(1)
-    
+
+    # Post-assembly guard (#4001): hard-fail rather than silently write an
+    # incomplete transcript if any segment's fallback chain was fully exhausted
+    # but somehow returned empty/placeholder content anyway.
+    if not full_transcript.strip() or "[No transcript generated" in full_transcript:
+        print("\nFatal error: assembled transcript is empty or contains a failure placeholder. Not writing output.")
+        sys.exit(1)
+
     output_path = os.path.splitext(args.file_path)[0] + "_transcription.txt"
     with open(output_path, 'w') as f:
         f.write(full_transcript)
-        
+
     print(f"\nTranscription complete! Saved to: {output_path}")
 
 if __name__ == "__main__":
