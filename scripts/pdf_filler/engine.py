@@ -25,6 +25,8 @@ except ImportError:
         "  ansible-playbook -i inventory.ini playbooks/install_pypdf.yml --limit <host>"
     )
 
+import re
+
 from pdf_filler.registry import TemplateConfig, TemplateRegistry
 from pdf_filler.text_layout import check_field_overflow
 
@@ -138,6 +140,104 @@ class FillerEngine:
             values[raw_name] = "" if val is None else str(val)
 
         return values
+
+    @staticmethod
+    def _compute_font_size(field_height: float, field_width: float,
+                           text: str = "") -> float:
+        """Pick a sensible font size for a field given its dimensions.
+
+        Rules:
+        - Target ~75% of field height, clamped to [7, 12] pt.
+        - For narrow initials boxes (width <= 40pt), cap at 10pt.
+        - Never exceed 12pt regardless of box size.
+        """
+        size = field_height * 0.75
+        # Narrow initials boxes
+        if field_width <= 40:
+            size = min(size, 10.0)
+        # Global clamp
+        size = max(7.0, min(size, 12.0))
+        return round(size, 1)
+
+    @staticmethod
+    def _patch_da_font_size(da_string: str, new_size: float) -> str:
+        """Replace the font size in a /DA string like '/Helv 0 Tf 0 g'.
+
+        The pattern is: /<fontname> <size> Tf
+        We replace <size> with new_size.
+        """
+        if not da_string:
+            return f"/Helv {new_size} Tf 0 g"
+        # Match: /FontName <number> Tf
+        return re.sub(
+            r"(/\w+)\s+([\d.]+)\s+Tf",
+            lambda m: f"{m.group(1)} {new_size} Tf",
+            da_string,
+        )
+
+    def _fix_field_font_sizes(self, writer: PdfWriter,
+                              fields_to_fill: set) -> int:
+        """Patch /DA on widget annotations to use explicit font sizes
+        instead of auto-size (0 Tf).
+
+        Only patches fields that are in fields_to_fill (the set of
+        AcroForm field names we're about to write values into).
+
+        Returns the number of annotations patched.
+        """
+        from pypdf.generic import NameObject, TextStringObject
+        patched = 0
+
+        for page in writer.pages:
+            annots_ref = page.get("/Annots")
+            if not annots_ref:
+                continue
+            annots = annots_ref.get_object() if hasattr(annots_ref, "get_object") else annots_ref
+
+            for annot_ref in annots:
+                annot = annot_ref.get_object() if hasattr(annot_ref, "get_object") else annot_ref
+                field_name = str(annot.get("/T", ""))
+                if field_name not in fields_to_fill:
+                    continue
+
+                # Get current /DA
+                da = str(annot.get("/DA", ""))
+                # Check if font size is 0 (auto-size)
+                if not re.search(r"/\w+\s+0\s+Tf", da) and da:
+                    continue  # Already has an explicit font size
+
+                # Get field rect for sizing
+                rect = annot.get("/Rect")
+                if not rect or len(rect) < 4:
+                    continue
+                try:
+                    x1, y1, x2, y2 = [float(c) for c in rect]
+                    field_w = abs(x2 - x1)
+                    field_h = abs(y2 - y1)
+                except (TypeError, ValueError):
+                    continue
+
+                new_size = self._compute_font_size(field_h, field_w)
+                new_da = self._patch_da_font_size(da, new_size)
+
+                annot[NameObject("/DA")] = TextStringObject(new_da)
+                patched += 1
+
+        # Also patch the AcroForm-level /DA if it has 0 Tf
+        try:
+            root = writer._root_object
+            acroform = root.get("/AcroForm")
+            if acroform:
+                af_obj = acroform.get_object() if hasattr(acroform, "get_object") else acroform
+                af_da = str(af_obj.get("/DA", ""))
+                if re.search(r"/\w+\s+0\s+Tf", af_da):
+                    af_obj[NameObject("/DA")] = TextStringObject(
+                        self._patch_da_font_size(af_da, 10.0)
+                    )
+        except Exception:
+            pass
+
+        return patched
 
     def _supports_flatten(self) -> bool:
         """True if this pypdf's update_page_form_field_values accepts flatten=."""
@@ -298,6 +398,16 @@ class FillerEngine:
 
         writer = PdfWriter()
         writer.append(reader)
+
+        # Fix auto-size font (0 Tf) on fields we're about to fill.
+        # Without this, viewers render text at whatever size fills the
+        # box height, producing oversized text on tall fields.
+        patched = self._fix_field_font_sizes(writer, set(nonempty.keys()))
+        if patched:
+            result.warnings.append(
+                f"Patched font size on {patched} field(s) "
+                f"(was auto-size 0pt)"
+            )
 
         # Suppress pypdf's per-page "no fields" chatter
         logging.getLogger("pypdf").setLevel(logging.ERROR)
