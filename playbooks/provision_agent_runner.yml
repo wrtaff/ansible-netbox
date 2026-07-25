@@ -1,9 +1,13 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        1.5
+# Version:        1.6
 # Author:         Antigravity
-# Last Modified:  2026-07-19
-# Trac Ticket:    #3829, #3774, #3838, #3949
+# Last Modified:  2026-07-25
+# Trac Ticket:    #3829, #3774, #3838, #3949, #4042
+#
+# Update 1.6:
+#     - Import install_pypdf.yml so agent runners can fill GA POA AcroForms
+#       (Trac #4042 WP2).
 #
 # Update 1.5:
 #     - Import install_yt_dlp.yml so agent runners can intake YouTube sources
@@ -352,3 +356,4 @@
 - import_playbook: install_tmux.yml
 - import_playbook: install_yt_dlp.yml
 - import_playbook: install_gnucash_mcp.yml
+- import_playbook: install_pypdf.yml
