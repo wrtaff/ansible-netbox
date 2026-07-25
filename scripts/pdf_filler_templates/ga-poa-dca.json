@@ -1,0 +1,401 @@
+{
+  "template_name": "ga-poa-dca",
+  "display_name": "Georgia Statutory (Financial) POA - DCA",
+  "source_pdf": "ga-poa-template-dca-fillable.pdf",
+  "source_url": "https://dca.georgia.gov",
+  "description": "State of Georgia DCA fillable Statutory (Financial) Power of Attorney. 8 pages, 67 /Tx text fields, no XFA. Official source from dca.georgia.gov.",
+  "trac_ticket": 4042,
+  "fields": {
+    "principal_county": {
+      "pdf_field": "County",
+      "type": "text",
+      "page": 0,
+      "description": "State of Georgia / County header"
+    },
+    "principal_name_header": {
+      "pdf_field": "Name",
+      "type": "text",
+      "page": 0,
+      "description": "Bare 'Name' widget in the p0 header block"
+    },
+    "principal_street": {
+      "pdf_field": "Street Address",
+      "type": "text",
+      "page": 0
+    },
+    "principal_city": {
+      "pdf_field": "City",
+      "type": "text",
+      "page": 0
+    },
+    "principal_state": {
+      "pdf_field": "State",
+      "type": "text",
+      "page": 0
+    },
+    "principal_zip": {
+      "pdf_field": "Zip Code",
+      "type": "text",
+      "page": 0
+    },
+    "principal_name": {
+      "pdf_field": "Name",
+      "type": "text",
+      "page": 1,
+      "description": "'I ____ (Name of principal)' on p1; shares the bare 'Name' widget"
+    },
+    "agent_name": {
+      "pdf_field": "Name of agent",
+      "type": "text",
+      "page": 1
+    },
+    "agent_address": {
+      "pdf_field": "Agents address",
+      "type": "text",
+      "page": 1
+    },
+    "agent_phone": {
+      "pdf_field": "Agents telephone number",
+      "type": "text",
+      "page": 1
+    },
+    "agent_email": {
+      "pdf_field": "Agents email address",
+      "type": "text",
+      "page": 1
+    },
+    "successor_agent_name": {
+      "pdf_field": "Name of successor agent",
+      "type": "text",
+      "page": 1
+    },
+    "successor_agent_address": {
+      "pdf_field": "Successor agents address",
+      "type": "text",
+      "page": 1
+    },
+    "successor_agent_phone": {
+      "pdf_field": "Successor agents telephone number",
+      "type": "text",
+      "page": 1
+    },
+    "successor_agent_email": {
+      "pdf_field": "Successor agents email address",
+      "type": "text",
+      "page": 1
+    },
+    "second_successor_agent_name": {
+      "pdf_field": "Name of second successor agent",
+      "type": "text",
+      "page": 1
+    },
+    "second_successor_agent_address": {
+      "pdf_field": "Second successor agents address",
+      "type": "text",
+      "page": 1
+    },
+    "second_successor_agent_phone": {
+      "pdf_field": "Second successor agents telephone number",
+      "type": "text",
+      "page": 1
+    },
+    "second_successor_agent_email": {
+      "pdf_field": "s email address",
+      "type": "text",
+      "page": 1,
+      "description": "Truncated 'Second successor agent's e-mail address' stored as 's email address' (idx 14)"
+    },
+    "grant_real_property": {
+      "pdf_field": "Real property",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_tangible_personal_property": {
+      "pdf_field": "Tangible personal property",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_stocks_and_bonds": {
+      "pdf_field": "Stocks and bonds",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_commodities_and_options": {
+      "pdf_field": "Commodities and options",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_banks": {
+      "pdf_field": "Banks and other financial institutions",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_business": {
+      "pdf_field": "Operation of entity or business",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_insurance_and_annuities": {
+      "pdf_field": "Insurance and annuities",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_estates_trusts": {
+      "pdf_field": "Estates trusts and other beneficial interests",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_claims_and_litigation": {
+      "pdf_field": "Claims and litigation",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_personal_family_maintenance": {
+      "pdf_field": "Personal and family maintenance",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_government_benefits": {
+      "pdf_field": "Benefits from governmental programs or civil or military service",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_retirement_plans": {
+      "pdf_field": "Retirement plans",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_taxes": {
+      "pdf_field": "Taxes",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority"
+    },
+    "grant_all_subjects": {
+      "pdf_field": "All preceding subjects",
+      "type": "initials",
+      "page": 2,
+      "group": "general_authority",
+      "description": "Initial here to grant ALL general authority subjects at once"
+    },
+    "special_inter_vivos_trust": {
+      "pdf_field": "Create fund amend revoke or terminate an inter vivos trust",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_make_a_gift": {
+      "pdf_field": "Make a gift subject to the limitations of OCGA  106B56 and any Special",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_rights_of_survivorship": {
+      "pdf_field": "Create or change rights of survivorship",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_beneficiary_designation": {
+      "pdf_field": "Create or change a beneficiary designation",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_authorize_another": {
+      "pdf_field": "Authorize another person to exercise the authority granted under this power of attorney",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_waive_survivor_annuity": {
+      "pdf_field": "Waive the principals right to be a beneficiary of a joint and survivor annuity including a",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_electronic_communications": {
+      "pdf_field": "Excise authority over the content of electronic communications sent or received by the",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_fiduciary_powers": {
+      "pdf_field": "Exercise fiduciary powers that the principal has authority to delegate and that are",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_renounce_interest": {
+      "pdf_field": "Renounce an interest in property including a power of appointment",
+      "type": "initials",
+      "page": 3,
+      "group": "specific_authority"
+    },
+    "special_instructions": {
+      "pdf_field": "Text1",
+      "type": "text",
+      "page": 4,
+      "description": "Free-text Special Instructions block (generic widget name 'Text1')"
+    },
+    "conservator_nominee_name": {
+      "pdf_field": "Name of nominee for conservator of my estate",
+      "type": "text",
+      "page": 4
+    },
+    "conservator_nominee_address": {
+      "pdf_field": "Nominee's Address",
+      "type": "text",
+      "page": 4
+    },
+    "conservator_nominee_phone": {
+      "pdf_field": "Nominees telephone number",
+      "type": "text",
+      "page": 4
+    },
+    "conservator_nominee_email": {
+      "pdf_field": "Nominees email address",
+      "type": "text",
+      "page": 4
+    },
+    "signature_date": {
+      "pdf_field": "Date",
+      "type": "text",
+      "page": 5
+    },
+    "principal_name_printed": {
+      "pdf_field": "Your name printed",
+      "type": "text",
+      "page": 5
+    },
+    "principal_address": {
+      "pdf_field": "Your address",
+      "type": "text",
+      "page": 5
+    },
+    "principal_phone": {
+      "pdf_field": "Your telephone number",
+      "type": "text",
+      "page": 5
+    },
+    "principal_email": {
+      "pdf_field": "Your email address",
+      "type": "text",
+      "page": 5
+    },
+    "witness_signed_on": {
+      "pdf_field": "This document was signed in my presence on",
+      "type": "text",
+      "page": 5
+    },
+    "witness_principal_name": {
+      "pdf_field": "Name of principal",
+      "type": "text",
+      "page": 5
+    },
+    "witness_name_printed": {
+      "pdf_field": "Witnesss name printed",
+      "type": "text",
+      "page": 5
+    },
+    "witness_address": {
+      "pdf_field": "Witnesss address",
+      "type": "text",
+      "page": 5
+    },
+    "witness_phone": {
+      "pdf_field": "Witnesss telephone number",
+      "type": "text",
+      "page": 5
+    },
+    "witness_email": {
+      "pdf_field": "Witnesss email address",
+      "type": "text",
+      "page": 5
+    },
+    "notary_county": {
+      "pdf_field": "County of_2",
+      "type": "text",
+      "page": 5
+    },
+    "notary_signed_on": {
+      "pdf_field": "This document was signed in my presence on_2",
+      "type": "text",
+      "page": 5
+    },
+    "notary_principal_name": {
+      "pdf_field": "Name of principal_2",
+      "type": "text",
+      "page": 5
+    },
+    "notary_commission_expires": {
+      "pdf_field": "My commission expires",
+      "type": "text",
+      "page": 5
+    },
+    "document_prepared_by": {
+      "pdf_field": "This document prepared by",
+      "type": "text",
+      "page": 5
+    },
+    "sig_widget_1": {
+      "pdf_field": "Text19",
+      "type": "signature",
+      "page": 5,
+      "description": "Your signature (normally blank for wet ink)"
+    },
+    "sig_widget_2": {
+      "pdf_field": "Text20",
+      "type": "signature",
+      "page": 5,
+      "description": "Witness signature (normally blank for wet ink)"
+    },
+    "sig_widget_3": {
+      "pdf_field": "Text21",
+      "type": "signature",
+      "page": 5,
+      "description": "Notary signature (normally blank for wet ink)"
+    },
+    "agent_demo_principal_name": {
+      "pdf_field": "Text22",
+      "type": "text",
+      "page": 6,
+      "description": "Instructional demo line: (Principal's name)"
+    },
+    "agent_demo_signature": {
+      "pdf_field": "Text23",
+      "type": "text",
+      "page": 6,
+      "description": "Instructional demo line: (Your signature) as Agent"
+    }
+  },
+  "groups": {
+    "general_authority": {
+      "description": "Grant of General Authority subjects (p2). Principal initials each to grant, or 'grant_all_subjects' for all.",
+      "all_field": "grant_all_subjects",
+      "member_prefix": "grant_"
+    },
+    "specific_authority": {
+      "description": "Grant of Specific Authority subjects (p3). Principal initials each to grant.",
+      "member_prefix": "special_"
+    }
+  },
+  "control_keys": {
+    "initials": "Principal's initials string applied to grant fields",
+    "grants": "List of specific grant subjects to initial (subset mode)",
+    "grant_all_subjects": "Boolean: initial 'All preceding subjects' instead of individual grants",
+    "raw_fields": "Dict of raw AcroForm field names passed through verbatim (escape hatch)"
+  }
+}

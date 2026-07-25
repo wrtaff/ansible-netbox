@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pdf-filler-template-v1",
+  "title": "PDF Filler Template Config",
+  "description": "Schema for template configurations used by the generic PDF form-filling library (Trac #4042). Each JSON file in pdf_filler_templates/ conforming to this schema registers one fillable PDF template.",
+  "type": "object",
+  "required": ["template_name", "display_name", "source_pdf", "fields"],
+  "properties": {
+    "template_name": {
+      "type": "string",
+      "description": "Machine-readable identifier (e.g. 'ga-poa-dca'). Used as the --template CLI argument."
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable name for display and documentation."
+    },
+    "source_pdf": {
+      "type": "string",
+      "description": "Filename of the blank fillable PDF. Resolved relative to the templates directory or the scripts/ directory."
+    },
+    "source_url": {
+      "type": "string",
+      "description": "URL where the canonical blank template can be downloaded."
+    },
+    "description": {
+      "type": "string"
+    },
+    "trac_ticket": {
+      "type": "integer",
+      "description": "Associated Trac ticket number."
+    },
+    "fields": {
+      "type": "object",
+      "description": "Mapping of friendly_key -> field config.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["pdf_field", "type"],
+        "properties": {
+          "pdf_field": {
+            "type": "string",
+            "description": "Exact AcroForm field name in the PDF."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["text", "initials", "checkbox", "signature"],
+            "description": "Field type. 'text' = free text, 'initials' = short initial string, 'checkbox' = /Btn, 'signature' = normally blank for wet ink."
+          },
+          "page": {
+            "type": "integer",
+            "description": "0-indexed page number where this field appears."
+          },
+          "max_chars": {
+            "type": "integer",
+            "description": "Maximum character count before truncation warning."
+          },
+          "font_size_max": {
+            "type": "number",
+            "description": "Maximum font size in points."
+          },
+          "font_size_min": {
+            "type": "number",
+            "description": "Minimum font size floor for auto-sizing."
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name this field belongs to (e.g. 'general_authority')."
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "groups": {
+      "type": "object",
+      "description": "Named groups of related fields (e.g. grant-of-authority blocks).",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "all_field": {
+            "type": "string",
+            "description": "Friendly key of the 'grant all' field for this group."
+          },
+          "member_prefix": {
+            "type": "string",
+            "description": "Prefix of friendly keys that are members of this group."
+          }
+        }
+      }
+    },
+    "control_keys": {
+      "type": "object",
+      "description": "Data keys that control fill behavior but are not direct field mappings.",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}
