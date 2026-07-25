@@ -272,6 +272,12 @@
           alias cdpo='clear; cd $HOME/pops; opencode'
           alias cdpg='clear; cd $HOME/pops; agy'
 
+          # Fleet readiness preflight (Trac #4026). Read-only; 'rtwf' merges
+          # outstanding agent/* branches first. Harness-agnostic entry point:
+          # usable from any shell, or invoked by any agent regardless of CLI.
+          alias rtw='$HOME/pops/scripts/ready-to-work.sh'
+          alias rtwf='$HOME/pops/scripts/ready-to-work.sh --merge'
+
           # Run agent sync check on session start (for Antigravity, OpenCode, and human sessions)
           if [ -z "$AGENT_SYNC_CHECK_DONE" ] && [ -x "$HOME/pops/scripts/agent-sync-check.sh" ]; then
               export AGENT_SYNC_CHECK_DONE=1
