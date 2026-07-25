@@ -1,0 +1,101 @@
+# ==============================================================================
+# Example data file for scripts/fill_ga_poa.py  (Trac #4042)
+#
+# Georgia Statutory (Financial) Power of Attorney -- friendly-key values.
+# Fill in / delete keys as needed. Any omitted key is left blank on the form.
+# Signature lines and per-subject INITIAL boxes are handled specially (see below).
+#
+# Run:
+#   python3 scripts/fill_ga_poa.py \
+#       --template ga-poa-template-dca-fillable.pdf \
+#       --data poa_data.example.yml \
+#       --out /home/will/pops/tmp/ga-poa-filled.pdf
+#
+# NOTE: values here are placeholder sample data, not real PII.
+# ==============================================================================
+
+# --- Principal (the person granting authority) ---
+principal_name: "Jane Q. Sample"          # 'I ____ (Name of principal)' on p1
+principal_name_printed: "Jane Q. Sample"  # signature block, p5
+principal_county: "Muscogee"
+principal_street: "123 Example St"
+principal_city: "Columbus"
+principal_state: "GA"
+principal_zip: "31901"
+principal_address: "123 Example St, Columbus, GA 31901"
+principal_phone: "706-555-0100"
+principal_email: "jane.sample@example.com"
+
+# --- Agent (the person receiving authority) ---
+agent_name: "John R. Sample"
+agent_address: "456 Agent Ave, Columbus, GA 31901"
+agent_phone: "706-555-0111"
+agent_email: "john.sample@example.com"
+
+# --- Successor agent (optional) ---
+successor_agent_name: ""
+successor_agent_address: ""
+successor_agent_phone: ""
+successor_agent_email: ""
+
+# --- Second successor agent (optional) ---
+second_successor_agent_name: ""
+second_successor_agent_address: ""
+second_successor_agent_phone: ""
+second_successor_agent_email: ""
+
+# --- Grant of General Authority (p2) ---
+# The DCA form asks the principal to INITIAL each subject to grant, OR initial
+# 'all preceding subjects' to grant everything. Two ways to drive this:
+#
+#   1. Grant everything:  set grant_all_subjects: true  (uses 'initials' below)
+#   2. Grant a subset:    list them under 'grants:'      (uses 'initials' below)
+#
+# Valid subset tokens (drop the 'grant_' prefix):
+#   real_property, tangible_personal_property, stocks_and_bonds,
+#   commodities_and_options, banks, business, insurance_and_annuities,
+#   estates_trusts, claims_and_litigation, personal_family_maintenance,
+#   government_benefits, retirement_plans, taxes
+initials: "JQS"
+grant_all_subjects: true
+# grants:
+#   - real_property
+#   - banks
+#   - taxes
+
+# --- Grant of Specific Authority (p3) -- put initials in each to grant ---
+# special_inter_vivos_trust: "JQS"
+# special_make_a_gift: "JQS"
+# special_rights_of_survivorship: "JQS"
+# special_beneficiary_designation: "JQS"
+# special_authorize_another: "JQS"
+# special_waive_survivor_annuity: "JQS"
+# special_electronic_communications: "JQS"
+# special_fiduciary_powers: "JQS"
+# special_renounce_interest: "JQS"
+
+# --- Special Instructions (p4, free text) ---
+special_instructions: ""
+
+# --- Nomination of Conservator (p4, optional) ---
+conservator_nominee_name: ""
+conservator_nominee_address: ""
+conservator_nominee_phone: ""
+conservator_nominee_email: ""
+
+# --- Dates (leave signature lines blank for wet ink) ---
+signature_date: ""      # principal signs by hand; date optional to pre-fill
+
+# --- Witness block (p5) -- normally completed at signing ---
+witness_name_printed: ""
+witness_address: ""
+witness_phone: ""
+witness_email: ""
+
+# --- Notary block (p5) -- completed by notary at signing ---
+notary_county: "Muscogee"
+document_prepared_by: "Jane Q. Sample"
+
+# --- Escape hatch: raw AcroForm field names for anything not aliased ---
+# raw_fields:
+#   "Text19": "custom value"
