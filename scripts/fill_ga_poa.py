@@ -299,6 +299,20 @@ def fill(template, data_path, out_path, flatten=False):
     # Count how many of our requested non-empty values actually landed. After a
     # flatten the AcroForm is gone, so recount only makes sense un-flattened.
     if do_flatten:
+        # pypdf's flatten=True bakes appearances into page content but does NOT
+        # reliably remove the interactive form layer -- get_fields() may still
+        # return every field, meaning the doc is editable. Explicitly strip the
+        # widget annotations and the AcroForm so the output is truly locked.
+        try:
+            writer.remove_annotations(subtypes="/Widget")
+        except Exception as e:
+            print(f"WARNING: could not remove widget annotations: {e}", file=sys.stderr)
+        try:
+            root = writer._root_object
+            if "/AcroForm" in root:
+                del root["/AcroForm"]
+        except Exception as e:
+            print(f"WARNING: could not remove AcroForm: {e}", file=sys.stderr)
         filled = len(nonempty)
     else:
         result_fields = writer.get_fields() or {}
