@@ -199,6 +199,50 @@
       become: yes
       become_user: "{{ target_user }}"
 
+    # Trac #4031: setting remote.origin.url above is not enough. The trunk's
+    # tracking ref is what agent-sync-check.sh actually follows, and on every
+    # host it still pointed at github/main, so the fleet pulled through the
+    # GitHub mirror instead of the Athena hub (and ynh2, whose github remote is
+    # an unauthenticated HTTPS URL, never synced at all). Pin it explicitly.
+    # NOT guarded for ynh2: this writes git config in the user's home and does
+    # not touch YunoHost's package namespace.
+    - name: Pin pops trunk to track the Athena hub
+      ansible.builtin.command:
+        cmd: git branch --set-upstream-to=origin/main main
+        chdir: "{{ target_home }}/pops"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: pops_upstream
+      changed_when: "'set up to track' in pops_upstream.stdout"
+      failed_when:
+        - pops_upstream.rc != 0
+        - "'set up to track' not in pops_upstream.stdout"
+
+    - name: Pin ansible-netbox trunk to track the Athena hub
+      ansible.builtin.command:
+        cmd: git branch --set-upstream-to=origin/master master
+        chdir: "{{ target_home }}/ansible-netbox"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: anb_upstream
+      changed_when: "'set up to track' in anb_upstream.stdout"
+      failed_when:
+        - anb_upstream.rc != 0
+        - "'set up to track' not in anb_upstream.stdout"
+
+    # ynh2 carries an HTTPS github URL it cannot authenticate to. Agent nodes
+    # have no reason to reach GitHub at all -- only athena mirrors outward
+    # (#3968, #4030) -- so normalise every node to the SSH form for consistency
+    # with the other four hosts.
+    - name: Normalise github remote URL on pops (SSH form)
+      community.general.git_config:
+        name: remote.github.url
+        value: "git@github.com:wrtaff/pops-infra.git"
+        scope: local
+        repo: "{{ target_home }}/pops"
+      become: yes
+      become_user: "{{ target_user }}"
+
     - name: Check if pops/wiki git repository exists on target
       ansible.builtin.stat:
         path: "{{ target_home }}/pops/wiki/.git"
