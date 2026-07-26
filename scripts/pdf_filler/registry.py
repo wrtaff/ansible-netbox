@@ -1,9 +1,29 @@
 # ==============================================================================
-# pdf_filler/registry.py -- Template Registry
-# Trac #4042
+# Filename:       pdf_filler/registry.py
+# Version:        1.0
+# Author:         opencode (jimmy, athena)
+# Last Modified:  2026-07-25
+# Context:        http://trac.gafla.us.com/ticket/4042
 #
-# Discovers and loads template JSON configs from the pdf_filler_templates/
-# directory. Each .json file (except _schema.json) is one registered template.
+# Purpose:
+#     Template Registry for the generic PDF form-filling library. Discovers
+#     and loads template JSON configs from pdf_filler_templates/. Each .json
+#     file (except _schema.json) is one registered template.
+#
+# Secrets:
+#     None -- no credentials or secrets required.
+#
+# Usage:
+#     from pdf_filler.registry import TemplateRegistry
+#     reg = TemplateRegistry()
+#     templates = reg.list_templates()
+#     config = reg.get_or_raise("ga-poa-dca")
+#
+# WWOS:   http://wwos.home.arpa/index.php/Pdf_filler
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/scripts/pdf_filler/registry.py
+#
+# Revision History:
+#     1.0 (2026-07-25) - Initial version. Trac #4042 WP6.
 # ==============================================================================
 
 import json

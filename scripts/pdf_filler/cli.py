@@ -1,15 +1,30 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# pdf_filler/cli.py -- Generic PDF Form Filler CLI
-# Trac #4042
+# Filename:       pdf_filler/cli.py
+# Version:        1.0
+# Author:         opencode (jimmy, athena)
+# Last Modified:  2026-07-25
+# Context:        http://trac.gafla.us.com/ticket/4042
+#
+# Purpose:
+#     Generic PDF Form Filler CLI. Provides a command-line interface to the
+#     pdf_filler library for filling, previewing, and inspecting registered
+#     PDF form templates.
+#
+# Secrets:
+#     None -- no credentials or secrets required.
 #
 # Usage:
-#   python3 -m pdf_filler.cli --template ga-poa-dca --data values.yml --out filled.pdf
-#   python3 -m pdf_filler.cli --template ga-poa-dca --list-fields
-#   python3 -m pdf_filler.cli --template ga-poa-dca --data values.yml --preview
-#   python3 -m pdf_filler.cli --list-templates
+#     python3 -m pdf_filler.cli --template ga-poa-dca --data values.yml --out filled.pdf
+#     python3 -m pdf_filler.cli --template ga-poa-dca --list-fields
+#     python3 -m pdf_filler.cli --template ga-poa-dca --data values.yml --preview
+#     python3 -m pdf_filler.cli --list-templates
 #
-# pypdf compatibility: see engine.py header.
+# WWOS:   http://wwos.home.arpa/index.php/Pdf_filler
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/scripts/pdf_filler/cli.py
+#
+# Revision History:
+#     1.0 (2026-07-25) - Initial version. Trac #4042 WP7-WP8.
 # ==============================================================================
 
 import argparse

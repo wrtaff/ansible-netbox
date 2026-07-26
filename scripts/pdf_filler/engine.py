@@ -1,14 +1,38 @@
 # ==============================================================================
-# pdf_filler/engine.py -- Generic PDF AcroForm Filler Engine
-# Trac #4042
+# Filename:       pdf_filler/engine.py
+# Version:        1.1
+# Author:         opencode (jimmy, athena)
+# Last Modified:  2026-07-25
+# Context:        http://trac.gafla.us.com/ticket/4042
 #
-# Core filler: loads a template config from the registry, maps data values to
-# AcroForm field names, fills the PDF, optionally flattens (pypdf >= 4.x),
-# and writes the output.
+# Purpose:
+#     Generic PDF AcroForm Filler Engine. Loads a template config from the
+#     registry, maps data values to AcroForm field names, fixes auto-size
+#     font issues, fills the PDF, optionally flattens (pypdf >= 4.x), and
+#     writes the output.
+#
+# Prerequisites:
+#     pypdf (provisioned via Ansible: playbooks/install_pypdf.yml)
+#
+# Secrets:
+#     None -- no credentials or secrets required.
+#
+# Usage:
+#     from pdf_filler.engine import FillerEngine
+#     engine = FillerEngine()
+#     result = engine.fill("ga-poa-dca", "data.yml", "out.pdf", flatten=True)
+#
+# WWOS:   http://wwos.home.arpa/index.php/Pdf_filler
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/scripts/pdf_filler/engine.py
+#
+# Revision History:
+#     1.1 (2026-07-25) - Fix oversized text: patch auto-size font (0 Tf)
+#                        to explicit sizes computed from field rects. Trac #4042.
+#     1.0 (2026-07-25) - Initial version. Trac #4042 WP7.
 #
 # pypdf compatibility:
-#   Written to the pypdf 3.4.x API for fleet portability. Flatten uses 4.x+
-#   native support when available, degrades gracefully otherwise.
+#     Written to the pypdf 3.4.x API for fleet portability. Flatten uses 4.x+
+#     native support when available, degrades gracefully otherwise.
 # ==============================================================================
 
 import json

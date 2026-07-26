@@ -1,15 +1,30 @@
 # ==============================================================================
-# pdf_filler/text_layout.py -- Smart Text Sizing
-# Trac #4042
+# Filename:       pdf_filler/text_layout.py
+# Version:        1.0
+# Author:         opencode (jimmy, athena)
+# Last Modified:  2026-07-25
+# Context:        http://trac.gafla.us.com/ticket/4042
 #
-# Best-effort text width estimation for AcroForm fields. Uses approximate
-# character widths for Helvetica (the standard AcroForm default font) to
-# determine if text will overflow a field's rectangle, and recommends a
-# font size adjustment.
+# Purpose:
+#     Smart text sizing for AcroForm fields. Uses approximate character widths
+#     for Helvetica (the standard AcroForm default font) to determine if text
+#     will overflow a field's rectangle, and recommends a font size adjustment.
 #
-# This is NOT a full font metrics engine -- it's sufficient for government
-# forms where field widths are generous. For pixel-perfect layout, add
-# reportlab or fonttools (Ansible-provisioned).
+#     This is NOT a full font metrics engine -- sufficient for government forms
+#     where field widths are generous. For pixel-perfect layout, add reportlab
+#     or fonttools (Ansible-provisioned).
+#
+# Secrets:
+#     None -- no credentials or secrets required.
+#
+# Usage:
+#     from pdf_filler.text_layout import fit_text_to_width, check_field_overflow
+#
+# WWOS:   http://wwos.home.arpa/index.php/Pdf_filler
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/scripts/pdf_filler/text_layout.py
+#
+# Revision History:
+#     1.0 (2026-07-25) - Initial version. Trac #4042 WP7.
 # ==============================================================================
 
 from typing import Optional, Tuple
