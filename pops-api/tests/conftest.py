@@ -53,7 +53,8 @@ def temp_pops_root(tmp_path):
         <root>/wiki/alpha.md                (searchable fixture content)
         <root>/wiki/beta.md                 (searchable fixture content)
         <root>/wiki/gamma.md                (searchable fixture content)
-        <root>/wiki/log.md                  (empty)
+        <root>/wiki/log.md                  (frozen legacy file, empty)
+        <root>/wiki/log/<host>/             (writer-partitioned log dir)
 
     Returns the root Path. Nothing here touches the real /home/will/pops.
     """
@@ -92,8 +93,13 @@ def temp_pops_root(tmp_path):
         encoding="utf-8",
     )
 
-    # Empty running log; inbox captures append summary lines here.
+    # Frozen pre-migration log: present so read paths still see it, but the
+    # API must never append here (Trac #4054/#4068).
     (wiki_dir / "log.md").write_text("", encoding="utf-8")
+
+    # Writer-partitioned activity log. Deliberately NOT pre-created: the
+    # service is responsible for mkdir on first write of a host-month, and
+    # test_inbox asserts exactly that.
 
     return root
 

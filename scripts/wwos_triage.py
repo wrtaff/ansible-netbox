@@ -40,7 +40,11 @@ GWS_MANAGER = os.path.join(SCRIPT_DIR, "google_workspace_manager.py")
 
 # Meta/infrastructure files and directories that are not candidate "notes"
 EXCLUDE_NAMES = {"index.md", "log.md", "kms-layout.md", "rfi-log.md"}
-EXCLUDE_DIR_PREFIXES = ("context/", "assets/")
+# "log/" holds the writer-partitioned activity log (Trac #4054). Excluding by
+# filename alone is not enough -- os.walk() recurses, so every quiet
+# wiki/log/<host>/YYYY-MM.md would otherwise surface as a graduation
+# candidate once it aged past the staleness threshold.
+EXCLUDE_DIR_PREFIXES = ("context/", "assets/", "log/")
 
 
 def git_last_commit_epoch(repo_dir, relpath):

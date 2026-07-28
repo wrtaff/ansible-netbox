@@ -58,7 +58,7 @@ class CaptureResponse(BaseModel):
 def post_inbox(payload: CaptureRequest) -> CaptureResponse:
     """
     Capture a text payload into today's network-capture journal file and append
-    a summary line to wiki/log.md.
+    a summary line to this host's wiki/log/<host>/YYYY-MM.md.
 
     Returns HTTP 201 with journal_path, log_line, and ISO 8601 timestamp.
     """

@@ -14,7 +14,7 @@
 #
 #     WARNING: the inbox 201 check performs a real capture and therefore
 #     WRITES to the live POPS_ROOT of the server under test (a journal file
-#     under raw/journal/ and a line in wiki/log.md). Do not run against a
+#     under raw/journal/ and a line in wiki/log/<host>/YYYY-MM.md). Do not run against a
 #     server whose pops tree you care about unless you accept that write.
 #
 # Secrets:

@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       config.py
-Version:        1.1
+Version:        1.2
 Author:         Claude Code
-Last Modified:  2026-06-12
+Last Modified:  2026-07-28
 Context:        http://trac.home.arpa/ticket/3577
 
 Purpose:
@@ -28,6 +28,10 @@ Settings (environment variables):
                            (default: python3)
     POPS_TRANSCRIBE_TIMEOUT  Transcription subprocess timeout, seconds
                            (default: 3600)
+    POPS_LOG_HOST          Short canonical host token used as the activity-log
+                           path segment -- athena, ar0, ar1, titan2, ynh2
+                           (default: this machine's hostname, normalized
+                           through HOST_ALIASES)
 
 Secrets:
     POPS_API_KEY  (env var; systemd EnvironmentFile in production) - shared
@@ -42,15 +46,37 @@ Usage:
     get_settings.cache_clear()
 
 Revision History:
+    1.2 - Activity log is writer-partitioned: log_file resolves
+          wiki/log/<host>/YYYY-MM.md per access; wiki/log.md is frozen and
+          exposed read-only as legacy_log_file. Trac #4068/#4054.
     1.1 - Add transcription settings (P3.1). Trac #3596.
     1.0 - Initial scaffold (Phase 1 subtask P1.1). Trac #3577.
 ================================================================================
 """
 
 import os
+import socket
 from dataclasses import dataclass
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
+
+# Long inventory hostnames map to the short canonical token used as the log
+# path segment. `agent-runner-pve6-01` and `ar0` are the same machine, and both
+# spellings appear in the pre-migration log -- which is precisely why the
+# segment must be normalized rather than taken from `hostname` verbatim, or one
+# host ends up with two directories and the partition stops being one-per-host.
+# See skills/core/pops.md § Concurrent Memory (Trac #4054).
+HOST_ALIASES = {
+    "agent-runner-pve6-01": "ar0",
+    "agent-runner-pve5-01": "ar1",
+}
+
+
+def canonical_host(name: str) -> str:
+    """Return the short canonical host token used as the log path segment."""
+    short = name.split(".")[0].strip().lower()
+    return HOST_ALIASES.get(short, short)
 
 
 @dataclass(frozen=True)
@@ -64,6 +90,7 @@ class Settings:
     transcribe_script: str
     transcribe_python: str
     transcribe_timeout: int
+    log_host: str
 
     @property
     def journal_dir(self) -> Path:
@@ -74,7 +101,26 @@ class Settings:
         return self.pops_root / "wiki"
 
     @property
+    def log_dir(self) -> Path:
+        """This host's directory in the writer-partitioned activity log."""
+        return self.pops_root / "wiki" / "log" / self.log_host
+
+    @property
     def log_file(self) -> Path:
+        """Today's month file for this host: wiki/log/<host>/YYYY-MM.md.
+
+        Resolved on every access and deliberately never cached: the target
+        changes at month rollover and this service is long-running, so a value
+        captured at startup would keep writing into a stale month forever.
+
+        Only this host writes this file, which is what makes concurrent appends
+        across the fleet conflict-free by construction (Trac #4054).
+        """
+        return self.log_dir / f"{date.today():%Y-%m}.md"
+
+    @property
+    def legacy_log_file(self) -> Path:
+        """The frozen pre-migration log. Read-only -- never opened for write."""
         return self.pops_root / "wiki" / "log.md"
 
     @property
@@ -105,4 +151,7 @@ def get_settings() -> Settings:
         ),
         transcribe_python=os.environ.get("POPS_TRANSCRIBE_PYTHON", "python3"),
         transcribe_timeout=int(os.environ.get("POPS_TRANSCRIBE_TIMEOUT", "3600")),
+        log_host=canonical_host(
+            os.environ.get("POPS_LOG_HOST") or socket.gethostname()
+        ),
     )

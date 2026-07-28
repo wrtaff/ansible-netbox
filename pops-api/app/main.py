@@ -15,7 +15,8 @@ Purpose:
 
     Phase 1 endpoints (Trac #3577 blueprint):
         GET  /api/health   - liveness and pops-root status (no auth)
-        POST /api/inbox    - timestamped capture to raw/journal/ + wiki/log.md
+        POST /api/inbox    - timestamped capture to raw/journal/ +
+                             wiki/log/<host>/YYYY-MM.md
         GET  /api/search   - ripgrep over wiki/
 
 Secrets:

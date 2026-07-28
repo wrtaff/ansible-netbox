@@ -10,7 +10,7 @@ Runs on **athena** (where `/home/will/pops` lives), port **8765**, single shared
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Liveness, version, pops-root status (no auth) |
-| POST | `/api/inbox` | Timestamped capture to `raw/journal/` + `wiki/log.md` |
+| POST | `/api/inbox` | Timestamped capture to `raw/journal/` + `wiki/log/<host>/YYYY-MM.md` |
 | GET | `/api/search` | ripgrep over `wiki/` (q, max_results, context) |
 | POST | `/api/tasks` | Create Vikunja task (title, description, project_id, labels, due) |
 | POST | `/api/tickets` | Create Trac ticket (markdown auto-converted to MoinMoin) |
@@ -96,8 +96,8 @@ POPS_API_URL=http://athena:8765 POPS_API_KEY=devkey ./tests/smoke.sh
 ```
 
 WARNING: `smoke.sh` performs a real `/api/inbox` capture, which WRITES to the
-live `POPS_ROOT` of the server under test (a `raw/journal/` file and a
-`wiki/log.md` line).
+live `POPS_ROOT` of the server under test (a `raw/journal/` file and a line in
+`wiki/log/<host>/YYYY-MM.md`, where `<host>` is the serving host).
 
 ## Project history
 

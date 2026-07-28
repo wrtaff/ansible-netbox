@@ -2,16 +2,17 @@
 """
 ================================================================================
 Filename:       journal.py
-Version:        1.0
+Version:        1.1
 Author:         Claude Code
-Last Modified:  2026-06-10
+Last Modified:  2026-07-28
 Context:        http://trac.home.arpa/ticket/3577
 
 Purpose:
     Journal and log-file append service for the Pops KMS REST API. Implements
     the timestamped-capture rule for network sources: resolves today's
     network-capture journal file, creates it with YAML frontmatter if absent,
-    appends a timestamped entry, and dual-writes a summary line to wiki/log.md.
+    appends a timestamped entry, and dual-writes a summary line to this host's
+    file in the writer-partitioned activity log, wiki/log/<host>/YYYY-MM.md.
     All writes are append-only (open mode "a") for concurrency safety.
 
 Secrets:
@@ -23,6 +24,9 @@ Usage:
     # result keys: journal_path, log_line, timestamp
 
 Revision History:
+    1.1 - Write to the writer-partitioned activity log
+          wiki/log/<host>/YYYY-MM.md instead of the now-frozen wiki/log.md.
+          Trac #4068/#4054.
     1.0 - Initial implementation (Phase 1 subtask P1.5). Trac #3577.
 ================================================================================
 """
@@ -36,7 +40,7 @@ from app.config import get_settings
 def append_capture(text: str, source: str) -> dict:
     """
     Append a timestamped capture entry to today's network-capture journal file
-    and add a summary line to wiki/log.md.
+    and add a summary line to this host's activity-log file.
 
     Args:
         text:   Capture text body (must be non-empty; caller validates).
@@ -45,7 +49,7 @@ def append_capture(text: str, source: str) -> dict:
     Returns:
         dict with keys:
             journal_path  (str)  - absolute path to the journal file written
-            log_line      (str)  - the line appended to wiki/log.md
+            log_line      (str)  - the line appended to the activity log
             timestamp     (str)  - ISO 8601 UTC timestamp of the operation
     """
     settings = get_settings()
@@ -86,11 +90,14 @@ def append_capture(text: str, source: str) -> dict:
     with open(journal_path, "a", encoding="utf-8") as fh:
         fh.write(entry)
 
-    # --- Build log line and append to wiki/log.md ---
+    # --- Build log line and append to this host's activity-log file ---
     first_line = text.splitlines()[0] if text.splitlines() else text
     summary = first_line[:60]
     log_line = f"## [{date_str}] capture | {source} {summary}"
 
+    # settings.log_file resolves wiki/log/<host>/YYYY-MM.md fresh on each call,
+    # so a month rollover in a long-running process lands in the new month.
+    # mkdir covers both the first write on a host and the first of the month.
     log_file: Path = settings.log_file
     log_file.parent.mkdir(parents=True, exist_ok=True)
     with open(log_file, "a", encoding="utf-8") as fh:

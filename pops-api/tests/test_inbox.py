@@ -10,8 +10,10 @@ Context:        http://trac.home.arpa/ticket/3577
 Purpose:
     Tests for POST /api/inbox: a valid capture creates today's journal file
     with YAML frontmatter and a timestamped entry, appends exactly one summary
-    line to wiki/log.md, and a second same-day capture appends without
-    duplicating the frontmatter. Also covers the error paths: empty/whitespace
+    line to this host's writer-partitioned log file wiki/log/<host>/YYYY-MM.md
+    (creating the host directory on first write), and a second same-day capture
+    appends without duplicating the frontmatter. Also asserts the frozen
+    wiki/log.md is never written. Also covers the error paths: empty/whitespace
     text (400), oversize text (413), missing field (422), the default "network"
     source, and 60-char summary truncation.
 
@@ -23,15 +25,27 @@ Usage:
     /opt/venvs/gemini_projects/bin/python3 -m pytest tests/test_inbox.py -v
 
 Revision History:
+    1.1 - Assert against the writer-partitioned log tree; add coverage for
+          host-directory creation and for leaving wiki/log.md frozen.
+          Trac #4068/#4054.
     1.0 - Initial test suite (Phase 1 subtask P1.7). Trac #3577.
 ================================================================================
 """
 
+from datetime import date
 from pathlib import Path
+
+from app.config import get_settings
 
 
 def _journal_files(temp_pops_root):
     return sorted((temp_pops_root / "raw" / "journal").glob("*-network-capture.md"))
+
+
+def _log_file(temp_pops_root):
+    """This host's current-month file in the writer-partitioned activity log."""
+    host = get_settings().log_host
+    return temp_pops_root / "wiki" / "log" / host / f"{date.today():%Y-%m}.md"
 
 
 def test_valid_capture_creates_journal_and_log(client, temp_pops_root):
@@ -60,8 +74,12 @@ def test_valid_capture_creates_journal_and_log(client, temp_pops_root):
     assert re.search(r"^## \d{2}:\d{2} \[curl\]$", journal_text, re.MULTILINE)
     assert "Remember to water the plants" in journal_text
 
-    # Exactly one summary line appended to wiki/log.md.
-    log_text = (temp_pops_root / "wiki" / "log.md").read_text(encoding="utf-8")
+    # Exactly one summary line appended to this host's partitioned log file,
+    # whose directory the service must have created on first write.
+    log_path = _log_file(temp_pops_root)
+    assert log_path.parent.is_dir(), "service did not create the host log dir"
+    assert log_path.exists()
+    log_text = log_path.read_text(encoding="utf-8")
     log_lines = [ln for ln in log_text.splitlines() if ln.strip()]
     assert len(log_lines) == 1
     assert log_lines[0] == body["log_line"]
@@ -87,9 +105,24 @@ def test_second_capture_same_day_no_duplicate_frontmatter(client, temp_pops_root
     assert "second entry" in journal_text
 
     # Two summary lines in the log.
-    log_text = (temp_pops_root / "wiki" / "log.md").read_text(encoding="utf-8")
+    log_text = _log_file(temp_pops_root).read_text(encoding="utf-8")
     log_lines = [ln for ln in log_text.splitlines() if ln.strip()]
     assert len(log_lines) == 2
+
+
+def test_frozen_legacy_log_is_never_written(client, temp_pops_root):
+    """Captures must not touch the frozen pre-migration wiki/log.md."""
+    legacy = temp_pops_root / "wiki" / "log.md"
+    before = legacy.read_text(encoding="utf-8")
+
+    client.post(
+        "/api/inbox",
+        json={"text": "capture after the migration", "source": "curl"},
+        headers={"X-API-Key": "test-key-123"},
+    )
+
+    assert legacy.read_text(encoding="utf-8") == before
+    assert _log_file(temp_pops_root).exists()
 
 
 def test_empty_text_400(client):
