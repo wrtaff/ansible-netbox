@@ -166,15 +166,25 @@
         path: "{{ target_home }}/ansible-netbox/.git"
       register: netbox_git_stat
 
-    - name: Synchronize pops repository from control node
+    # Trac #4054/#4068 fan-out incident: this task previously ran on every
+    # play against every non-ynh2 host regardless of whether the repo already
+    # existed (`inventory_hostname != 'ynh2' or not ...stat.exists` is true
+    # unconditionally for those hosts). rsync --archive syncs the *entire*
+    # tree including .git, so a repeat run overwrote each host's own HEAD
+    # reflog, branch refs, and refs/stash with athena's -- confirmed on ar0
+    # (4 of 7 stashes lost) and ar1 during the 2026-07-28 fan-out. Gated to
+    # first-time bootstrap only; ongoing propagation is the git-based
+    # session-start pull (agent-sync-check.sh) that skills/domain/agent-runner.md
+    # already documents as the steady-state mechanism.
+    - name: Synchronize pops repository from control node (bootstrap only)
       ansible.posix.synchronize:
         src: "/home/will/pops/"
         dest: "{{ target_home }}/pops/"
         archive: yes
       become: no
-      when: inventory_hostname != 'ynh2' or not pops_git_stat.stat.exists
+      when: not pops_git_stat.stat.exists
 
-    - name: Synchronize ansible-netbox repository from control node
+    - name: Synchronize ansible-netbox repository from control node (bootstrap only)
       ansible.posix.synchronize:
         src: "/home/will/ansible-netbox/"
         dest: "{{ target_home }}/ansible-netbox/"
@@ -182,7 +192,7 @@
         rsync_opts:
           - "--exclude=.venv"
       become: no
-      when: inventory_hostname != 'ynh2' or not netbox_git_stat.stat.exists
+      when: not netbox_git_stat.stat.exists
 
     - name: Ensure repository ownership
       ansible.builtin.file:
