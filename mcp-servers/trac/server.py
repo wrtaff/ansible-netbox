@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/trac/server.py
-Version:        2.2
-Author:         Gemini CLI
-Last Modified:  2026-06-27
+Version:        2.3
+Author:         Antigravity
+Last Modified:  2026-07-29
 Context:        http://trac.home.arpa/ticket/2933
 
 Purpose:
@@ -17,6 +17,7 @@ Notes:
     Always bump version and annotate changes in Revision History below.
 
 Revision History:
+    v2.3 (2026-07-29): Added owner parameter to update_ticket to support direct reassigning and workflow-based reassign. Ref: Trac #3981.
     v2.2 (2026-06-27): Added remaining tools (changelog, actions, ticket fields, delete ticket, milestone operations, recent wiki changes, list methods).
     v2.1 (2026-06-27): Added trac_wiki_get, trac_wiki_create, trac_wiki_update, trac_wiki_delete, trac_wiki_list tools.
     v2.0 (2026-04-12): Improved update_ticket docstring to clarify ticket
@@ -151,7 +152,7 @@ def get_ticket(ticket_id: int) -> str:
         return f"Error fetching ticket #{ticket_id}: {str(e)}"
 
 @mcp.tool(name="trac_update_ticket")
-def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None, resolution: Optional[str] = None, author: str = "gemini", action: Optional[str] = None, priority: Optional[str] = None, description: Optional[str] = None, summary: Optional[str] = None) -> str:
+def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None, keywords: Optional[str] = None, status: Optional[str] = None, resolution: Optional[str] = None, author: str = "gemini", action: Optional[str] = None, priority: Optional[str] = None, description: Optional[str] = None, summary: Optional[str] = None, owner: Optional[str] = None) -> str:
     """
     Update a Trac ticket with a comment and optional attributes.
     
@@ -179,6 +180,7 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
         priority: Optional new priority (must exist).
         description: Optional new description text (MoinMoin syntax).
         summary: Optional new summary (title) text.
+        owner: Optional new owner username.
     """
     logger.info(f"Updating ticket #{ticket_id}")
     try:
@@ -209,6 +211,9 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
             attributes['status'] = status
         if resolution:
             attributes['resolution'] = resolution
+        if owner:
+            attributes['owner'] = owner
+            attributes['action_reassign_reassign_owner'] = owner
         if action:
             attributes['action'] = action
             if action == 'resolve':
