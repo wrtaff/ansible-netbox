@@ -1,0 +1,46 @@
+---
+# ==============================================================================
+# Filename:       deploy_disk_alerts.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-07-31
+# Context:        http://trac.gafla.us.com/ticket/4078
+#
+# Purpose:
+#     Deploys a local disk alert monitor script and cron job, and ensures
+#     system mail client (postfix/aliases) is configured to send email alerts.
+# ==============================================================================
+- name: Deploy Disk Alerts and Configure System Mail
+  hosts: agent_runners, proxmox
+  become: yes
+  roles:
+    - { role: system_mail_client, when: "inventory_hostname != 'gmailctl-ansible' and ansible_host != '192.168.0.25'" }
+
+  tasks:
+    - name: Deploy disk checking script
+      copy:
+        dest: /usr/local/bin/check_disk.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # Managed by Ansible - deploy_disk_alerts.yml
+          THRESHOLD=85
+          EMAIL="root@home.arpa"
+          HOSTNAME=$(hostname)
+
+          df -Ph | grep -vE '^Filesystem|tmpfs|cdrom|udev|none|/boot/efi' | while read line; do
+            usep=$(echo $line | awk '{print $5}' | cut -d"%" -f1)
+            partition=$(echo $line | awk '{print $6}')
+            if [ $usep -ge $THRESHOLD ]; then
+              # Send email via postfix null client relay
+              echo -e "Warning: Disk space on $HOSTNAME for partition $partition is at $usep%.\n\nPlease clean up or extend the volume to prevent service disruption." | mail -s "CRITICAL: Disk Space Alert on $HOSTNAME ($usep% full)" "$EMAIL"
+            fi
+          done
+
+    - name: Create cron job for disk alerts (hourly)
+      cron:
+        name: "disk_alerts_check"
+        hour: "*"
+        minute: "0"
+        job: "/usr/local/bin/check_disk.sh >/dev/null 2>&1"
+        state: present
