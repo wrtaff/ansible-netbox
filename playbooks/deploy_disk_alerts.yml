@@ -1,7 +1,7 @@
 ---
 # ==============================================================================
 # Filename:       deploy_disk_alerts.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini CLI
 # Last Modified:  2026-07-31
 # Context:        http://trac.gafla.us.com/ticket/4078
@@ -14,7 +14,7 @@
   hosts: agent_runners, proxmox
   become: yes
   roles:
-    - { role: system_mail_client, when: "inventory_hostname != 'gmailctl-ansible' and ansible_host != '192.168.0.25'" }
+    - { role: system_mail_client, when: "inventory_hostname != 'gmailctl-ansible' and (ansible_host | default('') != '192.168.0.25')" }
 
   tasks:
     - name: Deploy disk checking script
