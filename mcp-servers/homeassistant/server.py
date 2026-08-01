@@ -12,6 +12,8 @@ Purpose:        Acts as a stdio-to-HTTP JSON-RPC proxy/bridge for the Home Assis
 Revision History:
     v1.0 (2026-06-24): Initial implementation. Simple stdio wrapper that forwards
                        JSON-RPC requests and notifications to Streamable HTTP.
+    v1.1 (2026-08-01): Added robust connection/DNS retry logic with exponential
+                       backoff to handle transient startup resolution races.
 
 Secrets:
     HASS_TOKEN      (env) — Home Assistant Long-Lived Access Token for MCP
@@ -25,6 +27,7 @@ Notes:
 import sys
 import os
 import json
+import time
 import logging
 import requests
 
@@ -69,7 +72,22 @@ def main():
         
         try:
             logger.info(f"Forwarding request to HASS: {message.get('method', 'unknown')} (id: {message.get('id')})")
-            resp = requests.post(url, headers=headers, json=message, timeout=30)
+            
+            # Retry loop for transient connection/DNS errors
+            max_attempts = 5
+            backoff = 1.5
+            resp = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    resp = requests.post(url, headers=headers, json=message, timeout=30)
+                    break
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                    if attempt == max_attempts:
+                        logger.error(f"Max retries ({max_attempts}) reached for URL {url}: {e}")
+                        raise
+                    logger.warning(f"Connection attempt {attempt} failed ({e}), retrying in {backoff}s...")
+                    time.sleep(backoff)
+                    backoff *= 2.0
             
             if is_notification:
                 logger.info(f"Notification sent, response code: {resp.status_code}")
