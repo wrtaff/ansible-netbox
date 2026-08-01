@@ -1,13 +1,18 @@
 # ==============================================================================
 # Filename:       install_opencode.yml
-# Version:        1.6
+# Version:        1.7
 # Author:         Antigravity CLI
-# Last Modified:  2026-07-18
-# Trac Ticket:    #3284, #3933
+# Last Modified:  2026-08-01
+# Trac Ticket:    #3284, #3933, #4099
 #
 # Purpose:
 #   Installs the OpenCode CLI tool (via opencode-ai package) globally via NPM 
 #   on target hosts and configures environment for user 'will'.
+#
+# Update 1.7 (Trac #4099):
+#   - Pinned opencode-ai version to 1.18.4 to prevent SIGILL (Illegal Instruction)
+#     crashes on Ivy Bridge CPUs (specifically ar0's i5-3470). Changed NPM task
+#     state to 'present'.
 #
 # Update 1.6 (Trac #3933):
 #   - Fixed: the blockinfile task hardcoded the literal placeholder string
@@ -61,7 +66,12 @@
 
   vars:
     target_user: will
-    npm_package: opencode-ai
+    # PINNED VERSION WARNING (Trac #4099):
+    # opencode-ai version must be pinned to 1.18.4 because newer versions bundle 
+    # Bun v1.3.14+ whose baseline builds crash with SIGILL (Illegal Instruction) 
+    # on Ivy Bridge CPUs (specifically ar0's i5-3470) due to leaked AVX2 instructions. 
+    # Do NOT upgrade or set to 'latest' without verifying compat on ar0.
+    npm_package: opencode-ai@1.18.4
 
   tasks:
     - name: Ensure Node.js and NPM are installed (via role)
@@ -84,7 +94,7 @@
       ansible.builtin.npm:
         name: "{{ npm_package }}"
         global: true
-        state: latest
+        state: present
       when: inventory_hostname != 'ynh2'
       tags: install
 
