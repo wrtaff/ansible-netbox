@@ -9,14 +9,22 @@ def get_hass_token():
     if token:
         return token
     
-    config_path = '/home/will/pops/.mcp.json'
-    try:
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-            return config.get('mcpServers', {}).get('homeassistant', {}).get('env', {}).get('HASS_TOKEN')
-    except Exception as e:
-        print(f"Error reading token from {config_path}: {e}", file=sys.stderr)
-        return None
+    # Try ~/.mcp.json first, as it is machine-local and not checked into git
+    config_paths = [
+        '/home/will/.mcp.json',
+        '/home/will/pops/.mcp.json'
+    ]
+    for config_path in config_paths:
+        try:
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    token = config.get('mcpServers', {}).get('homeassistant', {}).get('env', {}).get('HASS_TOKEN')
+                    if token and token != "PLACEHOLDER_ROTATE_ME":
+                        return token
+        except Exception as e:
+            print(f"Error reading token from {config_path}: {e}", file=sys.stderr)
+    return None
 
 def main():
     if len(sys.argv) < 2:
