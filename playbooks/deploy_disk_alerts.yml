@@ -1,9 +1,9 @@
 ---
 # ==============================================================================
 # Filename:       deploy_disk_alerts.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
-# Last Modified:  2026-07-31
+# Last Modified:  2026-08-01
 # Context:        http://trac.gafla.us.com/ticket/4078
 #
 # Purpose:
@@ -25,17 +25,31 @@
           #!/bin/bash
           # Managed by Ansible - deploy_disk_alerts.yml
           THRESHOLD=85
-          EMAIL="root@home.arpa"
+          EMAILS="root@home.arpa,wrtaff@gmail.com"
           HOSTNAME=$(hostname)
 
           df -Ph | grep -vE '^Filesystem|tmpfs|cdrom|udev|none|/boot/efi' | while read line; do
             usep=$(echo $line | awk '{print $5}' | cut -d"%" -f1)
             partition=$(echo $line | awk '{print $6}')
+            
+            sanitized_partition=$(echo "$partition" | tr '/' '_')
+            lock_file="/tmp/disk_alert_${HOSTNAME}_${sanitized_partition}.lock"
+            trac_query_url="http://trac.gafla.us.com/query?status=!closed&keywords=~disk-alert+~${HOSTNAME}"
+
             if [ $usep -ge $THRESHOLD ]; then
-              # Send email via postfix null client relay
-              echo -e "Warning: Disk space on $HOSTNAME for partition $partition is at $usep%.\n\nPlease clean up or extend the volume to prevent service disruption." | mail -s "CRITICAL: Disk Space Alert on $HOSTNAME ($usep% full)" "$EMAIL"
-              # Log alert directly to Graylog syslog input via UDP
-              logger -d -n 192.168.0.104 -P 1514 "CRITICAL: Disk Space Alert: partition $partition is at $usep%"
+              if [ ! -f "$lock_file" ]; then
+                # Send email via postfix null client relay to both root and wrtaff@gmail.com with Trac ticket link
+                echo -e "Warning: Disk space on $HOSTNAME for partition $partition is at $usep%.\n\nAn automated Trac ticket has been created/tracked for this alert:\n${trac_query_url}\n\nPlease clean up or extend the volume to prevent service disruption." | mail -s "CRITICAL: Disk Space Alert on $HOSTNAME ($usep% full)" "$EMAILS"
+                # Log alert directly to Graylog syslog input via UDP
+                logger -d -n 192.168.0.104 -P 1514 "CRITICAL: Disk Space Alert: partition $partition is at $usep%"
+                # Create lock file to prevent repeat alerts until resolved
+                touch "$lock_file"
+              fi
+            else
+              # Reset lock file if utilization falls below threshold
+              if [ -f "$lock_file" ]; then
+                rm -f "$lock_file"
+              fi
             fi
           done
 
