@@ -102,6 +102,15 @@
                       'HASS_URL': 'http://hass.home.arpa/api/mcp',
                       'HASS_TOKEN': hass_gemini_api_key
                     }
+                  },
+                  'ha-mcp': {
+                    'type': 'stdio',
+                    'command': 'npx',
+                    'args': ['-y', 'ha-mcp'],
+                    'env': {
+                      'HA_MCP_URL': 'http://hass.home.arpa',
+                      'HA_MCP_TOKEN': hass_gemini_api_key
+                    }
                   }
                 }
               }, recursive=True)
