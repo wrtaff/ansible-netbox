@@ -1,19 +1,19 @@
 ---
 # ==============================================================================
 # Filename:       playbooks/configure_mcp_servers_remote.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
-# Last Modified:  2026-04-10
-# Context:        http://trac.home.arpa/ticket/3214
+# Last Modified:  2026-08-07
+# Context:        http://trac.home.arpa/ticket/3214, http://trac.gafla.us.com/ticket/4123
 #
 # Purpose:
 #   Provisions MCP servers for Gemini CLI on remote desktops.
-#   Sets up the virtual environment, installs dependencies, and configures
-#   the project-level settings.json.
+#   Sets up the virtual environment, installs dependencies, and renders one
+#   canonical MCP catalog for Claude, Antigravity, and OpenCode.
 # ==============================================================================
 
 - name: Configure MCP Servers on Remote Desktops
-  hosts: desktops, agent_runners
+  hosts: "{{ mcp_target_hosts | default('desktops,agent_runners') }}"
   vars_files:
     - ../vault.yml
   vars:
@@ -21,35 +21,76 @@
     repo_path: "/home/{{ gemini_user }}/ansible-netbox"
     gemini_project_dir: "/home/{{ gemini_user }}/gemini_projects"
     venv_path: "/home/{{ gemini_user }}/ansible-netbox/.venv"
+    # The one managed catalog for custom Python MCP servers. Secret values stay
+    # in the Ansible-managed shell environment, not in harness config files.
     mcp_servers:
       trac:
+        type: stdio
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/trac/server.py"
+        env:
+          TRAC_URL: "http://trac.home.arpa/login/xmlrpc"
       google-workspace:
+        type: stdio
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/google-workspace/server.py"
+        env: {}
       nextcloud:
+        type: stdio
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/nextcloud/server.py"
+        env: {}
       wwos:
+        type: stdio
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/wwos/server.py"
+        env: {}
       porkbun:
+        type: stdio
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/porkbun/server.py"
+        env: {}
       netbox:
+        type: stdio
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/netbox/server.py"
+        env:
+          NETBOX_API: "http://netbox1.home.arpa:80"
+      vikunja:
+        type: stdio
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/vikunja/server.py"
+        env: {}
+      paperless:
+        type: stdio
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/paperless/server.py"
+        env: {}
+      graylog:
+        type: stdio
+        command: "{{ venv_path }}/bin/python3"
+        args:
+          - "{{ repo_path }}/mcp-servers/graylog/server.py"
+        env: {}
       homeassistant:
+        type: stdio
         command: "{{ venv_path }}/bin/python3"
         args:
           - "{{ repo_path }}/mcp-servers/homeassistant/server.py"
+        env:
+          HASS_URL: "http://hass.home.arpa/api/mcp"
+    mcp_standard_config_paths:
+      - "/home/{{ gemini_user }}/.mcp.json"
+      - "/home/{{ gemini_user }}/.gemini/antigravity-cli/mcp_config.json"
+    mcp_opencode_config_path: "/home/{{ gemini_user }}/.config/opencode/opencode.json"
     gemini_context:
       includeDirectories:
         - "{{ gemini_project_dir }}"
@@ -80,15 +121,33 @@
       become_method: su
       when: inventory_hostname != 'ynh2'
 
-    - name: 3. Ensure .gemini directory exists in project
+    - name: 3. Ensure MCP configuration directories exist
       ansible.builtin.file:
-        path: "{{ gemini_project_dir }}/.gemini"
+        path: "{{ item | dirname }}"
         state: directory
         mode: '0755'
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
+      loop: "{{ [gemini_project_dir + '/.gemini', mcp_opencode_config_path] + mcp_standard_config_paths }}"
 
-    - name: 4. Configure Project-Level settings.json
+    - name: 4. Render standard MCP configurations
+      ansible.builtin.copy:
+        content: "{{ {'mcpServers': mcp_servers} | to_nice_json }}"
+        dest: "{{ item }}"
+        mode: '0600'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+      loop: "{{ mcp_standard_config_paths }}"
+
+    - name: 5. Render OpenCode MCP configuration
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/opencode-mcp.json.j2"
+        dest: "{{ mcp_opencode_config_path }}"
+        mode: '0600'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+
+    - name: 6. Configure project-level Gemini settings
       ansible.builtin.copy:
         content: "{{ {'context': gemini_context, 'mcpServers': mcp_servers} | to_nice_json }}"
         dest: "{{ gemini_project_dir }}/.gemini/settings.json"
@@ -96,7 +155,7 @@
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
 
-    - name: 5. Deploy MCP Credentials to .bashrc
+    - name: 7. Deploy MCP Credentials to .bashrc
       ansible.builtin.blockinfile:
         path: "/home/{{ gemini_user }}/.bashrc"
         marker: "# {mark} ANSIBLE MANAGED BLOCK FOR MCP CREDENTIALS"
@@ -112,7 +171,7 @@
       become_user: "{{ gemini_user }}"
       become_method: su
 
-    - name: 5.5 Ensure tmp directory exists in repo
+    - name: 7.5 Ensure tmp directory exists in repo
       ansible.builtin.file:
         path: "{{ repo_path }}/tmp"
         state: directory
@@ -120,7 +179,7 @@
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
 
-    - name: 6. Cache credentials in tmp/
+    - name: 8. Cache credentials in tmp/
       ansible.builtin.copy:
         content: "{{ item.content }}"
         dest: "{{ repo_path }}/tmp/{{ item.name }}"
