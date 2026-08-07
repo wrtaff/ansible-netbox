@@ -151,7 +151,7 @@
 
     - name: 6. Read existing OpenCode MCP configuration
       ansible.builtin.slurp:
-      src: "{{ mcp_opencode_config_path }}"
+        src: "{{ mcp_opencode_config_path }}"
       register: mcp_opencode_config
       ignore_errors: true
       no_log: true
