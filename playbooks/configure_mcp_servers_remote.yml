@@ -135,6 +135,7 @@
         src: "{{ item }}"
       loop: "{{ mcp_standard_config_paths }}"
       register: mcp_standard_config_results
+      no_log: true
 
     - name: 5. Render standard MCP configurations
       ansible.builtin.template:
@@ -146,12 +147,14 @@
       loop: "{{ mcp_standard_config_results.results }}"
       vars:
         current_mcp_config: "{{ item.content | b64decode | from_json }}"
+      no_log: true
 
     - name: 6. Read existing OpenCode MCP configuration
       ansible.builtin.slurp:
-        src: "{{ mcp_opencode_config_path }}"
+      src: "{{ mcp_opencode_config_path }}"
       register: mcp_opencode_config
       ignore_errors: true
+      no_log: true
 
     - name: 7. Render OpenCode MCP configuration
       ansible.builtin.template:
@@ -162,6 +165,7 @@
         group: "{{ gemini_user }}"
       vars:
         current_opencode_config: "{{ (mcp_opencode_config.content | b64decode | from_json) if mcp_opencode_config is success else {} }}"
+      no_log: true
 
     - name: 8. Configure project-level Gemini settings
       ansible.builtin.copy:
