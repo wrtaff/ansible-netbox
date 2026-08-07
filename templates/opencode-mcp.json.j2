@@ -1,0 +1,15 @@
+{% set unmanaged = {} %}
+{% for name, server in current_opencode_config.get('mcp', {}).items() %}
+{%   if name not in mcp_servers %}
+{%     set _ = unmanaged.update({name: server}) %}
+{%   endif %}
+{% endfor %}
+{% set rendered_servers = {} %}
+{% for name, server in mcp_servers.items() %}
+{%   set rendered = {'type': 'local', 'command': [server.command] + server.args, 'enabled': true} %}
+{%   if server.env | length > 0 %}
+{%     set _ = rendered.update({'environment': server.env}) %}
+{%   endif %}
+{%   set _ = rendered_servers.update({name: rendered}) %}
+{% endfor %}
+{{ current_opencode_config | combine({'$schema': current_opencode_config.get('$schema', 'https://opencode.ai/config.json'), 'mcp': unmanaged | combine(rendered_servers)}, recursive=False) | to_nice_json }}

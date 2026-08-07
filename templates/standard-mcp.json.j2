@@ -1,0 +1,7 @@
+{% set unmanaged = {} %}
+{% for name, server in current_mcp_config.get('mcpServers', {}).items() %}
+{%   if name not in mcp_servers %}
+{%     set _ = unmanaged.update({name: server}) %}
+{%   endif %}
+{% endfor %}
+{{ current_mcp_config | combine({'mcpServers': unmanaged | combine(mcp_servers)}, recursive=False) | to_nice_json }}
