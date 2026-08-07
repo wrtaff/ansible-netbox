@@ -8,5 +8,3 @@ ktn_data_directory: "/var/lib/kill-the-newsletter/data"
 ktn_hostname: "ktn-lxc-01.van-bee.ts.net"
 ktn_smtp_port: 2525
 ktn_http_port: 8088
-ktn_https_port: 8443
-ktn_tls_directory: "/etc/ssl/tailscale/ktn-lxc-01.van-bee.ts.net"

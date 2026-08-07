@@ -1,9 +1,0 @@
-[Unit]
-Description=Refresh Kill the Newsletter Tailnet certificate
-After=tailscaled.service
-Requires=tailscaled.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/refresh-ktn-tailscale-cert
-ExecStartPost=/bin/systemctl try-restart kill-the-newsletter.service

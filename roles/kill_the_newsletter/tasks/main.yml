@@ -34,7 +34,6 @@
     mode: "{{ item.mode }}"
   loop:
     - { path: "{{ ktn_data_directory }}", owner: "{{ ktn_user }}", group: "{{ ktn_group }}", mode: "0750" }
-    - { path: "{{ ktn_tls_directory }}", owner: "root", group: "{{ ktn_group }}", mode: "0750" }
 
 - name: Fetch pinned KTN source
   ansible.builtin.git:
@@ -79,39 +78,34 @@
     mode: "0640"
   notify: Restart KTN
 
-- name: Write Tailnet certificate refresh script
+- name: Install KTN service unit
   ansible.builtin.template:
-    src: refresh-tailscale-cert.sh.j2
-    dest: "/usr/local/sbin/refresh-ktn-tailscale-cert"
-    owner: root
-    group: root
-    mode: "0750"
-
-- name: Install KTN certificate refresh units
-  ansible.builtin.template:
-    src: "{{ item }}.j2"
-    dest: "/etc/systemd/system/{{ item }}"
+    src: kill-the-newsletter.service.j2
+    dest: "/etc/systemd/system/kill-the-newsletter.service"
     owner: root
     group: root
     mode: "0644"
-  loop:
-    - ktn-tailscale-cert.service
-    - ktn-tailscale-cert.timer
-    - kill-the-newsletter.service
   notify:
     - Reload systemd
     - Restart KTN
 
-- name: Enable KTN certificate refresh timer
+- name: Remove obsolete local TLS certificate machinery
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/sbin/refresh-ktn-tailscale-cert
+    - /etc/systemd/system/ktn-tailscale-cert.service
+    - /etc/systemd/system/ktn-tailscale-cert.timer
+    - /etc/ssl/tailscale/ktn-lxc-01.van-bee.ts.net
+
+- name: Disable obsolete KTN certificate refresh timer
   ansible.builtin.systemd:
     name: ktn-tailscale-cert.timer
-    enabled: true
-    state: started
+    enabled: false
+    state: stopped
     daemon_reload: true
-
-- name: Issue KTN Tailnet certificate
-  ansible.builtin.command: /usr/local/sbin/refresh-ktn-tailscale-cert
-  changed_when: false
+  failed_when: false
 
 - name: Enable and start KTN service
   ansible.builtin.systemd:
@@ -120,9 +114,12 @@
     state: started
     daemon_reload: true
 
+- name: Apply KTN configuration before enabling the public proxy
+  ansible.builtin.meta: flush_handlers
+
 - name: Configure Tailnet HTTPS proxy to KTN
   ansible.builtin.command: >
-    tailscale serve --https=443 https+insecure://127.0.0.1:{{ ktn_https_port }}
+    tailscale serve --bg --https=443 http://127.0.0.1:{{ ktn_http_port }}
   changed_when: false
 
 - name: Wait for KTN SMTP listener
