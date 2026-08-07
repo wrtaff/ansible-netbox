@@ -1,0 +1,102 @@
+---
+# Routine, non-destructive repository synchronization for existing agent runners.
+# Full host setup remains owned by provision_agent_runner.yml.
+
+- name: Synchronize existing agent runner repositories
+  hosts: agent_runners
+  become: true
+  vars:
+    target_user: will
+    target_home: "/home/{{ target_user }}"
+    controller_pops_path: /home/will/pops
+
+  tasks:
+    - name: Check managed repository checkouts
+      ansible.builtin.stat:
+        path: "{{ item.path }}/.git"
+      loop:
+        - { name: pops, path: "{{ target_home }}/pops" }
+        - { name: ansible-netbox, path: "{{ target_home }}/ansible-netbox" }
+        - { name: pops/wiki, path: "{{ target_home }}/pops/wiki" }
+        - { name: pops/raw, path: "{{ target_home }}/pops/raw" }
+      register: managed_repos
+
+    - name: Require existing pops checkout
+      ansible.builtin.assert:
+        that: managed_repos.results[0].stat.exists
+        fail_msg: "{{ target_home }}/pops is missing; use provision_agent_runner.yml for bootstrap."
+
+    - name: Correct hub remotes for core repositories
+      community.general.git_config:
+        name: "remote.origin.url"
+        value: "{{ item.url }}"
+        scope: local
+        repo: "{{ item.repo }}"
+      become_user: "{{ target_user }}"
+      loop:
+        - { repo: "{{ target_home }}/pops", url: "will@athena.home.arpa:/home/will/git/pops.git" }
+        - { repo: "{{ target_home }}/ansible-netbox", url: "will@athena.home.arpa:/home/will/git/ansible-netbox.git" }
+      when: managed_repos.results[index].stat.exists
+      loop_control:
+        index_var: index
+
+    - name: Pin core repository trunks to the hub
+      ansible.builtin.command:
+        cmd: "git branch --set-upstream-to=origin/{{ item.branch }} {{ item.branch }}"
+        chdir: "{{ item.repo }}"
+      become_user: "{{ target_user }}"
+      changed_when: false
+      loop:
+        - { repo: "{{ target_home }}/pops", branch: main }
+        - { repo: "{{ target_home }}/ansible-netbox", branch: master }
+      when: managed_repos.results[index].stat.exists
+      loop_control:
+        index_var: index
+
+    - name: Correct nested repository hub remotes
+      community.general.git_config:
+        name: remote.athena.url
+        value: "{{ item.url }}"
+        scope: local
+        repo: "{{ item.repo }}"
+      become_user: "{{ target_user }}"
+      loop:
+        - { repo: "{{ target_home }}/pops/wiki", url: "will@athena.home.arpa:/home/will/git/pops-kms.git" }
+        - { repo: "{{ target_home }}/pops/raw", url: "will@athena.home.arpa:/home/will/git/pops-raw.git" }
+      when: managed_repos.results[index + 2].stat.exists
+      loop_control:
+        index_var: index
+
+    - name: Create isolated agent sync staging directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: agent-sync
+      become_user: "{{ target_user }}"
+      register: sync_stage
+
+    - name: Stage current agent sync script
+      ansible.builtin.copy:
+        src: "{{ controller_pops_path }}/scripts/agent-sync-check.sh"
+        dest: "{{ sync_stage.path }}/agent-sync-check.sh"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+
+    - name: Run staged agent sync script
+      ansible.builtin.command:
+        cmd: "bash {{ sync_stage.path }}/agent-sync-check.sh"
+      become_user: "{{ target_user }}"
+      environment:
+        TMPDIR: "{{ sync_stage.path }}"
+      register: staged_agent_sync
+      changed_when: false
+      failed_when: false
+
+    - name: Report staged agent sync result
+      ansible.builtin.debug:
+        msg: "{{ staged_agent_sync.stdout_lines }}"
+
+    - name: Remove isolated agent sync staging directory
+      ansible.builtin.file:
+        path: "{{ sync_stage.path }}"
+        state: absent
