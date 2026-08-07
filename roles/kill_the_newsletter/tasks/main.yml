@@ -12,6 +12,11 @@
     state: present
     update_cache: true
 
+- name: Create KTN service group
+  ansible.builtin.group:
+    name: "{{ ktn_group }}"
+    system: true
+
 - name: Create KTN service account
   ansible.builtin.user:
     name: "{{ ktn_user }}"
