@@ -98,15 +98,44 @@
         - "/mnt/smb/share/Documents/will/gemini_projects"
 
   tasks:
-    - name: 1. Ensure Python Venv exists
+    - name: 1. Check managed Python virtual environment metadata
+      ansible.builtin.stat:
+        path: "{{ venv_path }}/pyvenv.cfg"
+      register: mcp_venv_metadata
+      when: inventory_hostname != 'ynh2'
+
+    - name: 2. Probe managed Python virtual environment
+      ansible.builtin.command:
+        argv:
+          - "{{ venv_path }}/bin/python3"
+          - -c
+          - "import sys, mcp, pydantic; assert sys.prefix == '{{ venv_path }}'"
+      register: mcp_venv_probe
+      changed_when: false
+      failed_when: false
+      when:
+        - inventory_hostname != 'ynh2'
+        - mcp_venv_metadata.stat.exists
+
+    - name: 3. Remove invalid managed Python virtual environment
+      ansible.builtin.file:
+        path: "{{ venv_path }}"
+        state: absent
+      when:
+        - inventory_hostname != 'ynh2'
+        - not mcp_venv_metadata.stat.exists or mcp_venv_probe.rc | default(1) != 0
+
+    - name: 4. Create managed Python virtual environment
       ansible.builtin.command:
         cmd: "python3 -m venv {{ venv_path }}"
-        creates: "{{ venv_path }}/pyvenv.cfg"
       become: yes
       become_user: "{{ gemini_user }}"
       become_method: su
+      when:
+        - inventory_hostname != 'ynh2'
+        - not mcp_venv_metadata.stat.exists or mcp_venv_probe.rc | default(1) != 0
 
-    - name: 2. Install MCP Python Dependencies
+    - name: 5. Install MCP Python Dependencies
       ansible.builtin.pip:
         name: 
           - fastmcp
@@ -121,7 +150,16 @@
       become_method: su
       when: inventory_hostname != 'ynh2'
 
-    - name: 3. Ensure MCP configuration directories exist
+    - name: 6. Assert managed Python virtual environment health
+      ansible.builtin.command:
+        argv:
+          - "{{ venv_path }}/bin/python3"
+          - -c
+          - "import sys, mcp, pydantic; assert sys.prefix == '{{ venv_path }}'"
+      changed_when: false
+      when: inventory_hostname != 'ynh2'
+
+    - name: 7. Ensure MCP configuration directories exist
       ansible.builtin.file:
         path: "{{ item | dirname }}"
         state: directory
@@ -130,14 +168,14 @@
         group: "{{ gemini_user }}"
       loop: "{{ [gemini_project_dir + '/.gemini', mcp_opencode_config_path] + mcp_standard_config_paths }}"
 
-    - name: 4. Read existing standard MCP configurations
+    - name: 8. Read existing standard MCP configurations
       ansible.builtin.slurp:
         src: "{{ item }}"
       loop: "{{ mcp_standard_config_paths }}"
       register: mcp_standard_config_results
       no_log: true
 
-    - name: 5. Render standard MCP configurations
+    - name: 9. Render standard MCP configurations
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/standard-mcp.json.j2"
         dest: "{{ item.item }}"
@@ -149,14 +187,14 @@
         current_mcp_config: "{{ item.content | b64decode | from_json }}"
       no_log: true
 
-    - name: 6. Read existing OpenCode MCP configuration
+    - name: 10. Read existing OpenCode MCP configuration
       ansible.builtin.slurp:
         src: "{{ mcp_opencode_config_path }}"
       register: mcp_opencode_config
       ignore_errors: true
       no_log: true
 
-    - name: 7. Render OpenCode MCP configuration
+    - name: 11. Render OpenCode MCP configuration
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/opencode-mcp.json.j2"
         dest: "{{ mcp_opencode_config_path }}"
@@ -167,7 +205,7 @@
         current_opencode_config: "{{ (mcp_opencode_config.content | b64decode | from_json) if mcp_opencode_config is success else {} }}"
       no_log: true
 
-    - name: 8. Configure project-level Gemini settings
+    - name: 12. Configure project-level Gemini settings
       ansible.builtin.copy:
         content: "{{ {'context': gemini_context, 'mcpServers': mcp_servers} | to_nice_json }}"
         dest: "{{ gemini_project_dir }}/.gemini/settings.json"
@@ -175,7 +213,7 @@
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
 
-    - name: 9. Deploy MCP Credentials to .bashrc
+    - name: 13. Deploy MCP Credentials to .bashrc
       ansible.builtin.blockinfile:
         path: "/home/{{ gemini_user }}/.bashrc"
         marker: "# {mark} ANSIBLE MANAGED BLOCK FOR MCP CREDENTIALS"
@@ -191,7 +229,7 @@
       become_user: "{{ gemini_user }}"
       become_method: su
 
-    - name: 9.5 Ensure tmp directory exists in repo
+    - name: 13.5 Ensure tmp directory exists in repo
       ansible.builtin.file:
         path: "{{ repo_path }}/tmp"
         state: directory
@@ -199,7 +237,7 @@
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
 
-    - name: 10. Cache credentials in tmp/
+    - name: 14. Cache credentials in tmp/
       ansible.builtin.copy:
         content: "{{ item.content }}"
         dest: "{{ repo_path }}/tmp/{{ item.name }}"
