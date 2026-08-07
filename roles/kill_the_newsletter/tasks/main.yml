@@ -1,7 +1,14 @@
 ---
-- name: Install managed Node.js runtime
+- name: Inspect installed Node.js runtime
+  ansible.builtin.command: node --version
+  register: ktn_node_version
+  failed_when: false
+  changed_when: false
+
+- name: Install managed Node.js runtime when Node 22 is unavailable
   ansible.builtin.include_role:
     name: nodejs
+  when: ktn_node_version.rc != 0 or not (ktn_node_version.stdout is match('^v22\.'))
 
 - name: Install KTN build dependencies
   ansible.builtin.apt:
