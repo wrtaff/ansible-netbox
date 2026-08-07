@@ -90,7 +90,7 @@
     mcp_standard_config_paths:
       - "/home/{{ gemini_user }}/.mcp.json"
       - "/home/{{ gemini_user }}/.gemini/antigravity-cli/mcp_config.json"
-    mcp_opencode_config_path: "/home/{{ gemini_user }}/.config/opencode/opencode.json"
+    mcp_opencode_config_path: "/home/{{ gemini_user }}/.config/opencode/opencode.jsonc"
     gemini_context:
       includeDirectories:
         - "{{ gemini_project_dir }}"
@@ -130,24 +130,40 @@
         group: "{{ gemini_user }}"
       loop: "{{ [gemini_project_dir + '/.gemini', mcp_opencode_config_path] + mcp_standard_config_paths }}"
 
-    - name: 4. Render standard MCP configurations
-      ansible.builtin.copy:
-        content: "{{ {'mcpServers': mcp_servers} | to_nice_json }}"
-        dest: "{{ item }}"
+    - name: 4. Read existing standard MCP configurations
+      ansible.builtin.slurp:
+        src: "{{ item }}"
+      loop: "{{ mcp_standard_config_paths }}"
+      register: mcp_standard_config_results
+
+    - name: 5. Render standard MCP configurations
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/standard-mcp.json.j2"
+        dest: "{{ item.item }}"
         mode: '0600'
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
-      loop: "{{ mcp_standard_config_paths }}"
+      loop: "{{ mcp_standard_config_results.results }}"
+      vars:
+        current_mcp_config: "{{ item.content | b64decode | from_json }}"
 
-    - name: 5. Render OpenCode MCP configuration
+    - name: 6. Read existing OpenCode MCP configuration
+      ansible.builtin.slurp:
+        src: "{{ mcp_opencode_config_path }}"
+      register: mcp_opencode_config
+      ignore_errors: true
+
+    - name: 7. Render OpenCode MCP configuration
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/opencode-mcp.json.j2"
         dest: "{{ mcp_opencode_config_path }}"
         mode: '0600'
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
+      vars:
+        current_opencode_config: "{{ (mcp_opencode_config.content | b64decode | from_json) if mcp_opencode_config is success else {} }}"
 
-    - name: 6. Configure project-level Gemini settings
+    - name: 8. Configure project-level Gemini settings
       ansible.builtin.copy:
         content: "{{ {'context': gemini_context, 'mcpServers': mcp_servers} | to_nice_json }}"
         dest: "{{ gemini_project_dir }}/.gemini/settings.json"
@@ -155,7 +171,7 @@
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
 
-    - name: 7. Deploy MCP Credentials to .bashrc
+    - name: 9. Deploy MCP Credentials to .bashrc
       ansible.builtin.blockinfile:
         path: "/home/{{ gemini_user }}/.bashrc"
         marker: "# {mark} ANSIBLE MANAGED BLOCK FOR MCP CREDENTIALS"
@@ -171,7 +187,7 @@
       become_user: "{{ gemini_user }}"
       become_method: su
 
-    - name: 7.5 Ensure tmp directory exists in repo
+    - name: 9.5 Ensure tmp directory exists in repo
       ansible.builtin.file:
         path: "{{ repo_path }}/tmp"
         state: directory
@@ -179,7 +195,7 @@
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
 
-    - name: 8. Cache credentials in tmp/
+    - name: 10. Cache credentials in tmp/
       ansible.builtin.copy:
         content: "{{ item.content }}"
         dest: "{{ repo_path }}/tmp/{{ item.name }}"
