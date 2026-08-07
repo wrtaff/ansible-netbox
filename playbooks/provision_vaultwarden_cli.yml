@@ -1,0 +1,6 @@
+---
+- name: Provision managed Bitwarden CLI on athena
+  hosts: athena
+  become: true
+  roles:
+    - vaultwarden_cli

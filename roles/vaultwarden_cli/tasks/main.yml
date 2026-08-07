@@ -1,0 +1,29 @@
+---
+- name: Verify npm is available for the managed Bitwarden CLI install
+  ansible.builtin.command: npm --version
+  changed_when: false
+
+- name: Inspect installed Bitwarden CLI version
+  ansible.builtin.command: bw --version
+  register: vaultwarden_cli_installed_version
+  failed_when: false
+  changed_when: false
+
+- name: Install the pinned Bitwarden CLI globally
+  ansible.builtin.command: >
+    npm install --global @bitwarden/cli@{{ vaultwarden_cli_version }}
+  when: vaultwarden_cli_installed_version.rc != 0 or
+        vaultwarden_cli_installed_version.stdout != vaultwarden_cli_version
+
+- name: Configure the self-hosted VaultWarden server for the controller user
+  ansible.builtin.command: >
+    bw config server {{ vaultwarden_cli_server_url }}
+  become_user: "{{ vaultwarden_cli_user }}"
+  changed_when: false
+
+- name: Verify Bitwarden CLI installation and unauthenticated status access
+  ansible.builtin.command: bw status
+  become_user: "{{ vaultwarden_cli_user }}"
+  register: vaultwarden_cli_status
+  changed_when: false
+  failed_when: vaultwarden_cli_status.rc != 0
