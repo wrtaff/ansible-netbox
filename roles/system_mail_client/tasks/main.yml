@@ -49,7 +49,9 @@
         mail_test_token: "ansible-test-{{ 1000000 | random }}"
 
     - name: Send test email from root
-      shell: "echo 'Test delivery {{ mail_test_token }}' | mail -s 'Relay Test {{ inventory_hostname }}' root"
+      shell: >
+        printf 'Subject: Relay Test {{ inventory_hostname }}\n\nTest delivery {{ mail_test_token }}\n'
+        | /usr/sbin/sendmail root@home.arpa
 
     - name: Verify email reached catchall Maildir on relay host
       shell: "grep -r '{{ mail_test_token }}' /home/catchall/Maildir/"
