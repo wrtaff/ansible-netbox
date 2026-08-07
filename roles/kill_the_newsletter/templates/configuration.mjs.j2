@@ -1,6 +1,10 @@
 export default {
   hostname: "{{ ktn_hostname }}",
   systemAdministratorEmail: "will@home.arpa",
+  tls: {
+    key: "{{ ktn_tls_directory }}/key.pem",
+    certificate: "{{ ktn_tls_directory }}/cert.pem",
+  },
   dataDirectory: "{{ ktn_data_directory }}/",
   environment: "production",
   extraGlobalOptions: `

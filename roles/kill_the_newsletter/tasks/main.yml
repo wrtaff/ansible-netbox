@@ -41,6 +41,7 @@
     mode: "{{ item.mode }}"
   loop:
     - { path: "{{ ktn_data_directory }}", owner: "{{ ktn_user }}", group: "{{ ktn_group }}", mode: "0750" }
+    - { path: "{{ ktn_tls_directory }}", owner: "root", group: "{{ ktn_group }}", mode: "0750" }
 
 - name: Fetch pinned KTN source
   ansible.builtin.git:
@@ -85,6 +86,37 @@
     mode: "0640"
   notify: Restart KTN
 
+- name: Write Tailnet certificate refresh script
+  ansible.builtin.template:
+    src: refresh-tailscale-cert.sh.j2
+    dest: "/usr/local/sbin/refresh-ktn-tailscale-cert"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install KTN certificate refresh units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - ktn-tailscale-cert.service
+    - ktn-tailscale-cert.timer
+  notify: Reload systemd
+
+- name: Enable KTN certificate refresh timer
+  ansible.builtin.systemd:
+    name: ktn-tailscale-cert.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Issue KTN Tailnet certificate for SMTP TLS
+  ansible.builtin.command: /usr/local/sbin/refresh-ktn-tailscale-cert
+  changed_when: false
+
 - name: Install KTN service unit
   ansible.builtin.template:
     src: kill-the-newsletter.service.j2
@@ -95,24 +127,6 @@
   notify:
     - Reload systemd
     - Restart KTN
-
-- name: Remove obsolete local TLS certificate machinery
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /usr/local/sbin/refresh-ktn-tailscale-cert
-    - /etc/systemd/system/ktn-tailscale-cert.service
-    - /etc/systemd/system/ktn-tailscale-cert.timer
-    - /etc/ssl/tailscale/ktn-lxc-01.van-bee.ts.net
-
-- name: Disable obsolete KTN certificate refresh timer
-  ansible.builtin.systemd:
-    name: ktn-tailscale-cert.timer
-    enabled: false
-    state: stopped
-    daemon_reload: true
-  failed_when: false
 
 - name: Enable and start KTN service
   ansible.builtin.systemd:

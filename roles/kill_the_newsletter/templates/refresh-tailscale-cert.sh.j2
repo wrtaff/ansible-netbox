@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+tailscale cert \
+  --cert-file {{ ktn_tls_directory }}/cert.pem \
+  --key-file {{ ktn_tls_directory }}/key.pem \
+  {{ ktn_hostname }}
+chown root:{{ ktn_group }} {{ ktn_tls_directory }}/cert.pem {{ ktn_tls_directory }}/key.pem
+chmod 0640 {{ ktn_tls_directory }}/cert.pem {{ ktn_tls_directory }}/key.pem
