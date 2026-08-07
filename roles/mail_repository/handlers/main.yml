@@ -25,3 +25,9 @@
 
 - name: run newaliases
   command: newaliases
+
+- name: postmap virtual
+  command: postmap /etc/postfix/virtual
+
+- name: postmap sasl_passwd
+  command: postmap /etc/postfix/sasl_passwd

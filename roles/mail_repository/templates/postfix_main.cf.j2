@@ -14,7 +14,17 @@ alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 myorigin = /etc/mailname
 mydestination = {{ ansible_fqdn | default(ansible_host) }}, localhost.home.arpa, localhost, {{ mail_repository_domain }}
+
+{% if mail_repository_relay_enabled | default(false) %}
+relayhost = [{{ mail_repository_relay_host }}]:{{ mail_repository_relay_port | default(587) }}
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+smtp_tls_security_level = encrypt
+{% else %}
 relayhost = 
+{% endif %}
+
 mynetworks = {{ mail_repository_trusted_networks }}
 mailbox_size_limit = {{ mail_repository_mailbox_limit }}
 recipient_delimiter = +
@@ -24,8 +34,8 @@ inet_protocols = all
 smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination
 
 virtual_alias_domains =
-# Virtual alias to catch everything and send to catchall user
-virtual_alias_maps = static:{{ mail_repository_catchall_user }}
+# Virtual alias maps to route local domains to catchall, and let others pass through
+virtual_alias_maps = hash:/etc/postfix/virtual
 
 # Delivery to Dovecot via LMTP
 mailbox_transport = lmtp:unix:private/dovecot-lmtp

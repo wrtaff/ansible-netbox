@@ -14,5 +14,9 @@
   become: yes
   vars_files:
     - ../vault.yml
+  vars:
+    mail_repository_relay_enabled: true
+    mail_repository_relay_user: "{{ vikunja_smtp_user }}"
+    mail_repository_relay_password: "{{ vikunja_smtp_password }}"
   roles:
     - mail_repository

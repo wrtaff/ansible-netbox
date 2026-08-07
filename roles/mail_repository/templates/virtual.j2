@@ -1,0 +1,6 @@
+# Virtual alias maps for Mail Repository
+# Route local domains to the catchall user
+@home.arpa {{ mail_repository_catchall_user }}
+@localhost {{ mail_repository_catchall_user }}
+@{{ ansible_fqdn | default(ansible_host) }} {{ mail_repository_catchall_user }}
+@{{ ansible_hostname }} {{ mail_repository_catchall_user }}

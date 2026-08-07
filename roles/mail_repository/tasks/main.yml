@@ -20,6 +20,8 @@
       - postfix
       - dovecot-imapd
       - dovecot-lmtpd
+      - dovecot-sieve
+      - libsasl2-modules
       - mailutils
     state: present
     update_cache: yes
@@ -58,6 +60,29 @@
     group: root
     mode: '0644'
   notify: restart postfix
+
+- name: Configure Postfix virtual alias maps
+  template:
+    src: virtual.j2
+    dest: /etc/postfix/virtual
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - postmap virtual
+    - restart postfix
+
+- name: Configure Postfix SASL password maps
+  template:
+    src: sasl_passwd.j2
+    dest: /etc/postfix/sasl_passwd
+    owner: root
+    group: root
+    mode: '0600'
+  when: mail_repository_relay_enabled | default(false)
+  notify:
+    - postmap sasl_passwd
+    - restart postfix
 
 - name: Configure Dovecot (main config)
   template:
