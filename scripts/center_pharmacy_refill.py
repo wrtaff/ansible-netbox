@@ -59,7 +59,7 @@ def run_refill():
         return
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
         page = browser.new_page()
         
         print("Navigating to Center Pharmacy portal...")
@@ -67,8 +67,8 @@ def run_refill():
         
         print("Logging in...")
         # Fill credentials
-        page.get_by_role('textbox', name='Email Address').fill(email)
-        page.get_by_role('textbox', name='Password').fill(password)
+        page.locator('input[type="text"]').fill(email)
+        page.locator('input[type="password"]').fill(password)
         
         # Click the login button
         page.get_by_role('button', name='Log In').click()
