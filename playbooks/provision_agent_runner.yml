@@ -1,9 +1,15 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        1.7
+# Version:        1.8
 # Author:         Antigravity
 # Last Modified:  2026-07-26
-# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033
+# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029
+#
+# Update 1.8:
+#     - Stage the current agent-sync-check.sh outside existing checkouts and
+#       run it before steady-state fast-forward tasks (Trac #4029). This lets
+#       clean, completed agent branches recover and pull the merged script
+#       without rsyncing over an existing repository's refs, stash, or worktree.
 #
 # Update 1.7:
 #     - Add a raw/ remote-correction task mirroring the existing wiki/ one
@@ -252,6 +258,49 @@
       failed_when:
         - anb_upstream.rc != 0
         - "'set up to track' not in anb_upstream.stdout"
+
+    # Existing checkouts cannot receive the current sync script through the
+    # bootstrap-only rsync tasks above: rsyncing .git would overwrite local
+    # refs and stashes. Stage the script outside the repository instead. The
+    # script itself is non-destructive for dirty, unmerged, remote-backed, or
+    # otherwise ambiguous branches. A recovered clean checkout then pulls the
+    # merged script from the hub during the same run.
+    - name: Create isolated agent sync staging directory
+      ansible.builtin.file:
+        path: "/tmp/ansible-agent-sync-{{ inventory_hostname }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0700'
+      when: pops_git_stat.stat.exists
+
+    - name: Stage current agent sync script for existing checkout refresh
+      ansible.builtin.copy:
+        src: "/home/will/pops/scripts/agent-sync-check.sh"
+        dest: "/tmp/ansible-agent-sync-{{ inventory_hostname }}/agent-sync-check.sh"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+      when: pops_git_stat.stat.exists
+
+    - name: Run staged agent sync script against existing repositories
+      ansible.builtin.command:
+        cmd: "bash /tmp/ansible-agent-sync-{{ inventory_hostname }}/agent-sync-check.sh"
+      become: yes
+      become_user: "{{ target_user }}"
+      environment:
+        TMPDIR: "/tmp/ansible-agent-sync-{{ inventory_hostname }}"
+      register: staged_agent_sync
+      changed_when: false
+      failed_when: false
+      when: pops_git_stat.stat.exists
+
+    - name: Report staged agent sync result
+      ansible.builtin.debug:
+        msg: "{{ staged_agent_sync.stdout_lines | default([]) }}"
+      when:
+        - pops_git_stat.stat.exists
+        - staged_agent_sync is defined
 
     - name: Fast-forward clean pops trunk from hub
       ansible.builtin.shell: |
