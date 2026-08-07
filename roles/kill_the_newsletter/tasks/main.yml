@@ -83,6 +83,7 @@
     chdir: "{{ ktn_root }}"
   when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed
   changed_when: true
+  notify: Restart KTN
 
 - name: Write KTN runtime configuration
   ansible.builtin.template:
