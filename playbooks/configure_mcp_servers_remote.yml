@@ -113,6 +113,7 @@
       register: mcp_venv_probe
       changed_when: false
       failed_when: false
+      check_mode: no
       when:
         - inventory_hostname != 'ynh2'
         - mcp_venv_metadata.stat.exists
@@ -157,6 +158,7 @@
           - -c
           - "import sys, mcp, pydantic; assert sys.prefix == '{{ venv_path }}'"
       changed_when: false
+      check_mode: no
       when: inventory_hostname != 'ynh2'
 
     - name: 7. Ensure MCP configuration directories exist
