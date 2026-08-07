@@ -8,7 +8,7 @@ append_dot_mydomain = no
 myhostname = {{ inventory_hostname }}.home.arpa
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
-myorigin = $myhostname
+myorigin = {{ system_mail_origin_domain }}
 
 # Empty mydestination means ALL mail is considered non-local
 mydestination = 
