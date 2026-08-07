@@ -1,0 +1,6 @@
+---
+- name: Deploy Kill the Newsletter service
+  hosts: ktn-lxc-01
+  become: true
+  roles:
+    - kill_the_newsletter

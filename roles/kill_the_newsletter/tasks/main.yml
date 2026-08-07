@@ -1,0 +1,127 @@
+---
+- name: Install managed Node.js runtime
+  ansible.builtin.include_role:
+    name: nodejs
+
+- name: Install KTN build dependencies
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - git
+      - pkg-config
+    state: present
+    update_cache: true
+
+- name: Create KTN service account
+  ansible.builtin.user:
+    name: "{{ ktn_user }}"
+    group: "{{ ktn_group }}"
+    system: true
+    home: "/var/lib/{{ ktn_user }}"
+    create_home: false
+
+- name: Create KTN state and TLS directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ ktn_data_directory }}", owner: "{{ ktn_user }}", group: "{{ ktn_group }}", mode: "0750" }
+    - { path: "{{ ktn_tls_directory }}", owner: "root", group: "{{ ktn_group }}", mode: "0750" }
+
+- name: Fetch pinned KTN source
+  ansible.builtin.git:
+    repo: "{{ ktn_repository }}"
+    dest: "{{ ktn_root }}"
+    version: "{{ ktn_version }}"
+    force: true
+  register: ktn_source
+
+- name: Allow unprivileged KTN SMTP port configuration
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/source/index.mts"
+    regexp: "application\\.email\\.listen\\(25\\);"
+    replace: "application.email.listen(Number(process.env.SMTP_PORT ?? {{ ktn_smtp_port }}));"
+  register: ktn_smtp_patch
+
+- name: Check whether KTN dependencies are installed
+  ansible.builtin.stat:
+    path: "{{ ktn_root }}/node_modules"
+  register: ktn_node_modules
+
+- name: Install KTN Node dependencies
+  ansible.builtin.command: npm ci
+  args:
+    chdir: "{{ ktn_root }}"
+  when: ktn_source.changed or ktn_smtp_patch.changed or not ktn_node_modules.stat.exists
+  changed_when: true
+
+- name: Build KTN application
+  ansible.builtin.command: npm run prepare
+  args:
+    chdir: "{{ ktn_root }}"
+  when: ktn_source.changed or ktn_smtp_patch.changed
+  changed_when: true
+
+- name: Write KTN runtime configuration
+  ansible.builtin.template:
+    src: configuration.mjs.j2
+    dest: "/etc/kill-the-newsletter.mjs"
+    owner: root
+    group: "{{ ktn_group }}"
+    mode: "0640"
+  notify: Restart KTN
+
+- name: Write Tailnet certificate refresh script
+  ansible.builtin.template:
+    src: refresh-tailscale-cert.sh.j2
+    dest: "/usr/local/sbin/refresh-ktn-tailscale-cert"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install KTN certificate refresh units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - ktn-tailscale-cert.service
+    - ktn-tailscale-cert.timer
+    - kill-the-newsletter.service
+  notify:
+    - Reload systemd
+    - Restart KTN
+
+- name: Enable KTN certificate refresh timer
+  ansible.builtin.systemd:
+    name: ktn-tailscale-cert.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Issue KTN Tailnet certificate
+  ansible.builtin.command: /usr/local/sbin/refresh-ktn-tailscale-cert
+  changed_when: false
+
+- name: Enable and start KTN service
+  ansible.builtin.systemd:
+    name: kill-the-newsletter.service
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Configure Tailnet HTTPS proxy to KTN
+  ansible.builtin.command: >
+    tailscale serve --https=443 https+insecure://127.0.0.1:{{ ktn_https_port }}
+  changed_when: false
+
+- name: Wait for KTN SMTP listener
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ ktn_smtp_port }}"
+    timeout: 60
