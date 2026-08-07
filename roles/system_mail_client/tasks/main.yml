@@ -51,15 +51,12 @@
     - name: Send test email from root
       shell: "echo 'Test delivery {{ mail_test_token }}' | mail -s 'Relay Test {{ inventory_hostname }}' root"
 
-    - name: Wait for mail delivery
-      pause:
-        seconds: 5
-
     - name: Verify email reached catchall Maildir on relay host
-      shell: "grep -r '{{ mail_test_token }}' /home/catchall/Maildir/new/"
+      shell: "grep -r '{{ mail_test_token }}' /home/catchall/Maildir/"
       delegate_to: "{{ system_mail_relay_host }}"
       register: mail_check
-      failed_when: mail_check.rc != 0
+      retries: 6
+      delay: 5
+      until: mail_check.rc == 0
       changed_when: false
-      # Use become to ensure we can read the catchall home dir
       become: yes
