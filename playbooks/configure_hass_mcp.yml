@@ -99,7 +99,7 @@
                     'command': venv_python,
                     'args': [mcp_script],
                     'env': {
-                      'HASS_URL': 'http://hass.home.arpa/api/mcp',
+                      'HASS_URL': 'http://homeassistant.home.arpa/api/mcp',
                       'HASS_TOKEN': hass_gemini_api_key
                     }
                   },
@@ -108,7 +108,7 @@
                     'command': 'npx',
                     'args': ['-y', 'ha-mcp'],
                     'env': {
-                      'HA_MCP_URL': 'http://hass.home.arpa',
+                      'HA_MCP_URL': 'http://homeassistant.home.arpa',
                       'HA_MCP_TOKEN': hass_gemini_api_key
                     }
                   }
@@ -144,7 +144,7 @@
                     'type': 'local',
                     'command': [venv_python, mcp_script],
                     'environment': {
-                      'HASS_URL': 'http://hass.home.arpa/api/mcp',
+                      'HASS_URL': 'http://homeassistant.home.arpa/api/mcp',
                       'HASS_TOKEN': hass_gemini_api_key
                     }
                   }
