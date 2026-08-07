@@ -5,7 +5,6 @@ export default {
   environment: "production",
   extraGlobalOptions: `
     http_port {{ ktn_http_port }}
-    auto_https disable_certs
-    auto_https disable_redirects
+    auto_https off
   `,
 };
