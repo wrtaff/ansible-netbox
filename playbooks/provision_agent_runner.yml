@@ -253,6 +253,32 @@
         - anb_upstream.rc != 0
         - "'set up to track' not in anb_upstream.stdout"
 
+    - name: Fast-forward clean pops trunk from hub
+      ansible.builtin.shell: |
+        test "$(git branch --show-current)" = main
+        test -z "$(git status --porcelain)"
+        git pull --ff-only origin main
+      args:
+        chdir: "{{ target_home }}/pops"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: pops_sync
+      changed_when: "'Fast-forward' in pops_sync.stdout"
+      failed_when: false
+
+    - name: Fast-forward clean ansible-netbox trunk from hub
+      ansible.builtin.shell: |
+        test "$(git branch --show-current)" = master
+        test -z "$(git status --porcelain)"
+        git pull --ff-only origin master
+      args:
+        chdir: "{{ target_home }}/ansible-netbox"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: anb_sync
+      changed_when: "'Fast-forward' in anb_sync.stdout"
+      failed_when: false
+
     # ynh2 carries an HTTPS github URL it cannot authenticate to. Agent nodes
     # have no reason to reach GitHub at all -- only athena mirrors outward
     # (#3968, #4030) -- so normalise every node to the SSH form for consistency
