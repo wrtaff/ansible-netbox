@@ -107,7 +107,7 @@
           export NETBOX_TOKEN='{{ vault_netbox_token | default(netbox_api_token) | default("") }}'
           export NETBOX_API='http://netbox1.home.arpa:80'
           export HASS_TOKEN='{{ vault_hass_token | default(hass_token) | default("") }}'
-          export HASS_URL='http://hass.home.arpa/api/mcp'
+          export HASS_URL='http://homeassistant.home.arpa/api/mcp'
       become: yes
       become_user: "{{ gemini_user }}"
       become_method: su

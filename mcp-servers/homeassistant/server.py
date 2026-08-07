@@ -42,7 +42,7 @@ logger = logging.getLogger("homeassistant-mcp-proxy")
 
 def main():
     logger.info("Starting Home Assistant MCP Proxy")
-    url = os.environ.get("HASS_URL", "http://hass.home.arpa/api/mcp")
+    url = os.environ.get("HASS_URL", "http://homeassistant.home.arpa/api/mcp")
     token = os.environ.get("HASS_TOKEN")
     
     if not token:
