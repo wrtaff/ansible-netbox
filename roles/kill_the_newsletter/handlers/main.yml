@@ -1,0 +1,9 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart KTN
+  ansible.builtin.systemd:
+    name: kill-the-newsletter.service
+    state: restarted

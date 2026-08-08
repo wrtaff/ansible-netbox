@@ -1,0 +1,60 @@
+---
+- name: Provision dedicated KTN LXC
+  hosts: pve6
+  become: true
+  vars_files:
+    - ../vault.yml
+  vars:
+    vmid: 127
+    hostname: ktn-lxc-01
+    ip_address: 192.168.0.42
+    gateway: 192.168.0.1
+    nameserver: 192.168.0.89
+    template: local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst
+    storage: local-lvm
+    password: "{{ vault_lxc_default_password }}"
+
+  tasks:
+    - name: Check whether the LXC exists
+      ansible.builtin.command: pct status {{ vmid }}
+      register: pct_status
+      failed_when: false
+      changed_when: false
+
+    - name: Create the dedicated KTN LXC
+      ansible.builtin.command: >
+        pct create {{ vmid }} {{ template }}
+        --hostname {{ hostname }}
+        --net0 name=eth0,bridge=vmbr0,ip={{ ip_address }}/24,gw={{ gateway }}
+        --nameserver {{ nameserver }}
+        --storage {{ storage }}
+        --rootfs {{ storage }}:16
+        --cores 2
+        --memory 2048
+        --password {{ password }}
+        --ssh-public-keys /root/.ssh/authorized_keys
+        --unprivileged 1
+        --features nesting=1
+        --start 1
+      when: pct_status.rc != 0
+
+    - name: Allow TUN access for future Tailnet HTTPS endpoint
+      ansible.builtin.blockinfile:
+        path: "/etc/pve/lxc/{{ vmid }}.conf"
+        marker: "# {mark} ANSIBLE MANAGED: TAILSCALE TUN"
+        block: |
+          lxc.cgroup2.devices.allow: c 10:200 rwm
+          lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+      register: lxc_config_update
+
+    - name: Restart the LXC after TUN configuration
+      ansible.builtin.command: pct reboot {{ vmid }}
+      when: lxc_config_update.changed
+      changed_when: true
+
+    - name: Wait for the LXC SSH service
+      ansible.builtin.wait_for:
+        host: "{{ ip_address }}"
+        port: 22
+        delay: 5
+        timeout: 90

@@ -19,6 +19,7 @@
 
 - name: Bring up Tailscale
   ansible.builtin.command: tailscale up --authkey={{ tailscale_auth_key }} --hostname={{ inventory_hostname }} --accept-routes
+  no_log: true
   when: 
     - tailscale_auth_key is defined
     - tailscale_auth_key != ""

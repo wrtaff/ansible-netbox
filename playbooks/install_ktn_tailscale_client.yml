@@ -1,0 +1,8 @@
+---
+- name: Install Tailscale client for interactive KTN enrollment
+  hosts: ktn-lxc-01
+  become: true
+  vars:
+    tailscale_auth_key: ""
+  roles:
+    - tailscale_node

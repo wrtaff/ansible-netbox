@@ -1,0 +1,42 @@
+---
+- name: Generate a one-time KTN Tailscale auth key
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../vault.yml
+  vars:
+    tailscale_tailnet: "-"
+  tasks:
+    - name: Generate a one-time tagged server key
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/tailnet/{{ tailscale_tailnet }}/keys"
+        method: POST
+        user: "{{ tailscale_api_key }}"
+        password: ""
+        force_basic_auth: true
+        body_format: json
+        body:
+          capabilities:
+            devices:
+              create:
+                reusable: false
+                ephemeral: false
+                tags:
+                  - "tag:server"
+          expirySeconds: 3600
+      register: ktn_tailscale_key_response
+      no_log: true
+
+    - name: Store one-time key for the KTN host play
+      ansible.builtin.set_fact:
+        ktn_tailscale_auth_key: "{{ ktn_tailscale_key_response.json.key }}"
+      no_log: true
+
+- name: Join KTN LXC to Tailnet
+  hosts: ktn-lxc-01
+  become: true
+  vars:
+    tailscale_auth_key: "{{ hostvars['localhost']['ktn_tailscale_auth_key'] }}"
+  roles:
+    - tailscale_node

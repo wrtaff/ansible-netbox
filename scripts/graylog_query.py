@@ -2,14 +2,16 @@
 """
 ================================================================================
 Filename:       graylog_query.py
-Version:        1.0
+Version:        1.1
 Author:         Claude Code
-Last Modified:  2026-05-14
+Last Modified:  2026-08-07
 Context:        http://trac.gafla.us.com/ticket/3439
 
 Purpose:
     Query Graylog via REST API, replacing the manual CSV export workflow.
     Used by the logfile-reviewer skill and other Pops agents.
+    Uses an expiring runtime token cache and retries one HTTP 401 with the
+    current Vault value.
 
 Usage:
     python3 graylog_query.py query "source:router" [--hours 24] [--limit 500]
@@ -22,6 +24,8 @@ import sys
 import json
 import subprocess
 import argparse
+import tempfile
+import time
 import requests
 import urllib3
 from typing import Optional
@@ -32,17 +36,27 @@ GRAYLOG_URL = os.getenv("GRAYLOG_URL", "http://graylog.home.arpa:9000")
 GRAYLOG_API_TOKEN = os.getenv("GRAYLOG_API_TOKEN")
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_TMP_TOKEN_FILE = os.path.join(_SCRIPT_DIR, "..", "tmp", "graylog_token.txt")
+_PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
 _VAULT_FILE = os.path.join(_SCRIPT_DIR, "..", "vault.yml")
 _VAULT_KEY = "graylog_pops_admin_token"
+_CACHE_MAX_AGE_SECONDS = 3600
+_CACHE_DIR = os.getenv(
+    "POPS_SECRET_CACHE_DIR",
+    os.path.join(tempfile.gettempdir(), f"pops-secrets-{os.getuid()}"),
+)
+_TOKEN_CACHE_FILE = os.path.join(_CACHE_DIR, "graylog-token.json")
 
 
-def _get_token_from_tmp() -> Optional[str]:
-    if os.path.exists(_TMP_TOKEN_FILE):
+def _get_token_from_cache() -> Optional[str]:
+    if os.path.exists(_TOKEN_CACHE_FILE):
         try:
-            with open(_TMP_TOKEN_FILE, "r") as f:
-                return f.read().strip() or None
+            if time.time() - os.path.getmtime(_TOKEN_CACHE_FILE) > _CACHE_MAX_AGE_SECONDS:
+                _clear_token_cache()
+                return None
+            with open(_TOKEN_CACHE_FILE, "r") as f:
+                return json.load(f).get("token") or None
         except Exception:
+            _clear_token_cache()
             pass
     return None
 
@@ -53,7 +67,7 @@ def _get_token_from_vault() -> Optional[str]:
     try:
         result = subprocess.run(
             ["ansible-vault", "view", _VAULT_FILE],
-            capture_output=True, text=True, check=True,
+            cwd=_PROJECT_ROOT, capture_output=True, text=True, check=True,
         )
         for line in result.stdout.splitlines():
             if _VAULT_KEY in line and ":" in line:
@@ -65,31 +79,60 @@ def _get_token_from_vault() -> Optional[str]:
     return None
 
 
-def _save_token_to_tmp(token: str) -> None:
+def _save_token_to_cache(token: str) -> None:
     try:
-        os.makedirs(os.path.dirname(_TMP_TOKEN_FILE), exist_ok=True)
-        with open(_TMP_TOKEN_FILE, "w") as f:
-            f.write(token)
-        os.chmod(_TMP_TOKEN_FILE, 0o600)
+        os.makedirs(_CACHE_DIR, mode=0o700, exist_ok=True)
+        os.chmod(_CACHE_DIR, 0o700)
+        fd, temporary_path = tempfile.mkstemp(dir=_CACHE_DIR)
+        with os.fdopen(fd, "w") as f:
+            json.dump({"token": token, "cached_at": int(time.time())}, f)
+        os.chmod(temporary_path, 0o600)
+        os.replace(temporary_path, _TOKEN_CACHE_FILE)
     except Exception as e:
         print(f"DEBUG: could not cache token: {e}", file=sys.stderr)
 
 
-def get_token() -> str:
+def _clear_token_cache() -> None:
+    try:
+        os.remove(_TOKEN_CACHE_FILE)
+    except FileNotFoundError:
+        pass
+
+
+def get_token(force_refresh: bool = False) -> str:
     global GRAYLOG_API_TOKEN
-    if GRAYLOG_API_TOKEN:
+    if GRAYLOG_API_TOKEN and not force_refresh:
         return GRAYLOG_API_TOKEN
-    GRAYLOG_API_TOKEN = _get_token_from_tmp()
-    if GRAYLOG_API_TOKEN:
+    if not force_refresh:
+        GRAYLOG_API_TOKEN = _get_token_from_cache()
+    if GRAYLOG_API_TOKEN and not force_refresh:
         return GRAYLOG_API_TOKEN
     GRAYLOG_API_TOKEN = _get_token_from_vault()
     if GRAYLOG_API_TOKEN:
-        _save_token_to_tmp(GRAYLOG_API_TOKEN)
+        _save_token_to_cache(GRAYLOG_API_TOKEN)
         return GRAYLOG_API_TOKEN
     raise RuntimeError(
         "Graylog API token not found. Set GRAYLOG_API_TOKEN env var or ensure "
         f"'{_VAULT_KEY}' is present in vault.yml."
     )
+
+
+def _graylog_get(endpoint: str, timeout: int, params: Optional[dict] = None):
+    headers = {"Accept": "application/json", "X-Requested-By": "pops-agent"}
+    response = requests.get(
+        endpoint, auth=(get_token(), "token"), headers=headers,
+        params=params, timeout=timeout, verify=False,
+    )
+    if response.status_code != 401:
+        return response
+
+    # A cache is never authoritative. Retry once with the current Vault value.
+    _clear_token_cache()
+    response = requests.get(
+        endpoint, auth=(get_token(force_refresh=True), "token"), headers=headers,
+        params=params, timeout=timeout, verify=False,
+    )
+    return response
 
 
 def query_messages(
@@ -107,10 +150,7 @@ def query_messages(
         limit:  Max messages to return (paginated internally if needed)
         fields: Optional list of fields to return; None = all fields
     """
-    token = get_token()
     endpoint = f"{GRAYLOG_URL}/api/search/universal/relative"
-    headers = {"Accept": "application/json", "X-Requested-By": "pops-agent"}
-    auth = (token, "token")
 
     all_messages = []
     page_size = min(limit, 500)  # Graylog hard cap per request
@@ -126,9 +166,7 @@ def query_messages(
         if fields:
             params["fields"] = ",".join(fields)
 
-        resp = requests.get(
-            endpoint, auth=auth, headers=headers, params=params, timeout=30, verify=False
-        )
+        resp = _graylog_get(endpoint, timeout=30, params=params)
         resp.raise_for_status()
 
         data = resp.json()
@@ -148,15 +186,8 @@ def query_messages(
 
 def test_connection() -> bool:
     """Ping the Graylog API and return True if reachable and authenticated."""
-    token = get_token()
     try:
-        resp = requests.get(
-            f"{GRAYLOG_URL}/api/system",
-            auth=(token, "token"),
-            headers={"Accept": "application/json", "X-Requested-By": "pops-agent"},
-            timeout=10,
-            verify=False,
-        )
+        resp = _graylog_get(f"{GRAYLOG_URL}/api/system", timeout=10)
         if resp.status_code == 200:
             info = resp.json()
             print(f"Connected: Graylog {info.get('version', '?')} at {GRAYLOG_URL}")

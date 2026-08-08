@@ -1,0 +1,18 @@
+[Unit]
+Description=Kill the Newsletter
+After=network-online.target tailscaled.service
+Wants=network-online.target
+Requires=tailscaled.service
+
+[Service]
+Type=simple
+User={{ ktn_user }}
+Group={{ ktn_group }}
+WorkingDirectory={{ ktn_root }}
+ExecStart=/usr/bin/node {{ ktn_root }}/build/index.mjs /etc/kill-the-newsletter.mjs
+Environment=NODE_ENV=production SMTP_PORT={{ ktn_smtp_port }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
