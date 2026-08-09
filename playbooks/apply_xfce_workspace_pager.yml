@@ -1,0 +1,457 @@
+---
+# Trac #4190: apply Athena's workspace pager presentation to limbo-f0.
+
+- name: Apply XFCE workspace pager presentation
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    panel_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
+    backup_stamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+    pager_rows: 2
+    pager_miniature_view: false
+    panel_size: 37
+    panel_position_locked: true
+    desired_plugin_ids:
+      - 1
+      - 4
+      - 2
+      - 5
+      - 3
+      - 6
+      - 19
+      - 20
+      - 21
+      - 7
+      - 9
+      - 10
+      - 22
+      - 8
+      - 23
+    new_panel_plugins:
+      - { id: 19, type: pulseaudio }
+      - { id: 20, type: power-manager-plugin }
+      - { id: 21, type: notification-plugin }
+      - { id: 22, type: systemload }
+      - { id: 23, type: xfce4-timer-plugin }
+
+  tasks:
+    - name: Confirm the inventory alias reaches limbo-f0
+      ansible.builtin.command: hostname
+      become_user: "{{ xfce_user }}"
+      register: target_hostname
+      changed_when: false
+      check_mode: false
+
+    - name: Refuse to modify a host with the wrong identity
+      ansible.builtin.assert:
+        that:
+          - target_hostname.stdout | trim == 'limbo-f0'
+        fail_msg: "Refusing to modify unexpected host {{ target_hostname.stdout | trim }}"
+
+    - name: Read current panel plugin order
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /panels/panel-1/plugin-ids
+      become_user: "{{ xfce_user }}"
+      register: plugin_ids_current
+      changed_when: false
+      check_mode: false
+
+    - name: Read current pager rows
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-4/rows
+      become_user: "{{ xfce_user }}"
+      register: pager_rows_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read current pager view mode
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-4/miniature-view
+      become_user: "{{ xfce_user }}"
+      register: pager_view_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read current panel size
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /panels/panel-1/size
+      become_user: "{{ xfce_user }}"
+      register: panel_size_current
+      changed_when: false
+      check_mode: false
+
+    - name: Read current panel lock state
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /panels/panel-1/position-locked
+      become_user: "{{ xfce_user }}"
+      register: panel_lock_current
+      changed_when: false
+      check_mode: false
+
+    - name: Read current tasklist grouping
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-2/grouping
+      become_user: "{{ xfce_user }}"
+      register: tasklist_grouping_current
+      changed_when: false
+      check_mode: false
+
+    - name: Read current separator style
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-3/style
+      become_user: "{{ xfce_user }}"
+      register: separator_style_current
+      changed_when: false
+      check_mode: false
+
+    - name: Read Athena-only plugin definitions
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - "/plugins/plugin-{{ item.id }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ new_panel_plugins }}"
+      register: plugin_definitions_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Determine whether the pager presentation is already present
+      ansible.builtin.set_fact:
+        current_plugin_ids: "{{ plugin_ids_current.stdout_lines | select('match', '^[0-9]+$') | map('int') | list }}"
+        pager_rows_match: "{{ pager_rows_current.stdout | trim == (pager_rows | string) }}"
+        pager_view_match: "{{ pager_view_current.stdout | trim | lower == (pager_miniature_view | string | lower) }}"
+        panel_size_match: "{{ panel_size_current.stdout | trim == (panel_size | string) }}"
+        panel_lock_match: "{{ panel_lock_current.stdout | trim | lower == (panel_position_locked | string | lower) }}"
+        tasklist_grouping_match: "{{ tasklist_grouping_current.stdout | trim | lower == 'false' }}"
+        separator_style_match: "{{ separator_style_current.stdout | trim == '2' }}"
+        current_plugin_types: "{{ plugin_definitions_current.results | map(attribute='stdout') | map('trim') | list }}"
+
+    - name: Compare panel plugin order
+      ansible.builtin.set_fact:
+        plugin_order_match: "{{ current_plugin_ids == desired_plugin_ids }}"
+
+    - name: Compare Athena-only plugin definitions
+      ansible.builtin.set_fact:
+        plugin_definitions_match: "{{ current_plugin_types == (new_panel_plugins | map(attribute='type') | list) }}"
+
+    - name: Back up the panel channel before changing it
+      ansible.builtin.copy:
+        src: "{{ panel_file }}"
+        dest: "{{ panel_file }}.bak.{{ backup_stamp }}"
+        remote_src: true
+        mode: preserve
+      become_user: "{{ xfce_user }}"
+      register: panel_backup
+      when:
+        - not ansible_check_mode
+        - not plugin_order_match or not pager_rows_match or not pager_view_match or not panel_size_match or not panel_lock_match or not tasklist_grouping_match or not separator_style_match or not plugin_definitions_match
+
+    - name: Define Athena-only panel plugins
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - "/plugins/plugin-{{ item.id }}"
+          - -n
+          - -t
+          - string
+          - -s
+          - "{{ item.type }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ new_panel_plugins }}"
+      when:
+        - not ansible_check_mode
+        - not plugin_definitions_match
+
+    - name: Set pager rows
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-4/rows
+          - -n
+          - -t
+          - int
+          - -s
+          - "{{ pager_rows }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - not pager_rows_match
+
+    - name: Set panel size
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /panels/panel-1/size
+          - -n
+          - -t
+          - uint
+          - -s
+          - "{{ panel_size }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - not panel_size_match
+
+    - name: Lock panel position
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /panels/panel-1/position-locked
+          - -n
+          - -t
+          - bool
+          - -s
+          - "true"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - not panel_lock_match
+
+    - name: Disable tasklist grouping
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-2/grouping
+          - -n
+          - -t
+          - bool
+          - -s
+          - "false"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - not tasklist_grouping_match
+
+    - name: Set Athena separator style
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-3/style
+          - -n
+          - -t
+          - uint
+          - -s
+          - 2
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - not separator_style_match
+
+    - name: Set pager named-workspace view
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-4/miniature-view
+          - -n
+          - -t
+          - bool
+          - -s
+          - "false"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - not pager_view_match
+
+    - name: Set panel plugin order
+      ansible.builtin.command:
+        cmd: >-
+          xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -a
+          -t int -t int -t int -t int -t int -t int -t int -t int -t int -t int
+          -t int -t int -t int -t int -t int
+          -s {{ desired_plugin_ids | join(' -s ') }}
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - not plugin_order_match
+
+    - name: Read pager rows after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-4/rows
+      become_user: "{{ xfce_user }}"
+      register: pager_rows_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read pager view mode after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-4/miniature-view
+      become_user: "{{ xfce_user }}"
+      register: pager_view_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read panel plugin order after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /panels/panel-1/plugin-ids
+      become_user: "{{ xfce_user }}"
+      register: plugin_ids_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read panel size after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /panels/panel-1/size
+      become_user: "{{ xfce_user }}"
+      register: panel_size_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read panel lock state after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /panels/panel-1/position-locked
+      become_user: "{{ xfce_user }}"
+      register: panel_lock_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read tasklist grouping after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-2/grouping
+      become_user: "{{ xfce_user }}"
+      register: tasklist_grouping_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read separator style after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - /plugins/plugin-3/style
+      become_user: "{{ xfce_user }}"
+      register: separator_style_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read Athena-only plugin definitions after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-panel
+          - -p
+          - "/plugins/plugin-{{ item.id }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ new_panel_plugins }}"
+      register: plugin_definitions_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Confirm pager presentation
+      ansible.builtin.assert:
+        that:
+          - pager_rows_verified.stdout | trim == (pager_rows | string)
+          - pager_view_verified.stdout | trim | lower == (pager_miniature_view | string | lower)
+          - (plugin_ids_verified.stdout_lines | select('match', '^[0-9]+$') | map('int') | list) == desired_plugin_ids
+          - panel_size_verified.stdout | trim == (panel_size | string)
+          - panel_lock_verified.stdout | trim | lower == (panel_position_locked | string | lower)
+          - tasklist_grouping_verified.stdout | trim | lower == 'false'
+          - separator_style_verified.stdout | trim == '2'
+          - (plugin_definitions_verified.results | map(attribute='stdout') | map('trim') | list) == (new_panel_plugins | map(attribute='type') | list)
+        fail_msg: "XFCE workspace pager verification failed"
+      when: not ansible_check_mode
+
+    - name: Report rollback artifact
+      ansible.builtin.debug:
+        msg: >-
+          Restore {{ panel_file }} from {{ panel_backup.dest }} and restart xfce4-panel if rollback is needed.
+      when:
+        - panel_backup is defined
+        - panel_backup.changed | default(false)

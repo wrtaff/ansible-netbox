@@ -1,0 +1,124 @@
+---
+# Trac #3220: set valid XFCE Desktop Settings image folders for X2Go monitors.
+
+- name: Apply XFCE desktop image-path repair
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    desktop_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
+    background_directory: /usr/share/backgrounds/xfce
+    backup_stamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+    image_path_properties:
+      - /backdrop/screen0/monitor0/image-path
+      - /backdrop/screen0/monitor1/image-path
+      - /backdrop/screen0/monitorDefault/image-path
+      - /backdrop/screen0/monitorDefault/workspace0/image-path
+
+  tasks:
+    - name: Confirm the inventory alias reaches limbo-f0
+      ansible.builtin.command: hostname
+      become_user: "{{ xfce_user }}"
+      register: target_hostname
+      changed_when: false
+      check_mode: false
+
+    - name: Refuse to modify a host with the wrong identity
+      ansible.builtin.assert:
+        that:
+          - target_hostname.stdout | trim == 'limbo-f0'
+        fail_msg: "Refusing to modify unexpected host {{ target_hostname.stdout | trim }}"
+
+    - name: Confirm the XFCE image folder exists
+      ansible.builtin.stat:
+        path: "{{ background_directory }}"
+      register: background_directory_stat
+
+    - name: Require a readable XFCE image folder
+      ansible.builtin.assert:
+        that:
+          - background_directory_stat.stat.isdir
+          - background_directory_stat.stat.readable
+        fail_msg: "XFCE image folder {{ background_directory }} is unavailable"
+
+    - name: Read current desktop image paths
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-desktop
+          - -p
+          - "{{ item }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ image_path_properties }}"
+      register: image_paths_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Determine whether the desktop repair is needed
+      ansible.builtin.set_fact:
+        desktop_image_paths_match: >-
+          {{ (image_paths_current.results | map(attribute='stdout') | map('trim') | select('equalto', background_directory) | list | length) == (image_path_properties | length) }}
+
+    - name: Back up the desktop channel before changing it
+      ansible.builtin.copy:
+        src: "{{ desktop_file }}"
+        dest: "{{ desktop_file }}.bak.{{ backup_stamp }}"
+        remote_src: true
+        mode: preserve
+      become_user: "{{ xfce_user }}"
+      register: desktop_backup
+      when:
+        - not ansible_check_mode
+        - not desktop_image_paths_match
+
+    - name: Set valid XFCE desktop image paths
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-desktop
+          - -p
+          - "{{ item }}"
+          - -n
+          - -t
+          - string
+          - -s
+          - "{{ background_directory }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ image_path_properties }}"
+      when:
+        - not ansible_check_mode
+        - not desktop_image_paths_match
+
+    - name: Verify XFCE desktop image paths
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-desktop
+          - -p
+          - "{{ item }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ image_path_properties }}"
+      register: image_paths_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Confirm XFCE desktop image paths
+      ansible.builtin.assert:
+        that:
+          - (image_paths_verified.results | map(attribute='stdout') | map('trim') | select('equalto', background_directory) | list | length) == (image_path_properties | length)
+        fail_msg: "XFCE desktop image-path verification failed"
+      when: not ansible_check_mode
+
+    - name: Report rollback artifact
+      ansible.builtin.debug:
+        msg: >-
+          Restore {{ desktop_file }} from {{ desktop_backup.dest }} and restart xfconfd and xfdesktop if rollback is needed.
+      when:
+        - desktop_backup is defined
+        - desktop_backup.changed | default(false)

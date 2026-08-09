@@ -1,0 +1,31 @@
+---
+# Trac #4190: restore only the XFCE session channel.
+# Usage: ansible-playbook -i inventory.ini playbooks/rollback_xfce_session_settings.yml
+#        --limit limbo-f0 -e backup_file=/home/will/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml.bak.TIMESTAMP
+
+- name: Roll back XFCE session defaults
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    session_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml"
+
+  tasks:
+    - name: Require an explicit backup file
+      ansible.builtin.assert:
+        that:
+          - backup_file is defined
+          - backup_file | length > 0
+        fail_msg: "Pass -e backup_file=/path/to/xfce4-session.xml.bak.TIMESTAMP"
+
+    - name: Restore session channel
+      ansible.builtin.copy:
+        src: "{{ backup_file }}"
+        dest: "{{ session_file }}"
+        remote_src: true
+        owner: "{{ xfce_user }}"
+        group: "{{ xfce_user }}"
+        mode: '0644'
+      become_user: "{{ xfce_user }}"

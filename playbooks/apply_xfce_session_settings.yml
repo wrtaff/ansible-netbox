@@ -1,0 +1,116 @@
+---
+# Trac #4190: align portable XFCE session defaults with Athena.
+
+- name: Apply XFCE session defaults
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    session_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml"
+    backup_stamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+    session_settings:
+      - { path: /general/SaveOnExit, type: bool, value: 'true' }
+      - { path: /general/SessionName, type: string, value: Default }
+      - { path: /shutdown/LockScreen, type: bool, value: 'false' }
+
+  tasks:
+    - name: Confirm the inventory alias reaches limbo-f0
+      ansible.builtin.command: hostname
+      become_user: "{{ xfce_user }}"
+      register: target_hostname
+      changed_when: false
+      check_mode: false
+
+    - name: Refuse to modify a host with the wrong identity
+      ansible.builtin.assert:
+        that:
+          - target_hostname.stdout | trim == 'limbo-f0'
+        fail_msg: "Refusing to modify unexpected host {{ target_hostname.stdout | trim }}"
+
+    - name: Read current XFCE session settings
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-session
+          - -p
+          - "{{ item.path }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ session_settings }}"
+      register: session_settings_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Determine whether session defaults already match
+      ansible.builtin.set_fact:
+        session_settings_match: >-
+          {{ (session_settings_current.results | map(attribute='stdout') | map('trim') | list) == (session_settings | map(attribute='value') | list) }}
+
+    - name: Check for an existing session channel file
+      ansible.builtin.stat:
+        path: "{{ session_file }}"
+      register: session_file_stat
+
+    - name: Back up the session channel before changing it
+      ansible.builtin.copy:
+        src: "{{ session_file }}"
+        dest: "{{ session_file }}.bak.{{ backup_stamp }}"
+        remote_src: true
+        mode: preserve
+      become_user: "{{ xfce_user }}"
+      register: session_backup
+      when:
+        - not ansible_check_mode
+        - not session_settings_match
+        - session_file_stat.stat.exists
+
+    - name: Set XFCE session defaults
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-session
+          - -p
+          - "{{ item.path }}"
+          - -n
+          - -t
+          - "{{ item.type }}"
+          - -s
+          - "{{ item.value }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ session_settings }}"
+      when:
+        - not ansible_check_mode
+        - not session_settings_match
+
+    - name: Verify XFCE session defaults
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-session
+          - -p
+          - "{{ item.path }}"
+      become_user: "{{ xfce_user }}"
+      loop: "{{ session_settings }}"
+      register: session_settings_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Confirm XFCE session defaults
+      ansible.builtin.assert:
+        that:
+          - (session_settings_verified.results | map(attribute='stdout') | map('trim') | list) == (session_settings | map(attribute='value') | list)
+        fail_msg: "XFCE session settings verification failed"
+      when: not ansible_check_mode
+
+    - name: Report rollback artifact
+      ansible.builtin.debug:
+        msg: >-
+          Restore {{ session_file }} from {{ session_backup.dest }} if rollback is needed.
+      when:
+        - session_backup is defined
+        - session_backup.changed | default(false)
