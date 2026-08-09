@@ -1,9 +1,15 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        1.8
+# Version:        1.9
 # Author:         Antigravity
 # Last Modified:  2026-07-26
-# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029
+# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029, #4186
+#
+# Update 1.9:
+#     - Enforce the fleet timezone for runner provisioning from the shared
+#       `system_timezone` variable (Trac #4186). This is intentionally scoped
+#       here instead of importing the broad system_common role, so desktop
+#       provisioning remains on its own path.
 #
 # Update 1.8:
 #     - Stage the current agent-sync-check.sh outside existing checkouts and
@@ -93,6 +99,10 @@
     target_home: "/home/{{ target_user }}"
 
   tasks:
+    - name: Set agent runner system timezone from group_vars
+      community.general.timezone:
+        name: "{{ system_timezone }}"
+
     - name: Ensure target user exists
       ansible.builtin.user:
         name: "{{ target_user }}"
