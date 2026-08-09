@@ -2,17 +2,19 @@
 """
 ================================================================================
 Filename:       mcp-servers/nextcloud/server.py
-Version:        1.7
+Version:        1.8
 Author:         Gemini CLI
 Last Modified:  2026-03-09
 Context:        http://trac.home.arpa/ticket/3154
 
 Purpose:
     Model Context Protocol (MCP) server for Nextcloud integration.
-    Provides tools for contact management (search, create, update, delete)
-    directly within AI agent sessions.
+    Provides tools for contact management and file management directly within
+    AI agent sessions.
 
 Revision History:
+    v1.8 (2026-08-08): Added WebDAV file read, write, and directory listing
+                       tools for collaborative Markdown editing.
     v1.7 (2026-03-09): Fixed VCard field extraction to support group prefixes 
                        (e.g., ITEM1.ADR) commonly used by Apple and Google.
     v1.6 (2026-03-07): Improved structured VCard field handling for N and ADR:
@@ -40,12 +42,14 @@ Notes:
 import os
 import sys
 import uuid
+import json
 import logging
 import requests
 import subprocess
 import xml.etree.ElementTree as ET
 from typing import Optional, List, Dict, Any
 from collections import defaultdict
+from urllib.parse import quote
 from mcp.server.fastmcp import FastMCP
 
 # Configure logging to file
@@ -380,6 +384,80 @@ class NextcloudContactManager:
             logger.error(f"Delete failed: {e}")
             return False
 
+
+class NextcloudFileManager:
+    """Read and write files in the authenticated user's Nextcloud Files root."""
+
+    def __init__(self, base_url, username, password, verify=True):
+        self.base_url = base_url.rstrip('/')
+        self.username = username
+        self.session = requests.Session()
+        self.session.auth = (username, password)
+        self.session.headers.update({"User-Agent": "Pops-Nextcloud-MCP/1.0"})
+        self.session.verify = verify
+
+    def _file_url(self, path):
+        parts = [part for part in path.strip('/').split('/') if part]
+        if not parts or any(part in {'.', '..'} for part in parts):
+            raise ValueError("path must be a non-empty relative Nextcloud path")
+        encoded = '/'.join(quote(part, safe='') for part in parts)
+        return f"{self.base_url}/remote.php/dav/files/{quote(self.username, safe='')}/{encoded}"
+
+    def read_file(self, path):
+        response = self.session.get(self._file_url(path))
+        response.raise_for_status()
+        return response.text, response.headers.get('ETag')
+
+    def write_file(self, path, content, expected_etag=None):
+        headers = {'Content-Type': 'text/markdown; charset=utf-8'}
+        if expected_etag:
+            headers['If-Match'] = expected_etag
+        response = self.session.put(
+            self._file_url(path), data=content.encode('utf-8'), headers=headers
+        )
+        if response.status_code == 412:
+            raise RuntimeError("file changed since it was read; re-read before writing")
+        response.raise_for_status()
+        return response.headers.get('ETag')
+
+    def list_files(self, path=''):
+        if path:
+            url = self._file_url(path) + '/'
+        else:
+            url = f"{self.base_url}/remote.php/dav/files/{quote(self.username, safe='')}/"
+        body = '''
+        <d:propfind xmlns:d="DAV:">
+            <d:prop>
+                <d:displayname />
+                <d:getcontentlength />
+                <d:getlastmodified />
+                <d:getetag />
+                <d:resourcetype />
+            </d:prop>
+        </d:propfind>
+        '''
+        response = self.session.request('PROPFIND', url, data=body, headers={'Depth': '1'})
+        response.raise_for_status()
+        namespaces = {'d': 'DAV:'}
+        root = ET.fromstring(response.text)
+        entries = []
+        for item in root.findall('d:response', namespaces):
+            href = item.findtext('d:href', default='', namespaces=namespaces)
+            prop = item.find('d:propstat/d:prop', namespaces)
+            if prop is None:
+                continue
+            resource_type = prop.find('d:resourcetype', namespaces)
+            entries.append({
+                'href': href,
+                'name': prop.findtext('d:displayname', default='', namespaces=namespaces),
+                'directory': resource_type is not None and resource_type.find('d:collection', namespaces) is not None,
+                'size': prop.findtext('d:getcontentlength', default='', namespaces=namespaces),
+                'modified': prop.findtext('d:getlastmodified', default='', namespaces=namespaces),
+                'etag': prop.findtext('d:getetag', default='', namespaces=namespaces),
+            })
+        return entries
+
+
 def get_manager():
     if not NEXTCLOUD_PASSWORD:
         logger.error("Attempted to get manager without NEXTCLOUD_PASSWORD.")
@@ -389,11 +467,51 @@ def get_manager():
     verify = (verify_env == "true")
     return NextcloudContactManager(NEXTCLOUD_URL, NEXTCLOUD_USER, NEXTCLOUD_PASSWORD, verify=verify)
 
+
+def get_file_manager():
+    if not NEXTCLOUD_PASSWORD:
+        logger.error("Attempted to get file manager without NEXTCLOUD_PASSWORD.")
+        raise ValueError("NEXTCLOUD_PASSWORD is not set")
+    verify = os.getenv("NEXTCLOUD_VERIFY_SSL", "true").lower() == "true"
+    return NextcloudFileManager(NEXTCLOUD_URL, NEXTCLOUD_USER, NEXTCLOUD_PASSWORD, verify=verify)
+
 @mcp.tool(name="nextcloud_ping")
 def ping() -> str:
     """A simple ping tool to verify MCP transport connectivity."""
     logger.info("Ping tool called.")
     return "pong"
+
+
+@mcp.tool(name="nextcloud_list_files")
+def list_files(path: str = "") -> str:
+    """List files and directories in the authenticated user's Nextcloud Files area."""
+    try:
+        return json.dumps(get_file_manager().list_files(path))
+    except Exception as e:
+        logger.error(f"File listing failed: {e}")
+        return f"Error listing Nextcloud files: {e}"
+
+
+@mcp.tool(name="nextcloud_read_file")
+def read_file(path: str) -> str:
+    """Read a UTF-8 text file and return its content plus its ETag."""
+    try:
+        content, etag = get_file_manager().read_file(path)
+        return json.dumps({'path': path, 'etag': etag, 'content': content})
+    except Exception as e:
+        logger.error(f"File read failed: {e}")
+        return f"Error reading Nextcloud file: {e}"
+
+
+@mcp.tool(name="nextcloud_write_file")
+def write_file(path: str, content: str, expected_etag: Optional[str] = None) -> str:
+    """Write a UTF-8 text file, optionally requiring the ETag from a prior read."""
+    try:
+        etag = get_file_manager().write_file(path, content, expected_etag)
+        return json.dumps({'path': path, 'etag': etag, 'written': True})
+    except Exception as e:
+        logger.error(f"File write failed: {e}")
+        return f"Error writing Nextcloud file: {e}"
 
 @mcp.tool(name="nextcloud_search_contacts")
 def search_contacts(query: str) -> str:
