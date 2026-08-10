@@ -1,0 +1,197 @@
+---
+# Trac #4190: Increment 8 -- match athena's workspace-navigation rebind
+# (Ctrl+Alt+Left/Right -> Shift+Alt+Left/Right for left_workspace_key/right_workspace_key).
+# Usage: ansible-playbook -i inventory.ini playbooks/apply_xfce_workspace_nav_shortcuts.yml --limit limbo-f0
+
+- name: Apply XFCE workspace-navigation shortcut rebind
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    keyboard_shortcut_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
+    backup_stamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+    old_left_path: /xfwm4/custom/<Primary><Alt>Left
+    old_right_path: /xfwm4/custom/<Primary><Alt>Right
+    new_left_path: /xfwm4/custom/<Shift><Alt>Left
+    new_right_path: /xfwm4/custom/<Shift><Alt>Right
+    left_value: left_workspace_key
+    right_value: right_workspace_key
+
+  tasks:
+    - name: Confirm the inventory alias reaches limbo-f0
+      ansible.builtin.command: hostname
+      become_user: "{{ xfce_user }}"
+      register: target_hostname
+      changed_when: false
+      check_mode: false
+
+    - name: Refuse to modify a host with the wrong identity
+      ansible.builtin.assert:
+        that:
+          - target_hostname.stdout | trim == 'limbo-f0'
+        fail_msg: "Refusing to modify unexpected host {{ target_hostname.stdout | trim }}"
+
+    - name: Read current old-binding state
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ item }}"
+      become_user: "{{ xfce_user }}"
+      register: old_bindings_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      loop:
+        - "{{ old_left_path }}"
+        - "{{ old_right_path }}"
+
+    - name: Read current new-binding state
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ item }}"
+      become_user: "{{ xfce_user }}"
+      register: new_bindings_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      loop:
+        - "{{ new_left_path }}"
+        - "{{ new_right_path }}"
+
+    - name: Determine whether a change is required
+      ansible.builtin.set_fact:
+        nav_shortcuts_changed: >-
+          {{
+            (old_bindings_current.results[0].rc == 0) or
+            (old_bindings_current.results[1].rc == 0) or
+            (new_bindings_current.results[0].stdout | default('') | trim != left_value) or
+            (new_bindings_current.results[1].stdout | default('') | trim != right_value)
+          }}
+
+    - name: Back up the keyboard shortcut channel before changing it
+      ansible.builtin.copy:
+        src: "{{ keyboard_shortcut_file }}"
+        dest: "{{ keyboard_shortcut_file }}.bak.{{ backup_stamp }}"
+        remote_src: true
+        mode: preserve
+      when:
+        - not ansible_check_mode
+        - nav_shortcuts_changed
+      become_user: "{{ xfce_user }}"
+      register: nav_shortcut_backup
+
+    - name: Reset old Ctrl+Alt+Left/Right bindings (unbind, matching athena)
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ item.path }}"
+          - -r
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - item.rc == 0
+      loop:
+        - { path: "{{ old_left_path }}", rc: "{{ old_bindings_current.results[0].rc }}" }
+        - { path: "{{ old_right_path }}", rc: "{{ old_bindings_current.results[1].rc }}" }
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Set Shift+Alt+Left binding
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ new_left_path }}"
+          - -n
+          - -t
+          - string
+          - -s
+          - "{{ left_value }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - new_bindings_current.results[0].stdout | default('') | trim != left_value
+
+    - name: Set Shift+Alt+Right binding
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ new_right_path }}"
+          - -n
+          - -t
+          - string
+          - -s
+          - "{{ right_value }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - new_bindings_current.results[1].stdout | default('') | trim != right_value
+
+    - name: Verify old bindings are gone
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ item }}"
+      become_user: "{{ xfce_user }}"
+      register: old_bindings_verified
+      changed_when: false
+      failed_when: false
+      when: not ansible_check_mode
+      loop:
+        - "{{ old_left_path }}"
+        - "{{ old_right_path }}"
+
+    - name: Verify new bindings
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ item }}"
+      become_user: "{{ xfce_user }}"
+      register: new_bindings_verified
+      changed_when: false
+      when: not ansible_check_mode
+      loop:
+        - "{{ new_left_path }}"
+        - "{{ new_right_path }}"
+
+    - name: Confirm the rebind
+      ansible.builtin.assert:
+        that:
+          - old_bindings_verified.results[0].rc != 0
+          - old_bindings_verified.results[1].rc != 0
+          - new_bindings_verified.results[0].stdout | trim == left_value
+          - new_bindings_verified.results[1].stdout | trim == right_value
+        fail_msg: "XFCE workspace-navigation shortcut rebind verification failed"
+      when: not ansible_check_mode
+
+    - name: Report rollback artifact
+      ansible.builtin.debug:
+        msg: >-
+          Restore {{ keyboard_shortcut_file }} from
+          {{ nav_shortcut_backup.dest }} and restart xfconfd if rollback is needed.
+      when:
+        - nav_shortcut_backup is defined
+        - nav_shortcut_backup.changed | default(false)
