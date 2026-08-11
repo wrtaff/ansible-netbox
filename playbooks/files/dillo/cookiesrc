@@ -1,0 +1,5 @@
+DEFAULT DENY
+wwos.home.arpa ACCEPT
+192.168.0.99 ACCEPT
+trac-lxc.home.arpa ACCEPT
+trac.home.arpa ACCEPT

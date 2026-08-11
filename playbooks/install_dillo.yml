@@ -1,0 +1,60 @@
+# Filename:       install_dillo.yml
+# Version:        1.0
+# Author:         Will / Pops agents
+# Last Modified:  2026-08-10
+# Trac Ticket:    #4187
+# Purpose:        Install the Dillo lightweight web browser on managed desktops.
+# Use Case:       Provide a consistent lightweight browser on XFCE desktop hosts,
+#                 including limbo-f0.
+# Installation Method: Debian apt package
+# Prerequisites:  Debian-based host in the desktops inventory group
+# Configuration:  ~/.dillo/dillorc, ~/.dillo/cookiesrc, ~/.dillo/bm.txt
+# Secrets:        ansible_become_pass (vault.yml) - sudo on desktop hosts
+# Usage:          ansible-playbook -i inventory.ini playbooks/install_dillo.yml --check --diff
+# Removal Instructions: Remove the dillo package with apt when decommissioning it.
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/install_dillo.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_dillo.yml
+---
+- name: Install Dillo on managed desktops
+  hosts: desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  tasks:
+    - name: Install dillo package
+      ansible.builtin.apt:
+        name: dillo
+        state: present
+        update_cache: true
+
+    - name: Ensure Dillo configuration directory exists
+      ansible.builtin.file:
+        path: "/home/{{ target_user | default('will') }}/.dillo"
+        state: directory
+        owner: "{{ target_user | default('will') }}"
+        group: "{{ target_user | default('will') }}"
+        mode: '0700'
+
+    - name: Deploy Dillo search configuration
+      ansible.builtin.copy:
+        src: files/dillo/dillorc
+        dest: "/home/{{ target_user | default('will') }}/.dillo/dillorc"
+        owner: "{{ target_user | default('will') }}"
+        group: "{{ target_user | default('will') }}"
+        mode: '0600'
+
+    - name: Deploy Dillo cookie policy
+      ansible.builtin.copy:
+        src: files/dillo/cookiesrc
+        dest: "/home/{{ target_user | default('will') }}/.dillo/cookiesrc"
+        owner: "{{ target_user | default('will') }}"
+        group: "{{ target_user | default('will') }}"
+        mode: '0600'
+
+    - name: Deploy Dillo bookmarks
+      ansible.builtin.copy:
+        src: files/dillo/bm.txt
+        dest: "/home/{{ target_user | default('will') }}/.dillo/bm.txt"
+        owner: "{{ target_user | default('will') }}"
+        group: "{{ target_user | default('will') }}"
+        mode: '0600'

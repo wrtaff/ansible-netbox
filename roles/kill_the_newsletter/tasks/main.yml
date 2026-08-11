@@ -112,6 +112,7 @@
   loop:
     - ktn-tailscale-cert.service
     - ktn-tailscale-cert.timer
+  when: ktn_enable_tailscale | bool
   notify: Reload systemd
 
 - name: Enable KTN certificate refresh timer
@@ -120,10 +121,12 @@
     enabled: true
     state: started
     daemon_reload: true
+  when: ktn_enable_tailscale | bool
 
 - name: Issue KTN Tailnet certificate for SMTP TLS
   ansible.builtin.command: /usr/local/sbin/refresh-ktn-tailscale-cert
   changed_when: false
+  when: ktn_enable_tailscale | bool
 
 - name: Install KTN service unit
   ansible.builtin.template:
@@ -150,6 +153,7 @@
   ansible.builtin.command: >
     tailscale serve --bg --https=443 http://127.0.0.1:{{ ktn_http_port }}
   changed_when: false
+  when: ktn_enable_tailscale | bool
 
 - name: Wait for KTN SMTP listener
   ansible.builtin.wait_for:

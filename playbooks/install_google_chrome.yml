@@ -1,0 +1,28 @@
+---
+# Install Google Chrome Stable from Google's official Debian package.
+# Usage: ansible-playbook -i inventory.ini playbooks/install_google_chrome.yml --limit <host>
+- name: Install Google Chrome on desktops
+  hosts: desktops
+  become: true
+  tasks:
+    - name: Download Google Chrome Stable package
+      ansible.builtin.get_url:
+        url: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        dest: /tmp/google-chrome-stable_current_amd64.deb
+        mode: '0644'
+
+    - name: Check whether Google Chrome Stable is installed
+      ansible.builtin.command: dpkg-query -W -f='${Status}' google-chrome-stable
+      register: chrome_status
+      changed_when: false
+      failed_when: false
+
+    - name: Install Google Chrome Stable
+      ansible.builtin.command: apt-get install -y /tmp/google-chrome-stable_current_amd64.deb
+      when: chrome_status.rc != 0
+      changed_when: true
+
+    - name: Remove downloaded Chrome package
+      ansible.builtin.file:
+        path: /tmp/google-chrome-stable_current_amd64.deb
+        state: absent
