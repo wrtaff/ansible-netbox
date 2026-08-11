@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Filename:       check_fb_group.py
-Version:        2.0
+Version:        2.2
 Author:         Antigravity
-Last Modified:  2026-06-22
+Last Modified:  2026-08-10
 Context:        Facebook Group Updates (EPSC)
 
 Purpose:
@@ -15,6 +15,8 @@ Secrets:
     None - delegates to google_workspace_manager.py
 
 Revision History:
+    v2.2 (2026-08-10) - Enforce notification metadata and aggregate health alerts.
+    v2.1 (2026-08-10) - Versioned observable state with atomic writes and migration.
     v2.0 (2026-06-22) - Email notifications, comment support, hash-based state.
     v1.0 (2026-06-12) - Initial version.
 
@@ -29,6 +31,8 @@ import subprocess
 import hashlib
 import urllib.parse
 import re
+import tempfile
+from datetime import datetime, timezone
 from playwright.sync_api import sync_playwright
 
 # Configuration
@@ -37,6 +41,13 @@ STATE_FILE = "/home/will/pops/tmp/fb_group_state.json"
 PROFILE_DIR = "/home/will/.cache/ms-playwright/mcp-chrome-for-testing-f96f1ec" # Default Playwright MCP chrome profile
 CHROME_PATH = "/usr/bin/google-chrome"
 EMAIL_TO = "wrtaff@gmail.com"
+STATE_VERSION = 2
+RUN_RETENTION_DAYS = 90
+ITEM_RETENTION = 2000
+NOTIFICATION_ID_RETENTION = 2000
+MAX_SCROLLS = 12
+STABLE_PASSES = 2
+MAX_ITEMS = 100
 
 def get_canonical_url(url):
     """Strips dynamic tracking parameters from Facebook URLs to create a stable unique ID."""
@@ -49,8 +60,12 @@ def get_canonical_url(url):
         # Keep only the parameters that uniquely identify a post or comment
         if 'comment_id' in qs:
             canonical_qs['comment_id'] = qs['comment_id']
+        if 'reply_comment_id' in qs:
+            canonical_qs['reply_comment_id'] = qs['reply_comment_id']
         if 'multi_permalinks' in qs:
             canonical_qs['multi_permalinks'] = qs['multi_permalinks']
+        if 'story_fbid' in qs:
+            canonical_qs['story_fbid'] = qs['story_fbid']
             
         new_query = urllib.parse.urlencode(canonical_qs, doseq=True)
         return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, ''))
@@ -63,6 +78,41 @@ def clean_author(author):
         return "Unknown Author"
     pattern = r'\s+(a week ago|yesterday|just now|\d+\s+(h|m|d|w|y|hr|hrs|min|mins|day|days|week|weeks|month|months|year|years)\s+ago|last night).*$'
     return re.sub(pattern, '', author, flags=re.IGNORECASE).strip()
+
+
+def is_facebook_permalink(url, is_comment):
+    """Validate that a URL identifies the requested Facebook item type."""
+    if not url:
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url)
+        hostname = (parsed.hostname or "").lower()
+        if hostname not in {"facebook.com", "www.facebook.com", "m.facebook.com"}:
+            return False
+        query = urllib.parse.parse_qs(parsed.query)
+        if is_comment:
+            return bool(query.get("comment_id") or query.get("reply_comment_id"))
+        return any(
+            marker in parsed.path
+            for marker in ("/permalink/", "/posts/")
+        ) or bool(query.get("story_fbid") or query.get("multi_permalinks"))
+    except ValueError:
+        return False
+
+
+def get_validation_failures(post):
+    """Return explicit reasons why a candidate cannot be normally notified."""
+    failures = []
+    display_url = post.get("display_url", "")
+    if not display_url:
+        failures.append("missing_url")
+    elif not is_facebook_permalink(display_url, post.get("is_comment", False)):
+        failures.append("invalid_permalink")
+    if post.get("author_status") != "present" or post.get("author") == "Unknown Author":
+        failures.append("missing_author")
+    if not post.get("content"):
+        failures.append("missing_content")
+    return failures
 
 def notify_via_email(subject, message):
     """Call Google Workspace Manager to send an email notification."""
@@ -77,10 +127,164 @@ def notify_via_email(subject, message):
             text=True
         )
         print("Notification sent via Email.")
+        return True
     except Exception as e:
         print(f"Failed to send email notification: {e}", file=sys.stderr)
         if hasattr(e, 'stderr') and e.stderr:
             print(e.stderr, file=sys.stderr)
+        return False
+
+
+def utc_now():
+    """Return a stable UTC timestamp for state and run records."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+def empty_state():
+    """Return the versioned state shape used by the scraper."""
+    return {
+        "version": STATE_VERSION,
+        "updated_at": None,
+        "notification_ids": [],
+        "items": {},
+        "runs": [],
+    }
+
+
+def load_state(path):
+    """Load state and migrate the pre-v2 hash-only format in memory."""
+    state = empty_state()
+    migrated = False
+    if os.path.exists(path):
+        try:
+            with open(path, "r") as f:
+                loaded = json.load(f)
+            if loaded.get("version") == STATE_VERSION:
+                state.update(loaded)
+                state["notification_ids"] = list(state.get("notification_ids", []))
+                state["items"] = dict(state.get("items", {}))
+                state["runs"] = list(state.get("runs", []))
+            else:
+                # Preserve old notification identities so migration cannot replay them.
+                state["notification_ids"] = list(loaded.get("notified_hashes", []))
+                latest = loaded.get("latest_post")
+                if isinstance(latest, dict):
+                    old_hash = hashlib.md5(
+                        (latest.get("author", "") + latest.get("content", "")).encode("utf-8")
+                    ).hexdigest()
+                    if old_hash not in state["notification_ids"]:
+                        state["notification_ids"].append(old_hash)
+                migrated = True
+        except Exception as e:
+            print(f"Warning: Failed to load old state: {e}")
+            migrated = True
+    return state, migrated
+
+
+def save_state(path, state):
+    """Atomically replace the state file so interrupted writes cannot truncate it."""
+    state["version"] = STATE_VERSION
+    state["updated_at"] = utc_now()
+    directory = os.path.dirname(path) or "."
+    fd, temporary_path = tempfile.mkstemp(prefix=".fb_group_state.", dir=directory)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(state, f, indent=2, sort_keys=True)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if os.path.exists(temporary_path):
+            os.unlink(temporary_path)
+
+
+def prune_state(state, now_epoch=None):
+    """Apply the WP-0 retention bounds and return whether pruning occurred."""
+    pruned = False
+    cutoff = (now_epoch if now_epoch is not None else time.time()) - (RUN_RETENTION_DAYS * 86400)
+    runs = state.get("runs", [])
+    kept_runs = [run for run in runs if run.get("started_epoch", 0) >= cutoff]
+    if len(kept_runs) != len(runs):
+        pruned = True
+    state["runs"] = kept_runs[-RUN_RETENTION_DAYS * 12:]
+
+    items = state.get("items", {})
+    if len(items) > ITEM_RETENTION:
+        ordered = sorted(items.items(), key=lambda pair: pair[1].get("last_seen_at", ""))
+        state["items"] = dict(ordered[-ITEM_RETENTION:])
+        pruned = True
+
+    ids = state.get("notification_ids", [])
+    if len(ids) > NOTIFICATION_ID_RETENTION:
+        state["notification_ids"] = ids[-NOTIFICATION_ID_RETENTION:]
+        pruned = True
+    return pruned
+
+
+def extract_feed_items(page):
+    """Extract structured candidates without adding state to the page DOM."""
+    return page.evaluate('''() => {
+        const feed = document.querySelector('div[role="feed"]');
+        if (!feed) return [];
+
+        const isCandidateUrl = (href) => href && (
+            href.includes('/permalink/') ||
+            href.includes('/posts/') ||
+            href.includes('multi_permalinks=') ||
+            href.includes('story_fbid=') ||
+            href.includes('comment_id=') ||
+            href.includes('reply_comment_id=')
+        );
+        const text = (element) => element ? element.innerText.trim() : '';
+        const records = [];
+        const seen = new Set();
+
+        const addRecord = (record) => {
+            if (!record.content) return;
+            const key = record.url || [record.type, record.author, record.content].join('|');
+            if (seen.has(key)) return;
+            seen.add(key);
+            records.push(record);
+        };
+
+        feed.querySelectorAll('div[data-ad-comet-preview="message"]').forEach((message) => {
+            const article = message.closest('div[role="article"]');
+            if (!article) return;
+            const links = Array.from(article.querySelectorAll('a'));
+            const urlLink = links.find((link) => isCandidateUrl(link.href));
+            const authorLink = links.find((link) => text(link) && !isCandidateUrl(link.href));
+            const author = text(authorLink);
+            addRecord({
+                type: 'post',
+                author: author || 'Unknown Author',
+                author_source: author ? 'link' : 'missing',
+                author_status: author ? 'present' : 'missing',
+                content: text(message),
+                url: urlLink ? urlLink.href : ''
+            });
+        });
+
+        feed.querySelectorAll('div[role="article"]').forEach((article) => {
+            const label = article.getAttribute('aria-label') || '';
+            if (!/^Comment/.test(label)) return;
+            const commentText = article.querySelector('div[dir="auto"]');
+            const commentLink = Array.from(article.querySelectorAll('a')).find(
+                (link) => link.href && (link.href.includes('comment_id=') || link.href.includes('reply_comment_id='))
+            );
+            const author = label.replace(/^Comment (by|from) /, '').trim();
+            addRecord({
+                type: 'comment',
+                author: author || 'Unknown Author',
+                author_source: author ? 'aria-label' : 'missing',
+                author_status: author ? 'present' : 'missing',
+                content: text(commentText),
+                url: commentLink ? commentLink.href : ''
+            });
+        });
+
+        return records;
+    }''')
 
 def main():
     if not os.path.exists(PROFILE_DIR):
@@ -90,6 +294,10 @@ def main():
             profile_path = alt_profile
         else:
             print(f"Error: Profile directory {PROFILE_DIR} not found.", file=sys.stderr)
+            notify_via_email(
+                "EPSC Facebook Scraper: Browser unavailable",
+                f"The configured Playwright profile was not found: {PROFILE_DIR}",
+            )
             sys.exit(1)
     else:
         profile_path = PROFILE_DIR
@@ -98,6 +306,9 @@ def main():
 
     # Ensure state directory exists
     os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+    state, state_migrated = load_state(STATE_FILE)
+    run_started_at = utc_now()
+    run_started_epoch = time.time()
 
     with sync_playwright() as p:
         # Launch using persistent context (headless)
@@ -111,6 +322,12 @@ def main():
         except Exception as e:
             # If browser is locked by a running MCP server, we'll get an error
             print(f"Error launching context. Playwright may be locked by another process: {e}", file=sys.stderr)
+            notify_via_email(
+                "EPSC Facebook Scraper: Browser unavailable",
+                "Playwright could not launch the persistent browser context. "
+                "The profile may be locked by another process.\n\n"
+                f"Error: {e}",
+            )
             sys.exit(1)
 
         page = context.new_page()
@@ -149,106 +366,54 @@ def main():
             except:
                 pass
         
-        # Scroll slightly to load newest posts
-        print("Scrolling slightly to load newest posts/comments...")
-        for _ in range(3):
-            page.evaluate('window.scrollBy(0, 800)')
-            page.wait_for_timeout(1500)
-
-        # Identify target post and comment containers currently in the DOM
-        item_count = page.evaluate('''() => {
-            const feed = document.querySelector('div[role="feed"]');
-            if (!feed) return 0;
-            
-            let count = 0;
-            
-            // 1. Posts
-            const postMessages = feed.querySelectorAll('div[data-ad-comet-preview="message"]');
-            postMessages.forEach((msg) => {
-                if (!msg.hasAttribute('data-target-item')) {
-                    msg.setAttribute('data-target-item', 'post');
-                    const article = msg.closest('div[role="article"]');
-                    if (article) {
-                        const timeLinks = Array.from(article.querySelectorAll('a')).filter(a => a.href && (a.href.includes('/permalink/') || a.href.includes('/user/') || a.href.includes('/posts/') || a.href.includes('multi_permalinks=')));
-                        if (timeLinks.length > 0) {
-                            msg.setAttribute('data-url', timeLinks[0].href);
-                        }
-                    }
-                    count++;
-                }
-            });
-            
-            // 2. Comments
-            // Comments are typically in div[role="article"] which have aria-label starting with "Comment"
-            const articles = feed.querySelectorAll('div[role="article"]');
-            articles.forEach((article) => {
-                const label = article.getAttribute('aria-label');
-                if (label && label.startsWith("Comment")) {
-                    const textDiv = article.querySelector('div[dir="auto"]');
-                    if (textDiv && !textDiv.hasAttribute('data-target-item')) {
-                        textDiv.setAttribute('data-target-item', 'comment');
-                        let author = label.replace("Comment by ", "").replace("Comment from ", "");
-                        textDiv.setAttribute('data-author', author);
-                        const timeLinks = Array.from(article.querySelectorAll('a')).filter(a => a.href && (a.href.includes('comment_id=') || a.href.includes('reply_comment_id=')));
-                        if (timeLinks.length > 0) {
-                            textDiv.setAttribute('data-url', timeLinks[0].href);
-                        } else {
-                            // Fallback to the parent post's URL if comment URL is not found
-                            let currentElement = article.parentElement;
-                            let parentPostUrl = '';
-                            while (currentElement && currentElement !== document.body) {
-                                const postMsg = currentElement.querySelector('div[data-ad-comet-preview="message"]');
-                                if (postMsg && postMsg.hasAttribute('data-url')) {
-                                    parentPostUrl = postMsg.getAttribute('data-url');
-                                    break;
-                                }
-                                currentElement = currentElement.parentElement;
-                            }
-                            if (parentPostUrl) {
-                                textDiv.setAttribute('data-url', parentPostUrl);
-                            }
-                        }
-                        count++;
-                    }
-                }
-            });
-            
-            return count;
-        }''')
-        
-        print(f"Found {item_count} items (posts and comments).")
-        
+        # Walk the feed until it stops changing or reaches the safety limit.
+        print("Walking feed progressively to load posts and comments...")
         posts = []
-        if item_count > 0:
-            for idx in range(min(item_count, 15)): # Parse up to 15 items to ensure we catch everything
-                try:
-                    item_type = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].getAttribute('data-target-item')''')
-                    url = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].getAttribute('data-url') || ""''')
-                    
-                    if item_type == 'post':
-                        author = page.evaluate(f'''() => {{
-                            const el = document.querySelectorAll('[data-target-item]')[{idx}];
-                            const article = el.closest('div[role="article"]');
-                            if (!article) return "Unknown Author";
-                            const firstTextLink = Array.from(article.querySelectorAll('a')).find(a => a.innerText && a.innerText.trim().length > 0);
-                            return firstTextLink ? firstTextLink.innerText.trim() : 'Unknown Author';
-                        }}''')
-                        content = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].innerText.trim()''')
-                        is_comment = False
-                    else:
-                        author = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].getAttribute('data-author') || "Unknown Author"''')
-                        content = page.evaluate(f'''() => document.querySelectorAll('[data-target-item]')[{idx}].innerText.trim()''')
-                        is_comment = True
+        previous_signature = None
+        stable_passes = 0
+        walk_termination = "safety_limit"
+        scroll_count = 0
+        for pass_number in range(MAX_SCROLLS + 1):
+            raw_items = extract_feed_items(page)
+            posts = []
+            for item in raw_items[:MAX_ITEMS]:
+                posts.append({
+                    "author": clean_author(item.get("author", "")),
+                    "author_source": item.get("author_source", "missing"),
+                    "author_status": item.get("author_status", "missing"),
+                    "content": item.get("content", "").strip(),
+                    "is_comment": item.get("type") == "comment",
+                    "display_url": item.get("url", "").strip(),
+                    "canonical_url": get_canonical_url(item.get("url", ""))
+                })
 
-                    if content:
-                        posts.append({
-                            "author": clean_author(author),
-                            "content": content,
-                            "is_comment": is_comment,
-                            "url": get_canonical_url(url)
-                        })
-                except Exception as e:
-                    print(f"Error parsing item {idx}: {e}")
+            signature = hashlib.sha256(
+                "\n".join(
+                    f"{item['is_comment']}|{item['canonical_url']}|{item['author']}|{item['content']}"
+                    for item in posts
+                ).encode("utf-8")
+            ).hexdigest()
+            if signature == previous_signature:
+                stable_passes += 1
+            else:
+                stable_passes = 0
+            previous_signature = signature
+
+            if len(raw_items) >= MAX_ITEMS:
+                walk_termination = "item_limit"
+                break
+            if stable_passes >= STABLE_PASSES:
+                walk_termination = "stable_boundary"
+                break
+            if pass_number == MAX_SCROLLS:
+                break
+
+            page.evaluate("window.scrollBy(0, Math.max(window.innerHeight * 0.8, 800))")
+            page.wait_for_timeout(1500)
+            scroll_count += 1
+
+        item_count = len(posts)
+        print(f"Found {item_count} items (posts and comments); walk ended at {walk_termination} after {scroll_count} scrolls.")
 
         # Take screenshot for debugging if no posts found
         if not posts:
@@ -260,58 +425,128 @@ def main():
 
     if not posts:
         print("No items found. Facebook page layout might have changed or feed failed to load.")
+        state["runs"].append({
+            "started_at": run_started_at,
+            "started_epoch": run_started_epoch,
+            "finished_at": utc_now(),
+            "status": "no_items",
+            "discovered_count": item_count,
+            "parsed_count": 0,
+            "new_item_count": 0,
+            "delivered_count": 0,
+            "state_migrated": state_migrated,
+            "scroll_count": scroll_count,
+            "walk_termination": walk_termination,
+        })
+        state["runs"][-1]["pruned"] = prune_state(state, run_started_epoch)
+        save_state(STATE_FILE, state)
         sys.exit(1)
 
     print(f"Successfully extracted {len(posts)} items.")
 
-    # Load old state
-    old_state = {}
-    if os.path.exists(STATE_FILE):
-        try:
-            with open(STATE_FILE, 'r') as f:
-                old_state = json.load(f)
-        except Exception as e:
-            print(f"Warning: Failed to load old state: {e}")
-
-    notified_hashes = old_state.get("notified_hashes", [])
-    
-    # Migrate old state format if necessary
-    if "latest_post" in old_state and isinstance(old_state["latest_post"], dict):
-        old_content = old_state["latest_post"].get("content", "")
-        old_author = old_state["latest_post"].get("author", "")
-        old_hash = hashlib.md5((old_author + old_content).encode('utf-8')).hexdigest()
-        if old_hash not in notified_hashes:
-            notified_hashes.append(old_hash)
+    notification_ids = state["notification_ids"]
+    new_item_count = 0
+    delivered_count = 0
+    eligible_count = 0
+    invalid_item_count = 0
+    validation_counts = {}
+    health_examples = []
 
     new_items_found = False
     
     # Process from oldest to newest if we want to notify in order, but we grabbed them top-down (newest first).
     # Reversing the list so we process older items first if they are on the page.
     for post in reversed(posts):
-        # Graceful migration: check both new URL and old MD5 hash
-        url_id = post.get("url")
         old_hash = hashlib.md5((post["author"] + post["content"]).encode('utf-8')).hexdigest()
-        
-        unique_id = url_id if url_id else old_hash
-            
-        if unique_id not in notified_hashes and old_hash not in notified_hashes:
+        failures = get_validation_failures(post)
+        canonical_url = post.get("canonical_url", "")
+        unique_id = canonical_url if not failures else f"candidate:{old_hash}"
+
+        seen_at = utc_now()
+        validation_status = "eligible" if not failures else "incomplete"
+        for reason in failures:
+            validation_counts[reason] = validation_counts.get(reason, 0) + 1
+        if failures:
+            invalid_item_count += 1
+            if len(health_examples) < 5:
+                health_examples.append({
+                    "type": "comment" if post["is_comment"] else "post",
+                    "author": post.get("author", "Unknown Author"),
+                    "failures": failures,
+                    "url": post.get("display_url", "")
+                })
+        else:
+            eligible_count += 1
+
+        existing_item = state["items"].get(unique_id, {})
+        item_record = {
+            "identity": unique_id,
+            "url": post.get("display_url", ""),
+            "canonical_url": canonical_url,
+            "author": post.get("author", ""),
+            "author_source": post.get("author_source", "missing"),
+            "content_fingerprint": old_hash,
+            "type": "comment" if post["is_comment"] else "post",
+            "first_seen_at": existing_item.get("first_seen_at", seen_at),
+            "last_seen_at": seen_at,
+            "validation_status": validation_status,
+            "validation_failures": failures,
+            "notified_at": existing_item.get("notified_at"),
+        }
+        state["items"][unique_id] = item_record
+        if not existing_item:
+            new_item_count += 1
+
+        if not failures and unique_id not in notification_ids and old_hash not in notification_ids:
             print(f"New {'comment' if post['is_comment'] else 'post'} detected by {post['author']}!")
             subject = f"EPSC FB {'Comment' if post['is_comment'] else 'Post'}: {post['author']}"
             msg_body = f"Author: {post['author']}\n\n{post['content']}"
-            if post.get("url"):
-                msg_body += f"\n\nLink: {post['url']}"
-            notify_via_email(subject, msg_body)
-            
-            notified_hashes.append(unique_id)
-            new_items_found = True
+            msg_body += f"\n\nLink: {post['display_url']}"
+            if notify_via_email(subject, msg_body):
+                item_record["notified_at"] = utc_now()
+                notification_ids.append(unique_id)
+                delivered_count += 1
+                new_items_found = True
 
-    if new_items_found:
-        # Keep only the last 200 hashes to prevent file growth
-        notified_hashes = notified_hashes[-200:]
-        with open(STATE_FILE, 'w') as f:
-            json.dump({"notified_hashes": notified_hashes, "updated_at": time.time()}, f)
-    else:
+    health_alert_sent = False
+    if invalid_item_count:
+        examples = "\n".join(
+            f"- {example['type']} by {example['author']}: {', '.join(example['failures'])}"
+            + (f" ({example['url']})" if example["url"] else "")
+            for example in health_examples
+        )
+        health_body = (
+            f"Run observed {invalid_item_count} incomplete Facebook item(s) out of {len(posts)}.\n"
+            f"Normal notifications suppressed for these items.\n\n"
+            f"Failure counts: {json.dumps(validation_counts, sort_keys=True)}\n\n"
+            f"Examples:\n{examples}"
+        )
+        health_alert_sent = notify_via_email(
+            "EPSC Facebook Scraper: Data quality warning", health_body
+        )
+
+    if not new_items_found:
         print("No new posts/comments detected.")
+
+    state["runs"].append({
+        "started_at": run_started_at,
+        "started_epoch": run_started_epoch,
+        "finished_at": utc_now(),
+        "status": "complete",
+        "discovered_count": item_count,
+        "parsed_count": len(posts),
+        "new_item_count": new_item_count,
+        "delivered_count": delivered_count,
+        "eligible_count": eligible_count,
+        "invalid_item_count": invalid_item_count,
+        "validation_counts": validation_counts,
+        "health_alert_sent": health_alert_sent,
+        "state_migrated": state_migrated,
+        "scroll_count": scroll_count,
+        "walk_termination": walk_termination,
+    })
+    state["runs"][-1]["pruned"] = prune_state(state, run_started_epoch)
+    save_state(STATE_FILE, state)
 
 if __name__ == "__main__":
     main()

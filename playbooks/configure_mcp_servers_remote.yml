@@ -87,6 +87,16 @@
           - "{{ repo_path }}/mcp-servers/homeassistant/server.py"
         env:
           HASS_URL: "http://homeassistant.home.arpa/api/mcp"
+      playwright:
+        type: stdio
+        command: npx
+        args:
+          - "@playwright/mcp"
+          - "--browser"
+          - firefox
+          - "--executable-path"
+          - /usr/bin/firefox
+        env: {}
     mcp_standard_config_paths:
       - "/home/{{ gemini_user }}/.mcp.json"
       - "/home/{{ gemini_user }}/.gemini/antigravity-cli/mcp_config.json"
@@ -169,6 +179,24 @@
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
       loop: "{{ [gemini_project_dir + '/.gemini', mcp_opencode_config_path] + mcp_standard_config_paths }}"
+
+    - name: 7a. Ensure project Gemini configuration directory exists
+      ansible.builtin.file:
+        path: "{{ gemini_project_dir }}/.gemini"
+        state: directory
+        mode: '0755'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+
+    - name: 7b. Initialize missing standard MCP configurations
+      ansible.builtin.copy:
+        content: "{}\n"
+        dest: "{{ item }}"
+        mode: '0600'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+        force: false
+      loop: "{{ mcp_standard_config_paths }}"
 
     - name: 8. Read existing standard MCP configurations
       ansible.builtin.slurp:
