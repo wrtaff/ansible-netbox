@@ -1,0 +1,201 @@
+---
+# Trac #4190: apply Athena's workspace count and names to limbo-f0.
+
+- name: Apply XFCE workspace layout
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    xfwm_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml"
+    backup_stamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+    workspace_count: 12
+    workspace_names:
+      - cal-wfl
+      - in
+      - todo
+      - E/lc
+      - F/c&p
+      - dev-pd
+      - s-prj
+      - s-ops
+      - H-fd
+      - b/Geeks
+      - m/r
+      - msgs
+
+  tasks:
+    - name: Confirm the inventory alias reaches limbo-f0
+      ansible.builtin.command: hostname
+      become_user: "{{ xfce_user }}"
+      register: target_hostname
+      changed_when: false
+      check_mode: false
+
+    - name: Refuse to modify a host with the wrong identity
+      ansible.builtin.assert:
+        that:
+          - target_hostname.stdout | trim == 'limbo-f0'
+        fail_msg: "Refusing to modify unexpected host {{ target_hostname.stdout | trim }}"
+
+    - name: Read current workspace count
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfwm4
+          - -p
+          - /general/workspace_count
+      become_user: "{{ xfce_user }}"
+      register: workspace_count_current
+      changed_when: false
+      check_mode: false
+
+    - name: Read current workspace names
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfwm4
+          - -p
+          - /general/workspace_names
+      become_user: "{{ xfce_user }}"
+      register: workspace_names_current
+      changed_when: false
+      check_mode: false
+
+    - name: Determine whether the requested workspace layout is already present
+      ansible.builtin.set_fact:
+        workspace_names_match: "{{ (workspace_names | difference(workspace_names_current.stdout_lines)) | length == 0 }}"
+
+    - name: Back up the window-manager channel before changing it
+      ansible.builtin.copy:
+        src: "{{ xfwm_file }}"
+        dest: "{{ xfwm_file }}.bak.{{ backup_stamp }}"
+        remote_src: true
+        mode: preserve
+      become_user: "{{ xfce_user }}"
+      register: xfwm_backup
+      when:
+        - not ansible_check_mode
+        - workspace_count_current.stdout | trim != (workspace_count | string) or not workspace_names_match
+
+    - name: Set workspace count
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfwm4
+          - -p
+          - /general/workspace_count
+          - -s
+          - "{{ workspace_count }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - workspace_count_current.stdout | trim != (workspace_count | string)
+
+    - name: Set workspace names
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfwm4
+          - -p
+          - /general/workspace_names
+          - -a
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -t
+          - string
+          - -s
+          - cal-wfl
+          - -s
+          - in
+          - -s
+          - todo
+          - -s
+          - E/lc
+          - -s
+          - F/c&p
+          - -s
+          - dev-pd
+          - -s
+          - s-prj
+          - -s
+          - s-ops
+          - -s
+          - H-fd
+          - -s
+          - b/Geeks
+          - -s
+          - m/r
+          - -s
+          - msgs
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - not workspace_names_match
+
+    - name: Read workspace count after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfwm4
+          - -p
+          - /general/workspace_count
+      become_user: "{{ xfce_user }}"
+      register: workspace_count_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read workspace names after apply
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfwm4
+          - -p
+          - /general/workspace_names
+      become_user: "{{ xfce_user }}"
+      register: workspace_names_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Confirm workspace layout
+      ansible.builtin.assert:
+        that:
+          - workspace_count_verified.stdout | trim == (workspace_count | string)
+          - (workspace_names | difference(workspace_names_verified.stdout_lines)) | length == 0
+        fail_msg: "XFCE workspace layout verification failed"
+      when: not ansible_check_mode
+
+    - name: Report rollback artifact
+      ansible.builtin.debug:
+        msg: >-
+          Restore {{ xfwm_file }} from {{ xfwm_backup.dest }} and run the rollback playbook if needed.
+      when:
+        - xfwm_backup is defined
+        - xfwm_backup.changed | default(false)

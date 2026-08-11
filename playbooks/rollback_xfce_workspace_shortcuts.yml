@@ -1,0 +1,43 @@
+---
+# Trac #4190: restore only the XFCE keyboard shortcut channel.
+# Usage: ansible-playbook -i inventory.ini playbooks/rollback_xfce_workspace_shortcuts.yml
+#        --limit limbo-f0 -e backup_file=/home/will/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml.bak.TIMESTAMP
+
+- name: Roll back XFCE workspace shortcut delta
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    keyboard_shortcut_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
+
+  tasks:
+    - name: Require an explicit backup file
+      ansible.builtin.assert:
+        that:
+          - backup_file is defined
+          - backup_file | length > 0
+        fail_msg: "Pass -e backup_file=/path/to/keyboard-shortcuts.xml.bak.TIMESTAMP"
+
+    - name: Restore keyboard shortcut channel
+      ansible.builtin.copy:
+        src: "{{ backup_file }}"
+        dest: "{{ keyboard_shortcut_file }}"
+        remote_src: true
+        owner: "{{ xfce_user }}"
+        group: "{{ xfce_user }}"
+        mode: '0644'
+      become_user: "{{ xfce_user }}"
+
+    - name: Stop the user xfconf daemon so the restored file is reread
+      ansible.builtin.command:
+        argv:
+          - pkill
+          - -u
+          - "{{ xfce_user }}"
+          - -x
+          - xfconfd
+      become_user: "{{ xfce_user }}"
+      changed_when: false
+      failed_when: false

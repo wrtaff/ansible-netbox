@@ -1,0 +1,50 @@
+---
+# Trac #4190: restore only the XFCE window-manager channel.
+# Usage: ansible-playbook -i inventory.ini playbooks/rollback_xfce_workspaces.yml
+#        --limit limbo-f0 -e backup_file=/home/will/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml.bak.TIMESTAMP
+
+- name: Roll back XFCE workspace layout
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    xfwm_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml"
+
+  tasks:
+    - name: Require an explicit backup file
+      ansible.builtin.assert:
+        that:
+          - backup_file is defined
+          - backup_file | length > 0
+        fail_msg: "Pass -e backup_file=/path/to/xfwm4.xml.bak.TIMESTAMP"
+
+    - name: Stop xfconfd before restoring its channel file
+      ansible.builtin.command:
+        argv:
+          - pkill
+          - -u
+          - "{{ xfce_user }}"
+          - -x
+          - xfconfd
+      become_user: "{{ xfce_user }}"
+      changed_when: false
+      failed_when: false
+
+    - name: Restore window-manager channel
+      ansible.builtin.copy:
+        src: "{{ backup_file }}"
+        dest: "{{ xfwm_file }}"
+        remote_src: true
+        owner: "{{ xfce_user }}"
+        group: "{{ xfce_user }}"
+        mode: '0644'
+      become_user: "{{ xfce_user }}"
+
+    - name: Reload the window manager from restored configuration
+      ansible.builtin.command: xfwm4 --replace
+      become_user: "{{ xfce_user }}"
+      async: 1
+      poll: 0
+      changed_when: false

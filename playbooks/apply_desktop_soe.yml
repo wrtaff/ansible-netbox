@@ -4,6 +4,8 @@
 # Version: 1.1.0
 # Description: Apply consistent XFCE Desktop SOE across workstations.
 # Trac Ticket: #3217
+# User XFCE profile increments are documented in ../XFCE-Desktop-SOE.md and
+# applied by the channel-specific playbooks under this directory.
 # Changes:
 #   - 2026-03-16: Re-established as the primary Desktop SOE playbook.
 # ==============================================================================

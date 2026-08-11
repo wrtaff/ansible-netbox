@@ -1,0 +1,149 @@
+---
+# Trac #4190: apply the first narrow, rollback-capable XFCE profile increment.
+
+- name: Apply XFCE workspace shortcut delta
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    keyboard_shortcut_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
+    backup_stamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+    next_workspace_path: /xfwm4/custom/<Primary><Alt>End
+    next_workspace_value: move_window_next_workspace_key
+    previous_workspace_path: /xfwm4/custom/<Primary><Alt>Home
+    previous_workspace_value: move_window_prev_workspace_key
+
+  tasks:
+    - name: Confirm the inventory alias reaches limbo-f0
+      ansible.builtin.command: hostname
+      become_user: "{{ xfce_user }}"
+      register: target_hostname
+      changed_when: false
+      check_mode: false
+
+    - name: Refuse to modify a host with the wrong identity
+      ansible.builtin.assert:
+        that:
+          - target_hostname.stdout | trim == 'limbo-f0'
+        fail_msg: "Refusing to modify unexpected host {{ target_hostname.stdout | trim }}"
+
+    - name: Read next-workspace shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ next_workspace_path }}"
+      become_user: "{{ xfce_user }}"
+      register: next_workspace_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read previous-workspace shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ previous_workspace_path }}"
+      become_user: "{{ xfce_user }}"
+      register: previous_workspace_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Back up the keyboard shortcut channel before changing it
+      ansible.builtin.copy:
+        src: "{{ keyboard_shortcut_file }}"
+        dest: "{{ keyboard_shortcut_file }}.bak.{{ backup_stamp }}"
+        remote_src: true
+        mode: preserve
+      when:
+        - not ansible_check_mode
+        - next_workspace_current.stdout | trim != next_workspace_value or previous_workspace_current.stdout | trim != previous_workspace_value
+      become_user: "{{ xfce_user }}"
+      register: keyboard_shortcut_backup
+
+    - name: Set next-workspace shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ next_workspace_path }}"
+          - -n
+          - -t
+          - string
+          - -s
+          - "{{ next_workspace_value }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - next_workspace_current.stdout | trim != next_workspace_value
+
+    - name: Set previous-workspace shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ previous_workspace_path }}"
+          - -n
+          - -t
+          - string
+          - -s
+          - "{{ previous_workspace_value }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - previous_workspace_current.stdout | trim != previous_workspace_value
+
+    - name: Verify next-workspace shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ next_workspace_path }}"
+      become_user: "{{ xfce_user }}"
+      register: next_workspace_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Verify previous-workspace shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ previous_workspace_path }}"
+      become_user: "{{ xfce_user }}"
+      register: previous_workspace_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Confirm both workspace shortcuts
+      ansible.builtin.assert:
+        that:
+          - next_workspace_verified.stdout | trim == next_workspace_value
+          - previous_workspace_verified.stdout | trim == previous_workspace_value
+        fail_msg: "XFCE workspace shortcut verification failed"
+      when: not ansible_check_mode
+
+    - name: Report rollback artifact
+      ansible.builtin.debug:
+        msg: >-
+          Restore {{ keyboard_shortcut_file }} from
+          {{ keyboard_shortcut_backup.dest }} and restart xfconfd if rollback is needed.
+      when:
+        - keyboard_shortcut_backup is defined
+        - keyboard_shortcut_backup.changed | default(false)
