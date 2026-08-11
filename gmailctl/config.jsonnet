@@ -421,7 +421,7 @@
       name: "kill-the-newsletter/model-train-news"
     },
     {
-      name: "ktn/amfb3xf4kuhvkilrw15l"
+       name: "ktn/ray0j64wqqwllk2jxo3l"
     },
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -1941,7 +1941,7 @@
       actions: {
         archive: true,
         labels: [
-          "ktn/amfb3xf4kuhvkilrw15l"
+           "ktn/ray0j64wqqwllk2jxo3l"
         ]
       }
     }

@@ -1,7 +1,8 @@
 #
 # FILENAME: deploy_x2go_client.yml
 # PURPOSE:  Install x2goclient and configure session profiles in the correct single-file format.
-# VERSION:  2.4
+# VERSION:  2.5
+# Trac Ticket: #4187
 #
 ---
 - name: Deploy and Configure X2Go Client
@@ -139,6 +140,48 @@
           - { key: "print", value: "true" }
           - { key: "fstunnel", value: "true" }
 
+      - section: "limbo-f0_autologin_will"
+        settings:
+          - { key: "name", value: "limbo-f0 - Auto Login" }
+          - { key: "host", value: "limbo-f0.home.arpa" }
+          - { key: "user", value: "{{ target_user }}" }
+          - { key: "autologin", value: "true" }
+          - { key: "usekey", value: "true" }
+          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_ed25519_x2go" }
+          - { key: "command", value: "XFCE" }
+          - { key: "speed", value: "2" }
+          - { key: "quality", value: "9" }
+          - { key: "pack", value: "16m-jpeg" }
+          - { key: "width", value: "800" }
+          - { key: "height", value: "600" }
+          - { key: "dpi", value: "141" }
+          - { key: "clipboard", value: "both" }
+          - { key: "sound", value: "true" }
+          - { key: "soundsystem", value: "pulse" }
+          - { key: "soundtunnel", value: "true" }
+          - { key: "print", value: "true" }
+          - { key: "fstunnel", value: "true" }
+
+      - section: "limbo-f0_manual_login"
+        settings:
+          - { key: "name", value: "limbo-f0 - Manual Login" }
+          - { key: "host", value: "limbo-f0.home.arpa" }
+          - { key: "autologin", value: "false" }
+          - { key: "usekey", value: "false" }
+          - { key: "command", value: "XFCE" }
+          - { key: "speed", value: "2" }
+          - { key: "quality", value: "9" }
+          - { key: "pack", value: "16m-jpeg" }
+          - { key: "width", value: "800" }
+          - { key: "height", value: "600" }
+          - { key: "dpi", value: "141" }
+          - { key: "clipboard", value: "both" }
+          - { key: "sound", value: "true" }
+          - { key: "soundsystem", value: "pulse" }
+          - { key: "soundtunnel", value: "true" }
+          - { key: "print", value: "true" }
+          - { key: "fstunnel", value: "true" }
+
   tasks:
     - name: 1. Install x2go-client package
       ansible.builtin.apt:
@@ -172,6 +215,8 @@
       ansible.builtin.file:
         path: "/home/{{ target_user }}/.x2goclient/sessions"
         state: touch
+        access_time: preserve
+        modification_time: preserve
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0600'

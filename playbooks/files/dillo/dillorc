@@ -1,0 +1,2 @@
+search_url="ww WWOS http://wwos.home.arpa/index.php?search=%s"
+search_url="wik Wikipedia https://en.wikipedia.org/w/index.php?search=%s&go=Go"

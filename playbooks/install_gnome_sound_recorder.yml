@@ -1,0 +1,12 @@
+---
+# Install GNOME Sound Recorder on Debian desktop hosts.
+# Usage: ansible-playbook -i inventory.ini playbooks/install_gnome_sound_recorder.yml --limit <host>
+- name: Install GNOME Sound Recorder on desktops
+  hosts: desktops
+  become: true
+  tasks:
+    - name: Install gnome-sound-recorder
+      ansible.builtin.apt:
+        name: gnome-sound-recorder
+        state: present
+        update_cache: true
