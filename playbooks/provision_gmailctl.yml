@@ -1,0 +1,41 @@
+---
+- name: Provision the Gmailctl validator
+  hosts: gmailctl-ansible
+  become: true
+  vars:
+    gmailctl_version: "0.12.0"
+    gmailctl_archive: "gmailctl_{{ gmailctl_version }}_linux_amd64.tar.gz"
+    gmailctl_url: "https://github.com/mbrt/gmailctl/releases/download/v{{ gmailctl_version }}/{{ gmailctl_archive }}"
+    gmailctl_sha256: "2ebd25399ce8eff9698b33058754f9dbc9a80ef63503cfb92e4ec691d394ecae"
+    gmailctl_download: "/var/tmp/{{ gmailctl_archive }}"
+
+  tasks:
+    - name: Require the supported Gmailctl host architecture
+      ansible.builtin.assert:
+        that: ansible_architecture == "x86_64"
+        fail_msg: "Gmailctl v{{ gmailctl_version }} provisioning currently supports linux amd64 only."
+
+    - name: Download pinned Gmailctl release
+      ansible.builtin.get_url:
+        url: "{{ gmailctl_url }}"
+        dest: "{{ gmailctl_download }}"
+        checksum: "sha256:{{ gmailctl_sha256 }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install Gmailctl validator
+      ansible.builtin.unarchive:
+        src: "{{ gmailctl_download }}"
+        dest: /usr/local/bin
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+        creates: /usr/local/bin/gmailctl
+
+    - name: Verify Gmailctl validator version
+      ansible.builtin.command: /usr/local/bin/gmailctl version
+      register: gmailctl_version_output
+      changed_when: false
+      failed_when: "'v' + gmailctl_version not in gmailctl_version_output.stdout"
