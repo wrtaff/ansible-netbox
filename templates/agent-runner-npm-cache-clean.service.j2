@@ -1,0 +1,9 @@
+[Unit]
+Description=Clear the agent runner npm download cache
+ConditionPathExists=/usr/bin/npm
+
+[Service]
+Type=oneshot
+User=will
+Environment=HOME=/home/will
+ExecStart=/usr/bin/npm cache clean --force

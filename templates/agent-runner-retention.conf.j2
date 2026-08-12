@@ -1,0 +1,4 @@
+# POPS agent-runner ephemeral data policy -- Trac #4220.
+# e preserves /tmp itself while allowing systemd-tmpfiles to clean aged contents.
+e /tmp 1777 root root 3d
+d /home/will/pops/tmp 0755 will will 14d
