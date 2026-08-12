@@ -38,4 +38,4 @@
       ansible.builtin.command: /usr/local/bin/gmailctl version
       register: gmailctl_version_output
       changed_when: false
-      failed_when: "'v' + gmailctl_version not in gmailctl_version_output.stdout"
+      failed_when: "gmailctl_version not in gmailctl_version_output.stdout"
