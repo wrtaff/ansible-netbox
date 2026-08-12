@@ -1,0 +1,15 @@
+[Unit]
+Description=Relay direct-ID Gmail labels to Kill the Newsletter
+After=network-online.target kill-the-newsletter.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ ktn_user }}
+Group={{ ktn_group }}
+EnvironmentFile=/etc/ktn-imap-puller.env
+ExecStart=/usr/local/sbin/ktn-imap-puller
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

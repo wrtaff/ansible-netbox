@@ -146,6 +146,50 @@
     state: started
     daemon_reload: true
 
+- name: Require the KTN IMAP credential from Ansible Vault
+  ansible.builtin.assert:
+    that:
+      - ktn_imap_password is defined
+      - ktn_imap_password | length > 0
+    fail_msg: "Define ktn_imap_password in the encrypted Ansible vault before deploying the KTN IMAP puller."
+  no_log: true
+
+- name: Install KTN direct-ID IMAP puller
+  ansible.builtin.template:
+    src: ktn-imap-puller.py.j2
+    dest: /usr/local/sbin/ktn-imap-puller
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Write KTN IMAP puller credentials
+  ansible.builtin.template:
+    src: ktn-imap-puller.env.j2
+    dest: /etc/ktn-imap-puller.env
+    owner: root
+    group: "{{ ktn_group }}"
+    mode: "0640"
+  no_log: true
+
+- name: Install KTN IMAP puller systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - ktn-imap-puller.service
+    - ktn-imap-puller.timer
+  notify: Reload systemd
+
+- name: Enable KTN IMAP puller timer
+  ansible.builtin.systemd:
+    name: ktn-imap-puller.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
 - name: Apply KTN configuration before enabling the public proxy
   ansible.builtin.meta: flush_handlers
 

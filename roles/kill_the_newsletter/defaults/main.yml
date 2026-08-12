@@ -11,3 +11,7 @@ ktn_tls_hostname: "ktn-lxc-01.van-bee.ts.net"
 ktn_smtp_port: 2525
 ktn_http_port: 8088
 ktn_tls_directory: "/etc/ssl/tailscale/ktn-lxc-01.van-bee.ts.net"
+ktn_imap_user: "wrtaff@gmail.com"
+ktn_imap_host: "imap.gmail.com"
+ktn_imap_port: 993
+ktn_imap_interval: "5min"

@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Relay Gmail messages bearing direct-ID KTN labels to the local SMTP ingress."""
+
+import imaplib
+import os
+import re
+import smtplib
+import ssl
+
+
+LABEL_PATTERN = re.compile(r'(?:^|")(?P<label>ktn/[a-z0-9]+)(?:"|$)')
+
+
+def get_direct_id_labels(client):
+    status, mailboxes = client.list()
+    if status != "OK":
+        raise RuntimeError("Unable to list Gmail labels")
+
+    labels = []
+    for mailbox in mailboxes or []:
+        match = LABEL_PATTERN.search(mailbox.decode("utf-8", errors="replace"))
+        if match:
+            labels.append(match.group("label"))
+    return labels
+
+
+def relay_label(client, label):
+    status, _ = client.select(f'"{label}"', readonly=False)
+    if status != "OK":
+        raise RuntimeError(f"Unable to select {label}")
+
+    status, data = client.uid("search", None, "ALL")
+    if status != "OK":
+        raise RuntimeError(f"Unable to search {label}")
+
+    feed_id = label.removeprefix("ktn/")
+    recipient = f"{feed_id}@{os.environ['KTN_HOSTNAME']}"
+    delivered = 0
+    for message_uid in data[0].split():
+        status, message_data = client.uid("fetch", message_uid, "(RFC822)")
+        if status != "OK" or not message_data or not isinstance(message_data[0], tuple):
+            raise RuntimeError(f"Unable to fetch a message from {label}")
+
+        # SMTP is loopback-only; KTN presents its own TLS certificate on this port.
+        with smtplib.SMTP_SSL(
+            os.environ["KTN_SMTP_HOST"],
+            int(os.environ["KTN_SMTP_PORT"]),
+            context=ssl._create_unverified_context(),
+            timeout=30,
+        ) as smtp:
+            smtp.sendmail("", [recipient], message_data[0][1])
+
+        status, _ = client.uid("store", message_uid, "-X-GM-LABELS", f'("{label}")')
+        if status != "OK":
+            raise RuntimeError(f"Delivered a message but could not remove {label}")
+        delivered += 1
+    return delivered
+
+
+def main():
+    with imaplib.IMAP4_SSL(
+        os.environ["KTN_IMAP_HOST"],
+        int(os.environ["KTN_IMAP_PORT"]),
+        ssl_context=ssl.create_default_context(),
+    ) as client:
+        client.login(os.environ["KTN_IMAP_USER"], os.environ["KTN_IMAP_PASSWORD"])
+        delivered = sum(relay_label(client, label) for label in get_direct_id_labels(client))
+        client.logout()
+    print(f"KTN IMAP puller delivered {delivered} message(s)")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,10 @@
+[Unit]
+Description=Poll Gmail direct-ID KTN labels
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec={{ ktn_imap_interval }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
