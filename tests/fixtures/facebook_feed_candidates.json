@@ -1,0 +1,26 @@
+[
+  {
+    "type": "post",
+    "author": "Alice Example",
+    "author_source": "link",
+    "author_status": "present",
+    "content": "A post with a stable permalink.",
+    "url": "https://www.facebook.com/groups/473971729877417/posts/123/?story_fbid=123"
+  },
+  {
+    "type": "comment",
+    "author": "Bob Example",
+    "author_source": "aria-label",
+    "author_status": "present",
+    "content": "A comment with its own permalink.",
+    "url": "https://www.facebook.com/groups/473971729877417/posts/123/?comment_id=456"
+  },
+  {
+    "type": "comment",
+    "author": "Unknown Author",
+    "author_source": "missing",
+    "author_status": "missing",
+    "content": "A comment missing required metadata.",
+    "url": ""
+  }
+]
