@@ -1,0 +1,41 @@
+---
+# Filename:       playbooks/reclaim_agent_runner_space.yml
+# Trac Ticket:    #4220
+#
+# Purpose:
+#     Restore operating headroom on existing agent runners without changing
+#     installed runtimes, repositories, or active worktrees. This is a
+#     targeted incident-recovery playbook, not a replacement for provisioning.
+
+- name: Reclaim disposable agent-runner storage
+  hosts: agent_runners
+  become: yes
+  vars:
+    target_user: will
+    target_home: "/home/{{ target_user }}"
+
+  tasks:
+    - name: Clear the target user's npm download cache
+      ansible.builtin.command:
+        cmd: npm cache clean --force
+      become_user: "{{ target_user }}"
+      environment:
+        HOME: "{{ target_home }}"
+
+    - name: Clear downloaded APT package archives
+      ansible.builtin.apt:
+        clean: yes
+
+    - name: Retain at most 50 MB of systemd journal data
+      ansible.builtin.command:
+        cmd: journalctl --vacuum-size=50M
+
+    - name: Report root filesystem capacity after cleanup
+      ansible.builtin.command:
+        cmd: df -h /
+      changed_when: false
+      register: root_filesystem
+
+    - name: Show root filesystem capacity
+      ansible.builtin.debug:
+        var: root_filesystem.stdout_lines
