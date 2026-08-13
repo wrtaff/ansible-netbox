@@ -17,7 +17,7 @@ def get_gmailctl_init_info(host_ip="192.168.0.25"):
     # Start tmux and gmailctl
     subprocess.run([
         "ssh", "-i", "/home/will/.ssh/id_rsa_lab", f"will@{host_ip}", 
-        "sudo tmux new-session -d -s gmailctl_auth '/root/go/bin/gmailctl init --refresh-expired'"
+        "sudo tmux new-session -d -s gmailctl_auth '/usr/local/bin/gmailctl init --refresh-expired'"
     ])
 
     url = None
