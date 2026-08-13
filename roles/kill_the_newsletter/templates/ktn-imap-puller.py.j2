@@ -2,6 +2,7 @@
 """Relay Gmail messages bearing direct-ID KTN labels to the local SMTP ingress."""
 
 import imaplib
+import json
 import os
 import re
 import smtplib
@@ -33,10 +34,19 @@ def relay_label(client, label):
     if status != "OK":
         raise RuntimeError(f"Unable to search {label}")
 
+    try:
+        with open(os.environ["KTN_DELIVERY_STATE"], encoding="utf-8") as state_file:
+            delivered_uids = set(json.load(state_file))
+    except FileNotFoundError:
+        delivered_uids = set()
+
     feed_id = label.removeprefix("ktn/")
     recipient = f"{feed_id}@{os.environ['KTN_HOSTNAME']}"
     delivered = 0
     for message_uid in data[0].split():
+        uid = message_uid.decode()
+        if uid in delivered_uids:
+            continue
         status, message_data = client.uid("fetch", message_uid, "(RFC822)")
         if status != "OK" or not message_data or not isinstance(message_data[0], tuple):
             raise RuntimeError(f"Unable to fetch a message from {label}")
@@ -49,9 +59,15 @@ def relay_label(client, label):
         ) as smtp:
             smtp.sendmail(os.environ["KTN_IMAP_USER"], [recipient], message_data[0][1])
 
+        delivered_uids.add(uid)
+        with open(os.environ["KTN_DELIVERY_STATE"], "w", encoding="utf-8") as state_file:
+            json.dump(sorted(delivered_uids), state_file)
         status, _ = client.uid("store", message_uid, "-X-GM-LABELS", f'("{label}")')
         if status != "OK":
             raise RuntimeError(f"Delivered a message but could not remove {label}")
+        status, labels = client.uid("fetch", message_uid, "(X-GM-LABELS)")
+        if status != "OK" or label.encode() in b"".join(labels):
+            raise RuntimeError(f"Delivered a message but {label} remains applied")
         delivered += 1
     return delivered
 
