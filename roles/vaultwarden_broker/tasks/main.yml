@@ -1,0 +1,108 @@
+---
+- name: Create the VaultWarden broker groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    system: true
+  loop:
+    - "{{ vaultwarden_broker_group }}"
+    - "{{ vaultwarden_broker_socket_group }}"
+
+- name: Create the VaultWarden broker service account
+  ansible.builtin.user:
+    name: "{{ vaultwarden_broker_user }}"
+    group: "{{ vaultwarden_broker_group }}"
+    system: true
+    create_home: true
+    shell: /usr/sbin/nologin
+
+- name: Configure the VaultWarden endpoint for the broker account
+  ansible.builtin.command:
+    argv:
+      - runuser
+      - -u
+      - "{{ vaultwarden_broker_user }}"
+      - --
+      - bw
+      - config
+      - server
+      - "{{ vaultwarden_broker_server_url }}"
+  changed_when: false
+
+- name: Allow the controller operator to use the broker socket
+  ansible.builtin.user:
+    name: will
+    groups: "{{ vaultwarden_broker_socket_group }}"
+    append: true
+
+- name: Create the broker configuration directory
+  ansible.builtin.file:
+    path: /etc/vaultwarden-broker
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install the VaultWarden broker
+  ansible.builtin.template:
+    src: vaultwarden-broker.py.j2
+    dest: /usr/local/libexec/vaultwarden-broker
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Restart VaultWarden broker
+
+- name: Install the approved broker mappings
+  ansible.builtin.template:
+    src: mappings.json.j2
+    dest: /etc/vaultwarden-broker/mappings.json
+    owner: root
+    group: root
+    mode: '0640'
+  notify: Restart VaultWarden broker
+
+- name: Install the VaultWarden mirror helper
+  ansible.builtin.template:
+    src: vaultwarden-broker-mirror.py.j2
+    dest: /usr/local/libexec/vaultwarden-broker-mirror
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install the controller-side mirror playbook
+  ansible.builtin.template:
+    src: vaultwarden-broker-mirror.yml.j2
+    dest: /etc/vaultwarden-broker/mirror.yml
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Install the interactive broker unlock helper
+  ansible.builtin.template:
+    src: vaultwarden-broker-unlock.py.j2
+    dest: /usr/local/sbin/vaultwarden-broker-unlock
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install the interactive broker login helper
+  ansible.builtin.template:
+    src: vaultwarden-broker-login.py.j2
+    dest: /usr/local/sbin/vaultwarden-broker-login
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install the VaultWarden broker service
+  ansible.builtin.template:
+    src: vaultwarden-broker.service.j2
+    dest: /etc/systemd/system/vaultwarden-broker.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart VaultWarden broker
+
+- name: Enable the VaultWarden broker without starting an authenticated session
+  ansible.builtin.systemd_service:
+    name: vaultwarden-broker.service
+    enabled: true
+    daemon_reload: true
