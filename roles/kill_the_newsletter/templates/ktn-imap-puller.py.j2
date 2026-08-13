@@ -47,7 +47,7 @@ def relay_label(client, label):
             int(os.environ["KTN_SMTP_PORT"]),
             timeout=30,
         ) as smtp:
-            smtp.sendmail("", [recipient], message_data[0][1])
+            smtp.sendmail(os.environ["KTN_IMAP_USER"], [recipient], message_data[0][1])
 
         status, _ = client.uid("store", message_uid, "-X-GM-LABELS", f'("{label}")')
         if status != "OK":
