@@ -1,0 +1,9 @@
+#!/bin/sh
+
+used_percent=$(df -P / | awk 'NR == 2 {gsub(/%/, "", $5); print $5}')
+
+if [ "$used_percent" -ge 85 ]; then
+    logger -p user.err -t agent-runner-capacity "root filesystem is ${used_percent}% full (critical threshold: 85%)"
+elif [ "$used_percent" -ge 75 ]; then
+    logger -p user.warning -t agent-runner-capacity "root filesystem is ${used_percent}% full (warning threshold: 75%)"
+fi

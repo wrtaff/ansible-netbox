@@ -1,0 +1,6 @@
+[Unit]
+Description=Check agent runner root filesystem capacity
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/agent-runner-disk-capacity-check

@@ -1,0 +1,76 @@
+---
+# Filename:       playbooks/configure_agent_runner_retention.yml
+# Trac Ticket:    #4220
+#
+# Purpose:
+#     Keep disposable agent-runner runtime data from exhausting the root
+#     filesystem while preserving POPS durable data in raw/ and wiki/.
+
+- name: Configure agent-runner retention and capacity monitoring
+  hosts: agent_runners
+  become: yes
+
+  tasks:
+    - name: Configure POPS scratch and runtime temporary-data retention
+      ansible.builtin.template:
+        src: ../templates/agent-runner-retention.conf.j2
+        dest: /etc/tmpfiles.d/agent-runner-retention.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install the npm cache cleanup service
+      ansible.builtin.template:
+        src: ../templates/agent-runner-npm-cache-clean.service.j2
+        dest: /etc/systemd/system/agent-runner-npm-cache-clean.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install the npm cache cleanup timer
+      ansible.builtin.template:
+        src: ../templates/agent-runner-npm-cache-clean.timer.j2
+        dest: /etc/systemd/system/agent-runner-npm-cache-clean.timer
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install the capacity check script
+      ansible.builtin.template:
+        src: ../templates/agent-runner-disk-capacity-check.sh.j2
+        dest: /usr/local/sbin/agent-runner-disk-capacity-check
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install the capacity check service
+      ansible.builtin.template:
+        src: ../templates/agent-runner-disk-capacity.service.j2
+        dest: /etc/systemd/system/agent-runner-disk-capacity.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install the capacity check timer
+      ansible.builtin.template:
+        src: ../templates/agent-runner-disk-capacity.timer.j2
+        dest: /etc/systemd/system/agent-runner-disk-capacity.timer
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Reload systemd after retention configuration changes
+      ansible.builtin.systemd_service:
+        daemon_reload: yes
+
+    - name: Enable weekly npm cache cleanup
+      ansible.builtin.systemd_service:
+        name: agent-runner-npm-cache-clean.timer
+        enabled: yes
+        state: started
+
+    - name: Enable daily capacity checks
+      ansible.builtin.systemd_service:
+        name: agent-runner-disk-capacity.timer
+        enabled: yes
+        state: started
