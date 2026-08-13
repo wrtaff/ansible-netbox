@@ -1,28 +1,92 @@
 # Playbook: Manage Trac Users
 # Path: /opt/netbox/ansible-netbox/playbooks/manage_trac_users.yml
-# Purpose: Manages users and passwords in the Trac .htpasswd file using Ansible Vault.
+# Purpose: Manages Trac users, passwords, and least-privilege ticket permissions.
 # Prerequisites: 
 #   - Trac server (trac-lxc) must be reachable via SSH.
 #   - community.general collection installed.
 #   - Plaintext passwords stored in vault.yml as 'vault_trac_user_password_<username>'.
-# Usage: ansible-playbook playbooks/manage_trac_users.yml -i inventory.ini --ask-vault-pass
-# Trac Ticket: http://trac.home.arpa/ticket/2945
+# Usage: ansible-playbook playbooks/manage_trac_users.yml -i inventory.ini
+# Trac Tickets: http://trac.home.arpa/ticket/2945, http://trac.gafla.us.com/ticket/4210
 
 - name: Manage Trac Users
   hosts: trac-lxc
+  become: true
   vars_files:
     - ../vault.yml
+  vars:
+    # Ticket access is intentionally explicit. Existing non-ticket permissions
+    # are preserved; this list declares only the requested ticket capabilities.
+    trac_ticket_permissions:
+      henry:
+        - TICKET_VIEW
+        - TICKET_CREATE
+        - TICKET_APPEND
+        - TICKET_CHGPROP
+        - TICKET_MODIFY
+      jen:
+        - TICKET_VIEW
+        - TICKET_CREATE
+        - TICKET_APPEND
+        - TICKET_CHGPROP
+        - TICKET_MODIFY
+      walter:
+        - TICKET_VIEW
+        - TICKET_CREATE
+        - TICKET_APPEND
+        - TICKET_CHGPROP
+        - TICKET_MODIFY
+    trac_users:
+      - name: henry
+        password_var: vault_trac_user_password_henry
+      - name: jen
+        password_var: vault_trac_user_password_jen
+      - name: walter
+        password_var: vault_trac_user_password_walter
   tasks:
     - name: Ensure python3-passlib is installed
       apt:
         name: python3-passlib
         state: present
+      become: true
+      become_user: root
 
-    - name: Ensure jen's password is set in .htpasswd
+    - name: Ensure managed Trac user passwords are set in .htpasswd
       community.general.htpasswd:
         path: /etc/apache2/.htpasswd
-        name: jen
-        password: "{{ vault_trac_user_password_jen }}"
+        name: "{{ item.name }}"
+        password: "{{ lookup('vars', item.password_var) }}"
         owner: root
         group: www-data
         mode: 0640
+      become: true
+      become_user: root
+      loop: "{{ trac_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+
+    - name: Ensure approved ticket permissions are present
+      ansible.builtin.shell: |
+        set -o pipefail
+        current_permissions="$(sudo trac-admin /var/trac/trac_prod permission list {{ item.key }})"
+        changed=0
+        {% for permission in item.value %}
+        if ! printf '%s\n' "$current_permissions" | grep -qE '(^|[[:space:]]){{ permission }}([[:space:]]|$)'; then
+          sudo trac-admin /var/trac/trac_prod permission add {{ item.key }} {{ permission }}
+          changed=1
+        fi
+        {% endfor %}
+        if [ "$changed" -eq 1 ]; then
+          printf 'permissions-added\n'
+        else
+          printf 'permissions-unchanged\n'
+        fi
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: root
+      loop: "{{ trac_ticket_permissions | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      register: trac_permission_changes
+      changed_when: "'permissions-added' in trac_permission_changes.stdout"
