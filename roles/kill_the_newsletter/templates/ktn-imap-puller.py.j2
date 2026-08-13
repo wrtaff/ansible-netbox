@@ -41,11 +41,10 @@ def relay_label(client, label):
         if status != "OK" or not message_data or not isinstance(message_data[0], tuple):
             raise RuntimeError(f"Unable to fetch a message from {label}")
 
-        # SMTP is loopback-only; KTN presents its own TLS certificate on this port.
-        with smtplib.SMTP_SSL(
+        # KTN accepts plaintext SMTP only on its loopback-only ingress port.
+        with smtplib.SMTP(
             os.environ["KTN_SMTP_HOST"],
             int(os.environ["KTN_SMTP_PORT"]),
-            context=ssl._create_unverified_context(),
             timeout=30,
         ) as smtp:
             smtp.sendmail("", [recipient], message_data[0][1])
