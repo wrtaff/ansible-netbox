@@ -1,0 +1,19 @@
+---
+- name: Mirror one approved vault credential to VaultWarden
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - /home/will/ansible-netbox/vault.yml
+    - /etc/vaultwarden-broker/mappings.json
+  tasks:
+    - name: Select approved mapping
+      ansible.builtin.set_fact:
+        broker_mapping: "{{ '{{' }} vaultwarden_broker_mappings | selectattr('id', 'equalto', mapping_id) | first {{ '}}' }}"
+      no_log: true
+
+    - name: Mirror credential without logging its value
+      ansible.builtin.command: "/usr/local/libexec/vaultwarden-broker-mirror {{ '{{' }} broker_mapping.item_id {{ '}}' }}"
+      args:
+        stdin: "{{ '{{' }} vars[broker_mapping.vault_key] {{ '}}' }}"
+      no_log: true

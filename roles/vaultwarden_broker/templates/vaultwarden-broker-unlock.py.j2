@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""Human-only unlock entry point. Deliberately not callable through the ops socket."""
+import os
+import json
+import socket
+import subprocess
+import sys
+
+if not os.isatty(sys.stdin.fileno()):
+    raise SystemExit("refusing non-interactive unlock")
+
+command = ["runuser", "-u", "{{ vaultwarden_broker_user }}", "--", "bw", "unlock", "--raw"]
+result = subprocess.run(command, stdin=sys.stdin, stdout=subprocess.PIPE, text=True, check=False)
+if result.returncode:
+    raise SystemExit(result.returncode)
+session = result.stdout.strip()
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.connect("/run/vaultwarden-broker/admin.sock")
+sock.sendall(json.dumps({"operation": "set_session", "session": session}).encode())
+reply = json.loads(sock.recv(4096).decode())
+if not reply.get("ok"):
+    raise SystemExit("broker rejected session")
+print("VaultWarden broker unlocked; no session value was displayed.")

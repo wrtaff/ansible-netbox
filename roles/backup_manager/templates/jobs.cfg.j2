@@ -11,13 +11,15 @@
 # Ansible Managed File - Do Not Edit Manually
 
 {% for job in proxmox_backup_jobs %}
-{% if job.node is not defined or job.node == inventory_hostname %}
 vzdump: {{ job.id | default((job.name | default('uuid-' ~ (job.vmid | string))) | to_uuid) }}
     schedule {{ job.schedule }}
     enabled {{ 1 if job.enabled | default(true) else 0 }}
     mode {{ job.mode | default('snapshot') }}
     storage {{ job.storage }}
     vmid {{ job.vmid }}
+{% if job.node is defined %}
+    node {{ job.node }}
+{% endif %}
 {% if job.notes_template is defined %}
     notes-template {{ job.notes_template }}
 {% endif %}
@@ -31,5 +33,4 @@ vzdump: {{ job.id | default((job.name | default('uuid-' ~ (job.vmid | string))) 
     compress {{ job.compress }}
 {% endif %}
 
-{% endif %}
 {% endfor %}

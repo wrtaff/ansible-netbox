@@ -1,0 +1,6 @@
+---
+- name: Provision the controller-safe VaultWarden broker on athena
+  hosts: athena
+  become: true
+  roles:
+    - vaultwarden_broker

@@ -11,9 +11,17 @@
         Require all granted
     </Directory>
 
-    <Location "/login">
+    # Protect the WSGI application so REMOTE_USER reaches Trac on every route.
+    <Location "/">
         AuthType Basic
         AuthName "Trac"
+        AuthUserFile /etc/apache2/.htpasswd
+        Require valid-user
+    </Location>
+
+    <Location "/login/xmlrpc">
+        AuthType Basic
+        AuthName "Trac XML-RPC"
         AuthUserFile /etc/apache2/.htpasswd
         Require valid-user
     </Location>

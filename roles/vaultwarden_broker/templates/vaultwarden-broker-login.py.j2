@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""Human-only initial VaultWarden login for the non-login service account."""
+import os
+import subprocess
+import sys
+
+if not os.isatty(sys.stdin.fileno()):
+    raise SystemExit("refusing non-interactive login")
+raise SystemExit(subprocess.run(["runuser", "-u", "{{ vaultwarden_broker_user }}", "--", "bw", "login"], stdin=sys.stdin, check=False).returncode)

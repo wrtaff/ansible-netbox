@@ -9,6 +9,10 @@
 #    Manages Restic backup client installation, scripts, and scheduling.
 # ==============================================================================
 ---
+- name: "Build effective Restic backup job list"
+  set_fact:
+    restic_backups_effective: "{{ (restic_backups | default([])) + (restic_additional_backups | default([])) }}"
+
 - name: "Install Restic"
   apt:
     name: restic
@@ -54,8 +58,8 @@
     owner: root
     group: root
     mode: '0700'
-  with_items: "{{ restic_backups }}"
-  when: restic_backups is defined
+  with_items: "{{ restic_backups_effective }}"
+  when: restic_backups_effective | length > 0
 
 - name: "Deploy systemd services for Restic"
   template:
@@ -64,8 +68,8 @@
     owner: root
     group: root
     mode: '0644'
-  with_items: "{{ restic_backups }}"
-  when: restic_backups is defined
+  with_items: "{{ restic_backups_effective }}"
+  when: restic_backups_effective | length > 0
 
 - name: "Deploy systemd timers for Restic"
   template:
@@ -74,8 +78,8 @@
     owner: root
     group: root
     mode: '0644'
-  with_items: "{{ restic_backups }}"
-  when: restic_backups is defined
+  with_items: "{{ restic_backups_effective }}"
+  when: restic_backups_effective | length > 0
   notify: reload systemd
 
 - name: "Ensure Restic timers are enabled and started"
@@ -84,5 +88,5 @@
     state: started
     enabled: true
     daemon_reload: true
-  with_items: "{{ restic_backups }}"
-  when: restic_backups is defined
+  with_items: "{{ restic_backups_effective }}"
+  when: restic_backups_effective | length > 0

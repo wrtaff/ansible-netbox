@@ -3,3 +3,17 @@
 
 # GnuCash book paths (Will & Jen, RNC) for gnucash-mcp
 gnucash_book_path: "/home/will/gnucash_ep301/wnj.gnucash:/home/rhett/gnucash_rnc/rnc.gnucash"
+
+# Local SQLite books require host-scoped coverage; other desktops do not have
+# these paths and must not inherit this Restic job.
+restic_additional_backups:
+  - name: "gnucash-sqlite"
+    repo: "sftp:will@192.168.0.10:/mnt/datastore/restic/family-garage"
+    password_var: "restic_garage_password"
+    paths:
+      - "/home/will/gnucash_ep301"
+      - "/home/rhett/gnucash_rnc"
+    schedule: "daily"
+    retention:
+      keep_daily: 7
+      keep_weekly: 4

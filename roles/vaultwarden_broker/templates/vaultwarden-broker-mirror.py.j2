@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+import json
+import os
+import sys
+import urllib.request
+
+item_id = sys.argv[1]
+secret = sys.stdin.read()
+session = os.environ["BW_SESSION"]
+base_url = "{{ vaultwarden_broker_server_url }}".rstrip("/")
+headers = {"Authorization": f"Bearer {session}", "Content-Type": "application/json"}
+item = urllib.request.urlopen(urllib.request.Request(f"{base_url}/api/ciphers/{item_id}", headers=headers), timeout=15)
+payload = json.loads(item.read())
+payload.setdefault("login", {})["password"] = secret
+request = urllib.request.Request(f"{base_url}/api/ciphers/{item_id}", data=json.dumps(payload).encode(), headers=headers, method="PUT")
+urllib.request.urlopen(request, timeout=15).read()
