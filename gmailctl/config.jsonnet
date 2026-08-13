@@ -172,13 +172,6 @@
       }
     },
     {
-      name: "C/Forac",
-      color: {
-        background: "#f6c5be",
-        text: "#000000"
-      }
-    },
-    {
       name: "C/aaa",
       color: {
         background: "#d93025",
