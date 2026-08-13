@@ -12,9 +12,41 @@
 - name: "Ensure /etc/pve/jobs.cfg is managed"
   template:
     src: jobs.cfg.j2
+    dest: /tmp/ansible-pve-jobs.cfg
+    mode: '0640'
+  register: proxmox_jobs_candidate
+  # Check mode must render the remote candidate before it can be validated.
+  check_mode: false
+  when: proxmox_backup_jobs is defined
+
+- name: "Read rendered Proxmox backup jobs candidate"
+  slurp:
+    src: /tmp/ansible-pve-jobs.cfg
+  register: proxmox_jobs_candidate_content
+  when: proxmox_backup_jobs is defined
+
+- name: "Fail closed when no Proxmox backup jobs render"
+  ansible.builtin.assert:
+    that:
+      - "'vzdump:' in (proxmox_jobs_candidate_content.content | b64decode)"
+    fail_msg: "Refusing to deploy an empty Proxmox backup job configuration."
+  when: proxmox_backup_jobs is defined
+
+- name: "Fail closed when required Proxmox backup jobs are missing"
+  ansible.builtin.assert:
+    that:
+      - "'vmid 107\n    node proxmox1' in (proxmox_jobs_candidate_content.content | b64decode)"
+      - "'vmid 113\n    node pve2' in (proxmox_jobs_candidate_content.content | b64decode)"
+    fail_msg: "Refusing to deploy a Proxmox backup job configuration missing the required VMID and node association."
+  when: proxmox_backup_jobs is defined
+
+- name: "Install validated Proxmox backup jobs"
+  copy:
+    src: /tmp/ansible-pve-jobs.cfg
+    remote_src: true
     dest: /etc/pve/jobs.cfg
     owner: root
     group: www-data
     mode: '0640'
-  notify: reload pve-cluster
+  notify: restart pvescheduler
   when: proxmox_backup_jobs is defined
