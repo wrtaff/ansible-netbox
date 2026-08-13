@@ -1,0 +1,7 @@
+---
+vaultwarden_broker_user: vaultwarden-ops
+vaultwarden_broker_group: vaultwarden-ops
+vaultwarden_broker_socket_group: vaultwarden-ops
+vaultwarden_broker_server_url: https://ynh2.van-bee.ts.net/vaultwarden
+vaultwarden_broker_session_ttl_seconds: 3600
+vaultwarden_broker_mappings: []
