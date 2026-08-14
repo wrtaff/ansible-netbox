@@ -57,6 +57,14 @@
         replace: '<host>https://127.0.0.1:9200</host>'
       notify: Restart Wazuh manager
 
+    - name: Create Wazuh manager systemd drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/wazuh-manager.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
     - name: Allow Wazuh manager sufficient startup time
       ansible.builtin.copy:
         dest: /etc/systemd/system/wazuh-manager.service.d/startup-timeout.conf
