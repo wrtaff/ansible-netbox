@@ -1,0 +1,80 @@
+# ==============================================================================
+# Filename:       playbooks/configure_wazuh_indexer_timeout.yml
+# Version:        1.0
+# Author:         OpenCode
+# Last Modified:  2026-08-14
+# Trac Ticket:    #4211 (Investigate Wazuh vulnerability feed false positive for fixed libnss3)
+#
+# Purpose:
+#     Configures the Wazuh indexer startup timeout systemd drop-in.
+#
+# Use Case:
+#     Extends TimeoutStartSec to 300s to allow OpenSearch node/plugin initialization
+#     and translog recovery to complete cleanly over NFS storage.
+#
+# Installation Method:
+#     Ansible-managed systemd drop-in.
+#
+# Prerequisites:
+#     - wazuh-siem reachable through the Ansible inventory
+#
+# Configuration:
+#     - /etc/systemd/system/wazuh-indexer.service.d/startup-timeout.conf
+#
+# Secrets:
+#     None -- no vault variables required.
+#
+# Usage:
+#     ansible-playbook -i inventory.ini playbooks/configure_wazuh_indexer_timeout.yml \
+#         --limit wazuh-siem --check --diff
+#
+#     ansible-playbook -i inventory.ini playbooks/configure_wazuh_indexer_timeout.yml \
+#         --limit wazuh-siem
+#
+# Removal Instructions:
+#     Remove /etc/systemd/system/wazuh-indexer.service.d/startup-timeout.conf and
+#     run systemctl daemon-reload.
+#
+# Revision History:
+#     1.0 - Initial playbook. Trac #4211.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/configure_wazuh_indexer_timeout.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/configure_wazuh_indexer_timeout.yml
+# ==============================================================================
+---
+- name: Configure the Wazuh indexer startup timeout
+  hosts: wazuh-siem
+  become: true
+  remote_user: root
+
+  tasks:
+    - name: Create Wazuh indexer systemd drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/wazuh-indexer.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Allow Wazuh indexer sufficient startup time
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/wazuh-indexer.service.d/startup-timeout.conf
+        content: |
+          [Service]
+          TimeoutStartSec=300s
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Wazuh indexer
+
+  handlers:
+    - name: Reload systemd units
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      listen: Restart Wazuh indexer
+
+    - name: Restart Wazuh indexer
+      ansible.builtin.systemd_service:
+        name: wazuh-indexer
+        state: restarted
+      when: not ansible_check_mode
