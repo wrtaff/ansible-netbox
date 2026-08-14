@@ -417,6 +417,10 @@
       name: "ktn/1aw6aabwpnqlon2aosoe"
     },
     {
+      name: "ktn/8dhanwh8seounh4oybl5"
+    },
+
+    {
       name: "ZZZarchivedTags/#1041_relo_incentive"
     },
     {
@@ -1948,6 +1952,18 @@
           "ktn/1aw6aabwpnqlon2aosoe"
         ]
       }
+    },
+    {
+      filter: {
+        query: "list:(<thesignal.substack.com>)"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/8dhanwh8seounh4oybl5"
+        ]
+      }
     }
   ]
 }
+
