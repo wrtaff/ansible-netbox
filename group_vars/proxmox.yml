@@ -8,7 +8,7 @@ proxmox_backup_jobs:
     storage: "pbs01"
     mode: "snapshot"
     vmid: "107"
-    notes_template: "{{guestname}}"
+    notes_template: !unsafe "{{guestname}}"
     enabled: true
     mailto: "root@home.arpa"
     mailnotification: "failure"
@@ -19,7 +19,7 @@ proxmox_backup_jobs:
     storage: "pbs01"
     mode: "snapshot"
     vmid: "113"
-    notes_template: "{{guestname}}"
+    notes_template: !unsafe "{{guestname}}"
     enabled: true
     mailto: "root@home.arpa"
     mailnotification: "failure"
