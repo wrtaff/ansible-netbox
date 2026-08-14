@@ -411,9 +411,6 @@
       name: "P/Board/ep-technical"
     },
     {
-      name: "kill-the-newsletter/model-train-news"
-    },
-    {
        name: "ktn/ray0j64wqqwllk2jxo3l"
     },
     {
