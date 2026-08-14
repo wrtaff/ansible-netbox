@@ -35,10 +35,15 @@
 - name: "Fail closed when required Proxmox backup jobs are missing"
   ansible.builtin.assert:
     that:
-      - "'vmid 107\n    node proxmox1' in (proxmox_jobs_candidate_content.content | b64decode)"
-      - "'vmid 113\n    node pve2' in (proxmox_jobs_candidate_content.content | b64decode)"
+      - "'vmid ' ~ item.vmid ~ '\n' in (proxmox_jobs_candidate_content.content | b64decode)"
+      - "item.node is not defined or ('node ' ~ item.node ~ '\n') in (proxmox_jobs_candidate_content.content | b64decode)"
     fail_msg: "Refusing to deploy a Proxmox backup job configuration missing the required VMID and node association."
-  when: proxmox_backup_jobs is defined
+  loop: "{{ proxmox_backup_jobs }}"
+  loop_control:
+    label: "{{ item.id | default(item.vmid) }}"
+  when:
+    - proxmox_backup_jobs is defined
+    - item.node is not defined or item.node == (proxmox_node_name | default(inventory_hostname))
 
 - name: "Install validated Proxmox backup jobs"
   copy:
