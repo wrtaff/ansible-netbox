@@ -58,7 +58,7 @@
   tasks:
     - name: Ensure the NFS archive mount target exists
       ansible.builtin.command:
-        cmd: "pct exec {{ wazuh_vmid }} -- install -d -o root -g wazuh -m 0770 {{ wazuh_lxc_log_archive }}"
+        cmd: "pct exec {{ wazuh_vmid }} -- sh -c 'mkdir -p {{ wazuh_lxc_log_archive }} && chown root:wazuh {{ wazuh_lxc_log_archive }} && chmod 0770 {{ wazuh_lxc_log_archive }}'"
       changed_when: false
 
     - name: Move NFS log mount to the archive path
