@@ -68,8 +68,8 @@
 - name: Raise feed visualization rate limit for self-hosted instances
   ansible.builtin.replace:
     path: "{{ ktn_root }}/source/index.mts"
-    regexp: '"count" > 10\b'
-    replace: '"count" > 1000'
+    regexp: 'count" > 10\b'
+    replace: 'count" > 999999999'
   register: ktn_ratelimit_patch
 
 - name: Emit LAN HTTP endpoint in Atom feed XML links
