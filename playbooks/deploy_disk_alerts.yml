@@ -1,9 +1,9 @@
 ---
 # ==============================================================================
 # Filename:       deploy_disk_alerts.yml
-# Version:        1.2
+# Version:        1.3
 # Author:         Gemini CLI
-# Last Modified:  2026-08-01
+# Last Modified:  2026-08-13
 # Context:        http://trac.gafla.us.com/ticket/4078
 #
 # Purpose:
@@ -25,7 +25,7 @@
           #!/bin/bash
           # Managed by Ansible - deploy_disk_alerts.yml
           THRESHOLD=85
-          EMAILS="root@home.arpa,wrtaff@gmail.com"
+          EMAILS="root@home.arpa"
           HOSTNAME=$(hostname)
 
           df -Ph | grep -vE '^Filesystem|tmpfs|cdrom|udev|none|/boot/efi' | while read line; do
@@ -38,7 +38,7 @@
 
             if [ $usep -ge $THRESHOLD ]; then
               if [ ! -f "$lock_file" ]; then
-                # Send email via postfix null client relay to both root and wrtaff@gmail.com with Trac ticket link
+                # Send administrative alerts through the local Roundcube mail path with Trac ticket link
                 echo -e "Warning: Disk space on $HOSTNAME for partition $partition is at $usep%.\n\nAn automated Trac ticket has been created/tracked for this alert:\n${trac_query_url}\n\nPlease clean up or extend the volume to prevent service disruption." | mail -s "CRITICAL: Disk Space Alert on $HOSTNAME ($usep% full)" "$EMAILS"
                 # Log alert directly to Graylog syslog input via UDP
                 logger -d -n 192.168.0.104 -P 1514 "CRITICAL: Disk Space Alert: partition $partition is at $usep%"
