@@ -86,6 +86,13 @@
     replace: 'http://${application.configuration.hostname}:{{ ktn_http_port }}\1'
   register: ktn_feed_ui_copy_patch
 
+- name: Add Atom feed autodiscovery link and XML content negotiation to feed settings page
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/source/index.mts"
+    regexp: 'if \(request\.state\.feed === undefined\) return;\s*response\.send\(\s*application\.layout\(\{\s*request,\s*response,\s*head: html`\s*<title>\$\{request\.state\.feed\.title\} · Kill the Newsletter!</title>'
+    replace: "if (request.state.feed === undefined) return;\n    if (request.headers.accept?.includes('xml') || request.headers.accept?.includes('atom') || request.headers.accept?.includes('rss')) { response.redirect!(`/feeds/${request.state.feed.publicId}.xml`); return; }\n    response.send(\n      application.layout({\n        request,\n        response,\n        head: html`\n          <title>${request.state.feed.title} · Kill the Newsletter!</title>\n          <link rel=\"alternate\" type=\"application/atom+xml\" href=\"http://${application.configuration.hostname}:{{ ktn_http_port }}/feeds/${request.state.feed.publicId}.xml\" title=\"${request.state.feed.title}\" />"
+  register: ktn_autodiscovery_patch
+
 - name: Check whether KTN dependencies are installed
   ansible.builtin.stat:
     path: "{{ ktn_root }}/node_modules"
@@ -95,14 +102,14 @@
   ansible.builtin.command: npm ci
   args:
     chdir: "{{ ktn_root }}"
-  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or not ktn_node_modules.stat.exists
+  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or ktn_autodiscovery_patch.changed or not ktn_node_modules.stat.exists
   changed_when: true
 
 - name: Build KTN application
   ansible.builtin.command: npm run prepare
   args:
     chdir: "{{ ktn_root }}"
-  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed
+  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or ktn_autodiscovery_patch.changed
   changed_when: true
   notify: Restart KTN
 
