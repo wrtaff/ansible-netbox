@@ -417,6 +417,9 @@
        name: "ktn/ray0j64wqqwllk2jxo3l"
     },
     {
+      name: "ktn/1aw6aabwpnqlon2aosoe"
+    },
+    {
       name: "ZZZarchivedTags/#1041_relo_incentive"
     },
     {
@@ -1935,6 +1938,17 @@
         archive: true,
         labels: [
            "ktn/ray0j64wqqwllk2jxo3l"
+        ]
+      }
+    },
+    {
+      filter: {
+        query: "list:oomwoo.makerspet.github.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/1aw6aabwpnqlon2aosoe"
         ]
       }
     }
