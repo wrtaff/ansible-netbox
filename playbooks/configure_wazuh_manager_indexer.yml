@@ -1,16 +1,17 @@
 # ==============================================================================
 # Filename:       playbooks/configure_wazuh_manager_indexer.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         OpenCode
 # Last Modified:  2026-08-14
 # Trac Ticket:    #4211 (Investigate Wazuh vulnerability feed false positive for fixed libnss3)
 #
 # Purpose:
-#     Configures the Wazuh manager's local indexer endpoint and startup timeout.
+#     Configures the Wazuh manager's local indexer endpoint, SSL certificates,
+#     and startup timeout.
 #
 # Use Case:
 #     Restores manager-to-indexer state publication when the manager was pointed
-#     at the invalid wildcard bind address 0.0.0.0.
+#     at the invalid wildcard bind address 0.0.0.0 and missing certificate paths.
 #
 # Installation Method:
 #     Ansible-managed XML replacement and systemd drop-in.
@@ -39,12 +40,13 @@
 #
 # Revision History:
 #     1.0 - Initial playbook. Trac #4211.
+#     1.1 - Added indexer SSL certificate path alignment and drop-in dir creation.
 #
 # WWOS:   http://wwos.home.arpa/index.php/Playbooks/configure_wazuh_manager_indexer.yml
 # GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/configure_wazuh_manager_indexer.yml
 # ==============================================================================
 ---
-- name: Configure the Wazuh manager indexer endpoint
+- name: Configure the Wazuh manager indexer endpoint and certificates
   hosts: wazuh-siem
   become: true
   remote_user: root
@@ -55,6 +57,27 @@
         path: /var/ossec/etc/ossec.conf
         regexp: '<host>https://0\.0\.0\.0:9200</host>'
         replace: '<host>https://127.0.0.1:9200</host>'
+      notify: Restart Wazuh manager
+
+    - name: Configure indexer CA certificate path
+      ansible.builtin.replace:
+        path: /var/ossec/etc/ossec.conf
+        regexp: '<ca>/etc/filebeat/certs/root-ca\.pem</ca>'
+        replace: '<ca>/etc/wazuh-indexer/certs/root-ca.pem</ca>'
+      notify: Restart Wazuh manager
+
+    - name: Configure indexer client certificate path
+      ansible.builtin.replace:
+        path: /var/ossec/etc/ossec.conf
+        regexp: '<certificate>/etc/filebeat/certs/filebeat\.pem</certificate>'
+        replace: '<certificate>/etc/wazuh-indexer/certs/admin.pem</certificate>'
+      notify: Restart Wazuh manager
+
+    - name: Configure indexer client key path
+      ansible.builtin.replace:
+        path: /var/ossec/etc/ossec.conf
+        regexp: '<key>/etc/filebeat/certs/filebeat-key\.pem</key>'
+        replace: '<key>/etc/wazuh-indexer/certs/admin-key.pem</key>'
       notify: Restart Wazuh manager
 
     - name: Create Wazuh manager systemd drop-in directory
