@@ -1,0 +1,3 @@
+#!/bin/sh
+exec /usr/bin/python3 /usr/local/libexec/ktn-create-feed.py \
+  --url "{{ ktn_feed_provisioner_url }}" "$@"
