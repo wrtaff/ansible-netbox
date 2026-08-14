@@ -1,0 +1,81 @@
+# ==============================================================================
+# Filename:       playbooks/configure_wazuh_manager_indexer.yml
+# Version:        1.0
+# Author:         OpenCode
+# Last Modified:  2026-08-14
+# Trac Ticket:    #4211 (Investigate Wazuh vulnerability feed false positive for fixed libnss3)
+#
+# Purpose:
+#     Configures the Wazuh manager's local indexer endpoint and startup timeout.
+#
+# Use Case:
+#     Restores manager-to-indexer state publication when the manager was pointed
+#     at the invalid wildcard bind address 0.0.0.0.
+#
+# Installation Method:
+#     Ansible-managed XML replacement and systemd drop-in.
+#
+# Prerequisites:
+#     - wazuh-siem reachable through the Ansible inventory
+#     - Local Wazuh indexer listening on 127.0.0.1:9200
+#
+# Configuration:
+#     - /var/ossec/etc/ossec.conf
+#     - /etc/systemd/system/wazuh-manager.service.d/startup-timeout.conf
+#
+# Secrets:
+#     None -- no vault variables required.
+#
+# Usage:
+#     ansible-playbook -i inventory.ini playbooks/configure_wazuh_manager_indexer.yml \
+#         --limit wazuh-siem --check --diff
+#
+#     ansible-playbook -i inventory.ini playbooks/configure_wazuh_manager_indexer.yml \
+#         --limit wazuh-siem
+#
+# Removal Instructions:
+#     Restore the prior indexer endpoint and remove the systemd drop-in through
+#     this playbook, then restart wazuh-manager.
+#
+# Revision History:
+#     1.0 - Initial playbook. Trac #4211.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/configure_wazuh_manager_indexer.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/configure_wazuh_manager_indexer.yml
+# ==============================================================================
+---
+- name: Configure the Wazuh manager indexer endpoint
+  hosts: wazuh-siem
+  become: true
+  remote_user: root
+
+  tasks:
+    - name: Configure certificate-valid local Wazuh indexer endpoint
+      ansible.builtin.replace:
+        path: /var/ossec/etc/ossec.conf
+        regexp: '<host>https://0\.0\.0\.0:9200</host>'
+        replace: '<host>https://127.0.0.1:9200</host>'
+      notify: Restart Wazuh manager
+
+    - name: Allow Wazuh manager sufficient startup time
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/wazuh-manager.service.d/startup-timeout.conf
+        content: |
+          [Service]
+          TimeoutStartSec=180s
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Wazuh manager
+
+  handlers:
+    - name: Reload systemd units
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      listen: Restart Wazuh manager
+
+    - name: Restart Wazuh manager
+      ansible.builtin.systemd_service:
+        name: wazuh-manager
+        state: restarted
+      when: not ansible_check_mode
