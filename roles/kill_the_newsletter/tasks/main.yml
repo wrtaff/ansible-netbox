@@ -79,6 +79,13 @@
     replace: 'href="http://${application.configuration.hostname}:{{ ktn_http_port }}'
   register: ktn_feed_url_patch
 
+- name: Emit LAN HTTP endpoint in KTN feed copy-to-clipboard UI
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/source/index.mts"
+    regexp: 'https://\$\{\s*application\.configuration\s*\.hostname\s*\}(/feeds/\$\{request\.state\.feed\.publicId\}\.xml)'
+    replace: 'http://${application.configuration.hostname}:{{ ktn_http_port }}\1'
+  register: ktn_feed_ui_copy_patch
+
 - name: Check whether KTN dependencies are installed
   ansible.builtin.stat:
     path: "{{ ktn_root }}/node_modules"
@@ -88,14 +95,14 @@
   ansible.builtin.command: npm ci
   args:
     chdir: "{{ ktn_root }}"
-  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or not ktn_node_modules.stat.exists
+  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or not ktn_node_modules.stat.exists
   changed_when: true
 
 - name: Build KTN application
   ansible.builtin.command: npm run prepare
   args:
     chdir: "{{ ktn_root }}"
-  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed
+  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed
   changed_when: true
   notify: Restart KTN
 
