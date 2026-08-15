@@ -1,0 +1,31 @@
+---
+# Proxmox drops comments from LXC configs, so block markers are not durable.
+- name: Collapse duplicate contiguous TUN directive pairs
+  ansible.builtin.replace:
+    path: "/etc/pve/lxc/{{ lxc_tun_vmid }}.conf"
+    regexp: '(?m)^(lxc\.cgroup2\.devices\.allow: c 10:200 rwm)\n(lxc\.mount\.entry: /dev/net/tun dev/net/tun none bind,create=file)(?:\n\1\n\2)+'
+    replace: '\1\n\2'
+  register: lxc_tun_normalize
+  tags: [tailscale-tun]
+
+- name: Ensure the canonical TUN device allow directive
+  ansible.builtin.lineinfile:
+    path: "/etc/pve/lxc/{{ lxc_tun_vmid }}.conf"
+    line: "lxc.cgroup2.devices.allow: c 10:200 rwm"
+    state: present
+  register: lxc_tun_allow
+  tags: [tailscale-tun]
+
+- name: Ensure the canonical TUN bind-mount directive
+  ansible.builtin.lineinfile:
+    path: "/etc/pve/lxc/{{ lxc_tun_vmid }}.conf"
+    line: "lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file"
+    state: present
+  register: lxc_tun_mount
+  tags: [tailscale-tun]
+
+- name: Record whether TUN configuration changed
+  ansible.builtin.set_fact:
+    lxc_tun_config_changed: >-
+      {{ lxc_tun_normalize.changed or lxc_tun_allow.changed or lxc_tun_mount.changed }}
+  tags: [tailscale-tun]

@@ -34,17 +34,14 @@
       when: pct_status.rc != 0
 
     - name: Ensure TUN device access in LXC config (for Tailscale)
-      ansible.builtin.blockinfile:
-        path: "/etc/pve/lxc/{{ vmid }}.conf"
-        marker: "# {mark} ANSIBLE MANAGED: TAILSCALE TUN"
-        block: |
-          lxc.cgroup2.devices.allow: c 10:200 rwm
-          lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
-      register: lxc_config_update
+      ansible.builtin.include_tasks: ../tasks/proxmox_lxc_tun.yml
+      vars:
+        lxc_tun_vmid: "{{ vmid }}"
+      tags: [tailscale-tun]
 
     - name: Restart LXC Container to apply changes
       ansible.builtin.command: "pct reboot {{ vmid }}"
-      when: lxc_config_update.changed
+      when: lxc_tun_config_changed | bool
       async: 60
       poll: 5
 

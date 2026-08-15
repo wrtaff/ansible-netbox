@@ -1,8 +1,8 @@
 # ==============================================================================
 # Filename:       playbooks/onboard_tailscale_lxc.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
-# Last Modified:  2026-03-17
+# Last Modified:  2026-08-14
 #
 # Purpose:
 #     Configures Proxmox LXC containers for Tailscale by ensuring TUN device 
@@ -11,6 +11,7 @@
 # Revision History:
 #     1.0 - Initial deployment script.
 #     1.1 - Added WWOS standard header and standardized variables.
+#     1.2 - Replaced non-durable Proxmox config markers with idempotent TUN tasks.
 #
 # NOTES:
 #     Always bump versions when making changes and annotate them here.
@@ -36,17 +37,14 @@
       delegate_facts: true
 
     - name: Ensure TUN device access in LXC config
-      ansible.builtin.blockinfile:
-        path: "/etc/pve/lxc/{{ target_vmid }}.conf"
-        marker: "# {mark} ANSIBLE MANAGED: TAILSCALE TUN"
-        block: |
-          lxc.cgroup2.devices.allow: c 10:200 rwm
-          lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
-      register: lxc_config_update
+      ansible.builtin.include_tasks: ../tasks/proxmox_lxc_tun.yml
+      vars:
+        lxc_tun_vmid: "{{ target_vmid }}"
+      tags: [tailscale-tun]
 
     - name: Restart LXC Container to apply changes
       ansible.builtin.command: "pct reboot {{ target_vmid }}"
-      when: lxc_config_update.changed
+      when: lxc_tun_config_changed | bool
       async: 60
       poll: 5
 
@@ -56,7 +54,7 @@
         port: 22
         delay: 5
         timeout: 60
-      when: lxc_config_update.changed
+      when: lxc_tun_config_changed | bool
       delegate_to: localhost
       ignore_errors: yes 
 
@@ -96,7 +94,7 @@
         tailscale_auth_key: "{{ tailscale_key_response.json.key }}"
 
 - name: Install and Configure Tailscale on Target
-  hosts: "{{ hostvars['localhost']['global_target_host'] }}"
+  hosts: "{{ target_host }}"
   become: true
   vars:
     # We expect 'tailscale_auth_key' to be passed from the previous play
