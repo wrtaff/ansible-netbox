@@ -65,6 +65,34 @@
     replace: "caddy.start({\n    ...application.configuration,\n    hostname: `http://${application.configuration.hostname}`,"
   register: ktn_caddy_patch
 
+- name: Raise feed visualization rate limit for self-hosted instances
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/source/index.mts"
+    regexp: 'count" > 10\b'
+    replace: 'count" > 999999999'
+  register: ktn_ratelimit_patch
+
+- name: Emit LAN HTTP endpoint in Atom feed XML links
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/source/index.mts"
+    regexp: 'href="https://\$\{\s*application\.configuration\s*\.hostname\s*\}'
+    replace: 'href="http://${application.configuration.hostname}:{{ ktn_http_port }}'
+  register: ktn_feed_url_patch
+
+- name: Emit LAN HTTP endpoint in KTN feed copy-to-clipboard UI
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/source/index.mts"
+    regexp: 'https://\$\{\s*application\.configuration\s*\.hostname\s*\}(/feeds/\$\{request\.state\.feed\.publicId\}\.xml)'
+    replace: 'http://${application.configuration.hostname}:{{ ktn_http_port }}\1'
+  register: ktn_feed_ui_copy_patch
+
+- name: Add Atom feed autodiscovery link and XML content negotiation to feed settings page
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/source/index.mts"
+    regexp: 'if \(request\.state\.feed === undefined\) return;\s*response\.send\(\s*application\.layout\(\{\s*request,\s*response,\s*head: html`\s*<title>\$\{request\.state\.feed\.title\} · Kill the Newsletter!</title>'
+    replace: "if (request.state.feed === undefined) return;\n    if (request.headers.accept?.includes('xml') || request.headers.accept?.includes('atom') || request.headers.accept?.includes('rss')) { response.redirect!(`/feeds/${request.state.feed.publicId}.xml`); return; }\n    response.send(\n      application.layout({\n        request,\n        response,\n        head: html`\n          <title>${request.state.feed.title} · Kill the Newsletter!</title>\n          <link rel=\"alternate\" type=\"application/atom+xml\" href=\"http://${application.configuration.hostname}:{{ ktn_http_port }}/feeds/${request.state.feed.publicId}.xml\" title=\"${request.state.feed.title}\" />"
+  register: ktn_autodiscovery_patch
+
 - name: Check whether KTN dependencies are installed
   ansible.builtin.stat:
     path: "{{ ktn_root }}/node_modules"
@@ -74,14 +102,14 @@
   ansible.builtin.command: npm ci
   args:
     chdir: "{{ ktn_root }}"
-  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or not ktn_node_modules.stat.exists
+  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or ktn_autodiscovery_patch.changed or not ktn_node_modules.stat.exists
   changed_when: true
 
 - name: Build KTN application
   ansible.builtin.command: npm run prepare
   args:
     chdir: "{{ ktn_root }}"
-  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed
+  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or ktn_autodiscovery_patch.changed
   changed_when: true
   notify: Restart KTN
 
@@ -93,6 +121,30 @@
     group: "{{ ktn_group }}"
     mode: "0640"
   notify: Restart KTN
+
+- name: Ensure local KTN feed provisioning directory exists
+  ansible.builtin.file:
+    path: /usr/local/libexec
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install local KTN feed provisioning helper
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/create_ktn_feed.py"
+    dest: /usr/local/libexec/ktn-create-feed.py
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install local KTN feed provisioning wrapper
+  ansible.builtin.template:
+    src: ktn-feed-provisioner.sh.j2
+    dest: "{{ ktn_feed_provisioner_path }}"
+    owner: root
+    group: root
+    mode: "0755"
 
 - name: Write Tailnet certificate refresh script
   ansible.builtin.template:
