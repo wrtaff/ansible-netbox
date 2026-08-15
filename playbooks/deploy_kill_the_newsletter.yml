@@ -2,5 +2,7 @@
 - name: Deploy Kill the Newsletter service
   hosts: ktn-lxc-01
   become: true
+  vars_files:
+    - ../vault.yml
   roles:
     - kill_the_newsletter
