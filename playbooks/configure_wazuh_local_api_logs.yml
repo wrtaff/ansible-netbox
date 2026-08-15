@@ -1,0 +1,98 @@
+# ==============================================================================
+# Filename:       playbooks/configure_wazuh_local_api_logs.yml
+# Version:        1.0
+# Author:         OpenCode
+# Last Modified:  2026-08-14
+# Trac Ticket:    #4211 (Investigate Wazuh vulnerability feed false positive for fixed libnss3)
+#
+# Purpose:
+#     Move operational Wazuh logs off the NFS bind mount while retaining the
+#     existing NFS log tree at a separate archive mount.
+#
+# Use Case:
+#     Allow wazuh-apid to create and rotate api.log using the container's local
+#     wazuh:wazuh filesystem identity.
+#
+# Installation Method:
+#     Ansible-managed Proxmox LXC configuration and in-container permissions.
+#
+# Prerequisites:
+#     - LXC 112 stopped/restartable through pve5
+#     - Verified PBS recovery point for LXC 112
+#
+# Configuration:
+#     - /etc/pve/lxc/112.conf on pve5
+#     - /var/ossec/logs inside wazuh-siem
+#     - /var/ossec/log-archive inside wazuh-siem
+#
+# Secrets:
+#     None -- no vault variables required.
+#
+# Usage:
+#     ansible-playbook -i inventory.ini playbooks/configure_wazuh_local_api_logs.yml \
+#         --limit pve5 --check --diff
+#
+#     ansible-playbook -i inventory.ini playbooks/configure_wazuh_local_api_logs.yml \
+#         --limit pve5
+#
+# Removal Instructions:
+#     Restore the prior mp0 target through a reviewed Ansible change; do not
+#     hand-edit the Proxmox LXC configuration.
+#
+# Revision History:
+#     1.0 - Initial playbook. Trac #4211.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/configure_wazuh_local_api_logs.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/configure_wazuh_local_api_logs.yml
+# ==============================================================================
+---
+- name: Move Wazuh operational logs to local LXC storage
+  hosts: pve5
+  become: true
+  remote_user: root
+  vars:
+    wazuh_vmid: 112
+    wazuh_nfs_log_source: /mnt/pve/truenas-nfs/wazuh-logs
+    wazuh_lxc_log_archive: /var/ossec/log-archive
+
+  tasks:
+    - name: Ensure the NFS archive mount target exists
+      ansible.builtin.command:
+        cmd: "pct exec {{ wazuh_vmid }} -- sh -c 'mkdir -p {{ wazuh_lxc_log_archive }} && chown root:wazuh {{ wazuh_lxc_log_archive }} && chmod 0770 {{ wazuh_lxc_log_archive }}'"
+      changed_when: false
+
+    - name: Move NFS log mount to the archive path
+      ansible.builtin.replace:
+        path: "/etc/pve/lxc/{{ wazuh_vmid }}.conf"
+        regexp: '^(mp0: )(.+),mp=/var/ossec/logs$'
+        replace: '\1\2,mp={{ wazuh_lxc_log_archive }}'
+      register: wazuh_log_mount
+
+    - name: Restart LXC after changing its mount path
+      ansible.builtin.command: "pct reboot {{ wazuh_vmid }}"
+      when: wazuh_log_mount.changed and not ansible_check_mode
+
+    - name: Wait for LXC to return to running state
+      ansible.builtin.command: "pct status {{ wazuh_vmid }}"
+      register: wazuh_lxc_status
+      until: "'status: running' in wazuh_lxc_status.stdout"
+      retries: 24
+      delay: 5
+      changed_when: false
+      when: wazuh_log_mount.changed and not ansible_check_mode
+
+    - name: Ensure local Wazuh log directory is service-writable
+      ansible.builtin.command:
+        cmd: "pct exec {{ wazuh_vmid }} -- install -d -o wazuh -g wazuh -m 0770 /var/ossec/logs"
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Ensure local API log has service ownership and mode
+      ansible.builtin.command:
+        cmd: "pct exec {{ wazuh_vmid }} -- sh -c 'touch /var/ossec/logs/api.log && chown wazuh:wazuh /var/ossec/logs/api.log && chmod 0660 /var/ossec/logs/api.log'"
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Restart Wazuh manager after local log path correction
+      ansible.builtin.command: "pct exec {{ wazuh_vmid }} -- systemctl restart wazuh-manager"
+      when: not ansible_check_mode
