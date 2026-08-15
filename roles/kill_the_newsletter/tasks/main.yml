@@ -206,6 +206,14 @@
     fail_msg: "Define ktn_imap_password in the encrypted Ansible vault before deploying the KTN IMAP puller."
   no_log: true
 
+- name: Create KTN puller state directory
+  ansible.builtin.file:
+    path: "{{ ktn_puller_state_directory }}"
+    state: directory
+    owner: "{{ ktn_user }}"
+    group: "{{ ktn_group }}"
+    mode: "0750"
+
 - name: Install KTN direct-ID IMAP puller
   ansible.builtin.template:
     src: ktn-imap-puller.py.j2

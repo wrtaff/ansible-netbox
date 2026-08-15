@@ -3,13 +3,39 @@
 
 import imaplib
 import json
+import logging
 import os
 import re
 import smtplib
 import ssl
+import sys
 
 
 LABEL_PATTERN = re.compile(r'(?:^|")(?P<label>ktn/[a-z0-9]+)(?:"|$)')
+LOG = logging.getLogger("ktn-imap-puller")
+
+
+def load_delivery_state(state_path):
+    try:
+        with open(state_path, encoding="utf-8") as state_file:
+            data = json.load(state_file)
+            if isinstance(data, list):
+                return set(data)
+    except FileNotFoundError:
+        LOG.debug("Delivery state file not found at %s; starting clean", state_path)
+    except json.JSONDecodeError as exc:
+        LOG.warning("Malformed delivery state file at %s (%s); starting clean", state_path, exc)
+    return set()
+
+
+def save_delivery_state(state_path, delivered_keys):
+    parent_dir = os.path.dirname(state_path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+    tmp_path = f"{state_path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as state_file:
+        json.dump(sorted(delivered_keys), state_file, indent=2)
+    os.replace(tmp_path, state_path)
 
 
 def get_direct_id_labels(client):
@@ -25,7 +51,7 @@ def get_direct_id_labels(client):
     return labels
 
 
-def relay_label(client, label):
+def relay_label(client, label, delivered_keys, state_path):
     status, _ = client.select(f'"{label}"', readonly=False)
     if status != "OK":
         raise RuntimeError(f"Unable to select {label}")
@@ -34,22 +60,19 @@ def relay_label(client, label):
     if status != "OK":
         raise RuntimeError(f"Unable to search {label}")
 
-    try:
-        with open(os.environ["KTN_DELIVERY_STATE"], encoding="utf-8") as state_file:
-            delivered_uids = set(json.load(state_file))
-    except FileNotFoundError:
-        delivered_uids = set()
-
     feed_id = label.removeprefix("ktn/")
     recipient = f"{feed_id}@{os.environ['KTN_HOSTNAME']}"
     delivered = 0
-    for message_uid in data[0].split():
+    message_uids = data[0].split() if data and data[0] else []
+
+    for message_uid in message_uids:
         uid = message_uid.decode()
-        if uid in delivered_uids:
+        key = f"{label}:{uid}"
+        if key in delivered_keys:
             continue
         status, message_data = client.uid("fetch", message_uid, "(RFC822)")
         if status != "OK" or not message_data or not isinstance(message_data[0], tuple):
-            raise RuntimeError(f"Unable to fetch a message from {label}")
+            raise RuntimeError(f"Unable to fetch message UID {uid} from {label}")
 
         # KTN accepts plaintext SMTP only on its loopback-only ingress port.
         with smtplib.SMTP(
@@ -59,29 +82,49 @@ def relay_label(client, label):
         ) as smtp:
             smtp.sendmail(os.environ["KTN_IMAP_USER"], [recipient], message_data[0][1])
 
-        delivered_uids.add(uid)
-        with open(os.environ["KTN_DELIVERY_STATE"], "w", encoding="utf-8") as state_file:
-            json.dump(sorted(delivered_uids), state_file)
+        delivered_keys.add(key)
+        save_delivery_state(state_path, delivered_keys)
         status, _ = client.uid("store", message_uid, "-X-GM-LABELS", f'("{label}")')
         if status != "OK":
-            raise RuntimeError(f"Delivered a message but could not remove {label}")
+            raise RuntimeError(f"Delivered message UID {uid} but could not remove {label}")
         status, labels = client.uid("fetch", message_uid, "(X-GM-LABELS)")
         if status != "OK" or label.encode() in b"".join(labels):
-            raise RuntimeError(f"Delivered a message but {label} remains applied")
+            raise RuntimeError(f"Delivered message UID {uid} but {label} remains applied")
         delivered += 1
     return delivered
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    state_path = os.environ.get("KTN_DELIVERY_STATE", "/var/lib/ktn-imap-puller/delivered-messages.json")
+    delivered_keys = load_delivery_state(state_path)
+
     with imaplib.IMAP4_SSL(
         os.environ["KTN_IMAP_HOST"],
         int(os.environ["KTN_IMAP_PORT"]),
         ssl_context=ssl.create_default_context(),
     ) as client:
         client.login(os.environ["KTN_IMAP_USER"], os.environ["KTN_IMAP_PASSWORD"])
-        delivered = sum(relay_label(client, label) for label in get_direct_id_labels(client))
+        labels = get_direct_id_labels(client)
+        total_delivered = 0
+        errors = []
+        for label in labels:
+            try:
+                delivered = relay_label(client, label, delivered_keys, state_path)
+                total_delivered += delivered
+                if delivered > 0:
+                    LOG.info("Relayed %d message(s) for %s", delivered, label)
+            except Exception as exc:
+                LOG.error("Failed processing label %s: %s", label, exc)
+                errors.append((label, exc))
         client.logout()
-    print(f"KTN IMAP puller delivered {delivered} message(s)")
+
+    LOG.info("KTN IMAP puller run finished: %d message(s) delivered across %d label(s)", total_delivered, len(labels))
+    if errors:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

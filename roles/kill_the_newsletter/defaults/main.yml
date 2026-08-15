@@ -11,6 +11,8 @@ ktn_tls_hostname: "ktn-lxc-01.van-bee.ts.net"
 ktn_smtp_port: 2525
 ktn_http_port: 8088
 ktn_tls_directory: "/etc/ssl/tailscale/ktn-lxc-01.van-bee.ts.net"
+ktn_puller_state_directory: "/var/lib/ktn-imap-puller"
+ktn_delivery_state: "/var/lib/ktn-imap-puller/delivered-messages.json"
 ktn_feed_provisioner_path: "/usr/local/sbin/create-ktn-feed"
 ktn_feed_provisioner_url: "http://127.0.0.1:8088/"
 ktn_imap_user: "wrtaff@gmail.com"
