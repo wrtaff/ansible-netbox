@@ -101,15 +101,20 @@ def _clear_token_cache() -> None:
 
 def get_token(force_refresh: bool = False) -> str:
     global GRAYLOG_API_TOKEN
+    env_token = os.getenv("GRAYLOG_API_TOKEN")
     if GRAYLOG_API_TOKEN and not force_refresh:
         return GRAYLOG_API_TOKEN
     if not force_refresh:
-        GRAYLOG_API_TOKEN = _get_token_from_cache()
+        GRAYLOG_API_TOKEN = _get_token_from_cache() or env_token
     if GRAYLOG_API_TOKEN and not force_refresh:
         return GRAYLOG_API_TOKEN
-    GRAYLOG_API_TOKEN = _get_token_from_vault()
-    if GRAYLOG_API_TOKEN:
+    vault_token = _get_token_from_vault()
+    if vault_token:
+        GRAYLOG_API_TOKEN = vault_token
         _save_token_to_cache(GRAYLOG_API_TOKEN)
+        return GRAYLOG_API_TOKEN
+    if env_token:
+        GRAYLOG_API_TOKEN = env_token
         return GRAYLOG_API_TOKEN
     raise RuntimeError(
         "Graylog API token not found. Set GRAYLOG_API_TOKEN env var or ensure "
