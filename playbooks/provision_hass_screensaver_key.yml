@@ -69,20 +69,16 @@
   gather_facts: no
   tasks:
     - name: Ensure /config/.ssh directory exists on Home Assistant
-      ansible.builtin.file:
-        path: /config/.ssh
-        state: directory
-        mode: '0700'
-        owner: root
-        group: root
+      ansible.builtin.raw: mkdir -p /config/.ssh && chmod 700 /config/.ssh
+      changed_when: false
 
     - name: Copy private key to Home Assistant
-      ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../tmp/id_rsa_hass_screensaver"
-        dest: /config/.ssh/id_rsa_hass_screensaver
-        mode: '0600'
-        owner: root
-        group: root
+      ansible.builtin.raw: |
+        cat << 'EOF' > /config/.ssh/id_rsa_hass_screensaver
+        {{ lookup('file', playbook_dir + '/../tmp/id_rsa_hass_screensaver') }}
+        EOF
+        chmod 600 /config/.ssh/id_rsa_hass_screensaver
+      changed_when: false
 
 - name: Authorize public key on target workstations
   hosts: desktops
