@@ -1,0 +1,104 @@
+---
+# ==============================================================================
+# Filename:       playbooks/provision_hass_screensaver_key.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-08-16
+# Context:        http://trac.gafla.us.com/ticket/3556, http://trac.gafla.us.com/ticket/3079, http://trac.gafla.us.com/ticket/2368
+#
+# Purpose:
+#   Generates and deploys a dedicated, unprivileged SSH key pair for Home Assistant
+#   to execute screensaver lock commands across managed workstations without passwords.
+#
+# Use Case:
+#   Replaces password-based SSHCommand authentication and !secret tags with key-based
+#   SSH authentication across zeus, limbo-f0, athena, and titan2, eliminating HA Visual
+#   Editor syntax issues and mitigating blast radius compared to shared lab keys.
+#
+# Installation Method:
+#   Ansible built-in modules (openssh_keypair, file, copy, authorized_key).
+#
+# Prerequisites:
+#   - Ansible installed on control node (athena)
+#   - SSH connectivity to homeassistant (192.168.0.186) via ~/.ssh/id_rsa_lab
+#   - SSH connectivity to desktops (zeus, limbo-f0, athena, titan2)
+#
+# Configuration:
+#   - Private key deployed to /config/.ssh/id_rsa_hass_screensaver (mode 0600, root:root)
+#   - Public key authorized in /home/will/.ssh/authorized_keys on all desktop hosts
+#
+# Secrets:
+#   None -- uses locally generated dedicated key pair; no vault variables required
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/provision_hass_screensaver_key.yml --check --diff
+#   ansible-playbook -i inventory.ini playbooks/provision_hass_screensaver_key.yml
+#
+# Removal Instructions:
+#   Remove /config/.ssh/id_rsa_hass_screensaver from Home Assistant and remove the
+#   corresponding public key line from /home/will/.ssh/authorized_keys on target hosts.
+#
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/provision_hass_screensaver_key.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/provision_hass_screensaver_key.yml
+# ==============================================================================
+
+- name: Generate dedicated Home Assistant screensaver SSH key pair on control node
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    key_path: "{{ playbook_dir }}/../tmp/id_rsa_hass_screensaver"
+  tasks:
+    - name: Ensure tmp directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../tmp"
+        state: directory
+        mode: '0700'
+
+    - name: Generate OpenSSH key pair for Home Assistant screensaver lock
+      community.crypto.openssh_keypair:
+        path: "{{ key_path }}"
+        type: ed25519
+        comment: "hass-screensaver-lock@homeassistant"
+        mode: '0600'
+        state: present
+      register: hass_keypair
+
+- name: Deploy private key to Home Assistant
+  hosts: homeassistant
+  gather_facts: no
+  tasks:
+    - name: Ensure /config/.ssh directory exists on Home Assistant
+      ansible.builtin.file:
+        path: /config/.ssh
+        state: directory
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: Copy private key to Home Assistant
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../tmp/id_rsa_hass_screensaver"
+        dest: /config/.ssh/id_rsa_hass_screensaver
+        mode: '0600'
+        owner: root
+        group: root
+
+- name: Authorize public key on target workstations
+  hosts: desktops
+  gather_facts: no
+  tasks:
+    - name: Ensure .ssh directory exists for will user
+      ansible.builtin.file:
+        path: "/home/will/.ssh"
+        state: directory
+        mode: '0700'
+        owner: will
+        group: will
+
+    - name: Add Home Assistant screensaver public key to authorized_keys
+      ansible.posix.authorized_key:
+        user: will
+        state: present
+        key: "{{ lookup('file', playbook_dir + '/../tmp/id_rsa_hass_screensaver.pub') }}"
+        comment: "hass-screensaver-lock@homeassistant"
