@@ -1,9 +1,13 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        1.9
+# Version:        2.0
 # Author:         Antigravity
-# Last Modified:  2026-07-26
-# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029, #4186
+# Last Modified:  2026-08-17
+# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029, #4186, #4308
+#
+# Update 2.0:
+#     - Deploy systemd drop-ins for apt-daily.service and apt-daily-upgrade.service
+#       to clear the failing wait-online ExecStartPre helper on Debian LXCs (Trac #4308).
 #
 # Update 1.9:
 #     - Enforce the fleet timezone for runner provisioning from the shared
@@ -458,6 +462,34 @@
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0644'
+
+    - name: Create apt-daily systemd drop-in directories
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ item }}.d"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - apt-daily.service
+        - apt-daily-upgrade.service
+
+    - name: Deploy apt-daily systemd drop-ins to bypass failing wait-online helper
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item }}.d/override.conf"
+        content: |
+          [Service]
+          ExecStartPre=
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - apt-daily.service
+        - apt-daily-upgrade.service
+
+    - name: Reload systemd units after drop-in changes
+      ansible.builtin.systemd_service:
+        daemon_reload: yes
 
     - name: Register agent runner in NetBox
       netbox.netbox.netbox_virtual_machine:
