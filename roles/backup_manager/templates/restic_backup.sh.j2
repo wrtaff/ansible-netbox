@@ -6,7 +6,12 @@ export RESTIC_REPOSITORY="{{ item.repo }}"
 export RESTIC_PASSWORD="{{ lookup('vars', item.password_var) }}"
 
 # --- Pre-backup Tasks ---
-# (Add logic here if needed, e.g., mounting a share)
+{% for path in item.paths %}
+if [ ! -e "{{ path }}" ]; then
+    echo "Pre-backup error: path {{ path }} is not accessible or not mounted."
+    exit 1
+fi
+{% endfor %}
 
 # --- Run Backup ---
 echo "Starting restic backup for {{ item.name }}..."

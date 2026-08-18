@@ -17,3 +17,16 @@ restic_additional_backups:
     retention:
       keep_daily: 7
       keep_weekly: 4
+  - name: "truenas-nfs-raw"
+    repo: "sftp:will@192.168.0.10:/mnt/datastore/restic/truenas-nfs-raw"
+    password_var: "restic_garage_password"
+    paths:
+      - "/mnt/nfs/will"
+      - "/mnt/nfs/srv"
+      - "/mnt/nfs/backupTRUENAS"
+    schedule: "daily"
+    runtime_max_sec: 7200
+    retention:
+      keep_daily: 7
+      keep_weekly: 4
+      keep_monthly: 6

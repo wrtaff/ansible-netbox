@@ -1,13 +1,15 @@
 # ==============================================================================
 # Filename:       roles/backup_manager/templates/restic_backup.service.j2
-# Version:        1.1
+# Version:        1.2
 # Author:         Gemini CLI
-# Last Modified:  2026-04-02
-# Context:        http://trac.home.arpa/ticket/3253
+# Last Modified:  2026-08-18
+# Context:        http://trac.gafla.us.com/ticket/4283
 #
 # Purpose:
 #    Systemd service template for Restic backups with resource throttling.
 #
+# Update 1.2:
+#    - Added RuntimeMaxSec timeout guardrail (Trac #4283).
 # Update 1.1:
 #    - Added Nice=19, CPUSchedulingPolicy=idle, and IOSchedulingClass=idle.
 # ==============================================================================
@@ -21,6 +23,7 @@ Type=oneshot
 ExecStart=/opt/restic/{{ item.name }}.sh
 User=root
 Group=root
+RuntimeMaxSec={{ item.runtime_max_sec | default('7200') }}
 
 [Install]
 WantedBy=multi-user.target
