@@ -61,6 +61,25 @@ def _get_token_from_cache() -> Optional[str]:
     return None
 
 
+def _get_token_from_mcp_secrets() -> Optional[str]:
+    secrets_file = os.path.expanduser("~/.config/mcp-secrets.env")
+    if not os.path.exists(secrets_file):
+        return None
+    try:
+        with open(secrets_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("export "):
+                    line = line[7:].strip()
+                if line.startswith("GRAYLOG_API_TOKEN="):
+                    val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    if val:
+                        return val
+    except Exception:
+        pass
+    return None
+
+
 def _get_token_from_vault() -> Optional[str]:
     if not os.path.exists(_VAULT_FILE):
         return None
@@ -105,8 +124,14 @@ def get_token(force_refresh: bool = False) -> str:
     if GRAYLOG_API_TOKEN and not force_refresh:
         return GRAYLOG_API_TOKEN
     if not force_refresh:
-        GRAYLOG_API_TOKEN = _get_token_from_cache() or env_token
-    if GRAYLOG_API_TOKEN and not force_refresh:
+        cached = _get_token_from_cache()
+        if cached:
+            GRAYLOG_API_TOKEN = cached
+            return GRAYLOG_API_TOKEN
+    mcp_secret = _get_token_from_mcp_secrets()
+    if mcp_secret:
+        GRAYLOG_API_TOKEN = mcp_secret
+        _save_token_to_cache(GRAYLOG_API_TOKEN)
         return GRAYLOG_API_TOKEN
     vault_token = _get_token_from_vault()
     if vault_token:
@@ -118,7 +143,7 @@ def get_token(force_refresh: bool = False) -> str:
         return GRAYLOG_API_TOKEN
     raise RuntimeError(
         "Graylog API token not found. Set GRAYLOG_API_TOKEN env var or ensure "
-        f"'{_VAULT_KEY}' is present in vault.yml."
+        f"'{_VAULT_KEY}' is present in vault.yml or ~/.config/mcp-secrets.env."
     )
 
 
