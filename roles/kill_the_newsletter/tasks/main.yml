@@ -105,6 +105,30 @@
   when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or ktn_autodiscovery_patch.changed or not ktn_node_modules.stat.exists
   changed_when: true
 
+- name: Patch @radically-straightforward/server CSRF protection to allow HTTP HEAD requests
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/node_modules/@radically-straightforward/server/build/index.mjs"
+    regexp: 'if \(request\.method !== "GET" &&'
+    replace: 'if (request.method !== "GET" && request.method !== "HEAD" &&'
+  register: ktn_server_head_csrf_patch
+  notify: Restart KTN
+
+- name: Patch @radically-straightforward/server route matching to support HTTP HEAD requests
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/node_modules/@radically-straightforward/server/build/index.mjs"
+    regexp: '\(typeof route\.method === "string" &&\s*request\.method !== route\.method\) \|\|'
+    replace: '(typeof route.method === "string" && request.method !== route.method && !(route.method === "GET" && request.method === "HEAD")) ||'
+  register: ktn_server_head_route_patch
+  notify: Restart KTN
+
+- name: Patch @radically-straightforward/server response.send to omit body on HTTP HEAD requests
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/node_modules/@radically-straightforward/server/build/index.mjs"
+    regexp: 'response\.send = \(responseBody\) => \{\s*response\.end\(responseBody\);'
+    replace: 'response.send = (responseBody) => {\n                    if (request.method === "HEAD") { response.end(); } else { response.end(responseBody); }'
+  register: ktn_server_head_send_patch
+  notify: Restart KTN
+
 - name: Build KTN application
   ansible.builtin.command: npm run prepare
   args:
