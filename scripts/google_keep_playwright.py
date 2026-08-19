@@ -112,37 +112,33 @@ class GoogleKeepPlaywright:
                         "url": page.url,
                     }
 
-                # Find the active opened note dialog container
-                dialog = page.locator('div.IZ65Hb-n0tgYe, div[role="dialog"], div.VIpgJd-TUoAZc').filter(
-                    has=page.locator('div[contenteditable="true"][aria-label="list item"]')
-                ).first
+                # Find the active opened note container
+                title_el = page.locator('div[contenteditable="true"]:not([aria-label="list item"])').first
+                if await title_el.count() > 0:
+                    scope = title_el.locator('xpath=ancestor::div[contains(@class, "IZ65Hb")][last()]')
+                    title = (await title_el.inner_text() or "").strip()
+                else:
+                    scope = page
+                    title = "Untitled List"
 
-                scope = dialog if await dialog.count() > 0 else page
-
-                # Locate title: editable element in dialog not labeled "list item"
-                editables = await scope.locator('div[contenteditable="true"]').all()
-                title = ""
-                for ed in editables:
-                    aria = await ed.get_attribute("aria-label")
-                    if aria != "list item":
-                        txt = (await ed.inner_text() or "").strip()
-                        if txt:
-                            title = txt
-                            break
-
-                # Extract list items within scope
+                # Extract list items within the opened note scope
                 items: List[Dict[str, Any]] = []
-                checkboxes = await scope.locator('div[role="checkbox"]').all()
+                cbs = await scope.locator('div[role="checkbox"]').all()
 
-                for i, cb in enumerate(checkboxes):
+                for i, cb in enumerate(cbs):
                     aria_checked = await cb.get_attribute("aria-checked")
                     checked = (aria_checked == "true")
 
-                    # Find parent row text
-                    parent = cb.locator("xpath=../..")
-                    text = (await parent.inner_text() or "").strip()
+                    # In Keep editor, the checklist item text is in the parent/grandparent or sibling editable
+                    row = cb.locator("xpath=ancestor::div[contains(@class, 'haAclf') or count(../*) > 1][2]")
+                    text = (await row.inner_text() or "").strip()
 
-                    if text:
+                    if not text:
+                        # Fallback to parent text
+                        parent = cb.locator("xpath=../..")
+                        text = (await parent.inner_text() or "").strip()
+
+                    if text and text != "List item":
                         items.append({
                             "index": i,
                             "text": text,
