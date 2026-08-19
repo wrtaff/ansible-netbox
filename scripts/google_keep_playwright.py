@@ -77,15 +77,20 @@ class GoogleKeepPlaywright:
             return browser, context, page, True
 
         os.makedirs(self.profile_dir, exist_ok=True)
-        context = await p.chromium.launch_persistent_context(
-            user_data_dir=self.profile_dir,
-            headless=self.headless,
-            viewport={"width": 1280, "height": 900},
-            args=[
+        # Use system Google Chrome if available
+        launch_kwargs = {
+            "user_data_dir": self.profile_dir,
+            "headless": self.headless,
+            "viewport": {"width": 1280, "height": 900},
+            "args": [
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
             ],
-        )
+        }
+        if os.path.exists("/usr/bin/google-chrome"):
+            launch_kwargs["channel"] = "chrome"
+
+        context = await p.chromium.launch_persistent_context(**launch_kwargs)
         page = context.pages[0] if context.pages else await context.new_page()
         return None, context, page, False
 
