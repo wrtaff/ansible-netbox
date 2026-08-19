@@ -112,48 +112,42 @@ class GoogleKeepPlaywright:
                         "url": page.url,
                     }
 
-                # Wait for note dialog or card to load
+                # Wait for contenteditable items
                 try:
-                    await page.wait_for_selector('div[role="dialog"], div[data-id], div[aria-label="Title"], div[contenteditable="true"]', timeout=15000)
+                    await page.wait_for_selector('div[contenteditable="true"]', timeout=15000)
                 except Exception:
                     pass
 
-                # Locate the active dialog or note editor
-                dialog = page.locator('div[role="dialog"]').first
-                scope = dialog if await dialog.count() > 0 else page
-
-                # Extract title
-                title_locator = scope.locator('div[aria-label="Title"], div[contenteditable="true"]').first
+                # Locate title: editable element in dialog not labeled "list item"
+                editables = await page.locator('div[contenteditable="true"]').all()
                 title = ""
-                if await title_locator.count() > 0:
-                    title = (await title_locator.text_content() or "").strip()
+                for ed in editables:
+                    aria = await ed.get_attribute("aria-label")
+                    if aria != "list item":
+                        txt = (await ed.inner_text() or "").strip()
+                        if txt:
+                            title = txt
+                            break
 
-                # Extract list items
-                # Google Keep checklist items have role="checkbox" or class markers
+                # Extract list items: rows containing role="checkbox" and editable
                 items: List[Dict[str, Any]] = []
+                item_rows = await page.locator('div:has(> div[role="checkbox"])').all()
 
-                # Find all checklist item rows
-                row_locators = scope.locator('div[role="listitem"], div.gka-listitem, div[aria-label="List item"]')
-                count = await row_locators.count()
+                if not item_rows:
+                    item_rows = await page.locator('div:has(div[aria-label="list item"]):has(div[role="checkbox"])').all()
 
-                if count == 0:
-                    # Fallback locator for list items
-                    row_locators = scope.locator('div:has(> div[role="checkbox"])')
-                    count = await row_locators.count()
-
-                for i in range(count):
-                    row = row_locators.nth(i)
+                for i, row in enumerate(item_rows):
                     checkbox = row.locator('div[role="checkbox"]').first
-                    text_el = row.locator('div[contenteditable="true"], div[role="textbox"], span').first
+                    text_el = row.locator('div[contenteditable="true"], div[aria-label="list item"]').first
 
                     checked = False
                     if await checkbox.count() > 0:
                         aria_checked = await checkbox.get_attribute("aria-checked")
-                        checked = aria_checked == "true"
+                        checked = (aria_checked == "true")
 
                     text = ""
                     if await text_el.count() > 0:
-                        text = (await text_el.text_content() or "").strip()
+                        text = (await text_el.inner_text() or "").strip()
 
                     if text:
                         items.append({
@@ -165,7 +159,7 @@ class GoogleKeepPlaywright:
                 return {
                     "success": True,
                     "url": url,
-                    "title": title,
+                    "title": title or "Untitled List",
                     "item_count": len(items),
                     "items": items,
                 }
@@ -191,25 +185,15 @@ class GoogleKeepPlaywright:
                         "error": "Authentication required. Please log into Google Keep in the browser profile.",
                     }
 
-                # Locate active dialog or page
-                dialog = page.locator('div[role="dialog"]').first
-                scope = dialog if await dialog.count() > 0 else page
-
-                # Find "List item" / "New list item" input
-                new_item_input = scope.locator(
-                    'div[aria-label="List item"][contenteditable="true"], '
-                    'input[placeholder="List item"], '
-                    'div[placeholder="List item"]'
-                ).last
-
+                # Find the "List item" input (contenteditable with aria-label="list item" or placeholder)
+                new_item_input = page.locator('div[contenteditable="true"][aria-label="list item"]').last
                 if await new_item_input.count() == 0:
-                    # Fallback to any contenteditable at the end of the list
-                    new_item_input = scope.locator('div[contenteditable="true"]').last
+                    new_item_input = page.locator('div[contenteditable="true"]').last
 
                 await new_item_input.click()
                 await new_item_input.fill(text)
                 await page.keyboard.press("Enter")
-                await page.wait_for_timeout(1500)
+                await page.wait_for_timeout(2000)
 
                 return {
                     "success": True,
@@ -233,6 +217,48 @@ class GoogleKeepPlaywright:
                 await page.wait_for_timeout(3000)
 
                 if "accounts.google.com" in page.url:
+                    return {
+                        "success": False,
+                        "error": "Authentication required. Please log into Google Keep in the browser profile.",
+                    }
+
+                # Find row containing the text and checkbox
+                rows = await page.locator('div:has(> div[role="checkbox"])').all()
+                target_row = None
+                for r in rows:
+                    row_txt = await r.inner_text()
+                    if text.lower() in row_txt.lower():
+                        target_row = r
+                        break
+
+                if not target_row:
+                    return {
+                        "success": False,
+                        "error": f"Item matching '{text}' not found in list.",
+                    }
+
+                checkbox = target_row.locator('div[role="checkbox"]').first
+                aria_checked = await checkbox.get_attribute("aria-checked")
+                current_state = (aria_checked == "true")
+
+                if target_state is None or target_state != current_state:
+                    await checkbox.click()
+                    await page.wait_for_timeout(1500)
+                    new_state = not current_state
+                else:
+                    new_state = current_state
+
+                return {
+                    "success": True,
+                    "item_text": text,
+                    "previous_state": current_state,
+                    "new_state": new_state,
+                }
+            finally:
+                if not is_cdp:
+                    await context.close()
+                else:
+                    await page.close()
                     return {
                         "success": False,
                         "error": "Authentication required. Please log into Google Keep in the browser profile.",
