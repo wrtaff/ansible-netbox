@@ -222,21 +222,29 @@ class GoogleKeepPlaywright:
                         "error": "Authentication required. Please log into Google Keep in the browser profile.",
                     }
 
-                dialog = page.locator('div.IZ65Hb-n0tgYe, div[role="dialog"], div.VIpgJd-TUoAZc').filter(
-                    has=page.locator('div[contenteditable="true"][aria-label="list item"]')
-                ).first
-                scope = dialog if await dialog.count() > 0 else page
+                # Find the active open note container via the list item editable
+                item_editable = page.locator('div[contenteditable="true"][aria-label="list item"]').first
+                if await item_editable.count() > 0:
+                    scope = item_editable.locator('xpath=ancestor::div[contains(@class, "IZ65Hb")][last()]')
+                else:
+                    scope = page.locator('div.IZ65Hb-QQhtn, div.IZ65Hb-n0tgWb').first
+                    if await scope.count() == 0:
+                        scope = page
 
                 checkboxes = await scope.locator('div[role="checkbox"]').all()
                 target_cb = None
                 target_txt = ""
 
                 for cb in checkboxes:
-                    parent = cb.locator("xpath=../..")
-                    parent_txt = (await parent.inner_text() or "").strip()
-                    if text.lower() in parent_txt.lower():
+                    row = cb.locator("xpath=ancestor::div[contains(@class, 'haAclf') or count(../*) > 1][2]")
+                    row_txt = (await row.inner_text() or "").strip()
+                    if not row_txt:
+                        parent = cb.locator("xpath=../..")
+                        row_txt = (await parent.inner_text() or "").strip()
+
+                    if text.lower() in row_txt.lower():
                         target_cb = cb
-                        target_txt = parent_txt
+                        target_txt = row_txt
                         break
 
                 if not target_cb:
@@ -249,7 +257,11 @@ class GoogleKeepPlaywright:
                 current_state = (aria_checked == "true")
 
                 if target_state is None or target_state != current_state:
-                    await target_cb.click()
+                    try:
+                        await target_cb.click(force=True, timeout=5000)
+                    except Exception:
+                        await target_cb.focus()
+                        await page.keyboard.press("Space")
                     await page.wait_for_timeout(1500)
                     new_state = not current_state
                 else:
