@@ -93,6 +93,13 @@
     replace: "if (request.state.feed === undefined) return;\n    if (request.headers.accept?.includes('xml') || request.headers.accept?.includes('atom') || request.headers.accept?.includes('rss')) { response.redirect!(`/feeds/${request.state.feed.publicId}.xml`); return; }\n    response.send(\n      application.layout({\n        request,\n        response,\n        head: html`\n          <title>${request.state.feed.title} · Kill the Newsletter!</title>\n          <link rel=\"alternate\" type=\"application/atom+xml\" href=\"http://${application.configuration.hostname}:{{ ktn_http_port }}/feeds/${request.state.feed.publicId}.xml\" title=\"${request.state.feed.title}\" />"
   register: ktn_autodiscovery_patch
 
+- name: Wrap KTN entry HTML in semantic article container with title for read-it-later extractors
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/source/index.mts"
+    regexp: 'const feedEntry = application\.database\.get<\{\s*content: string;\s*\}\>\(\s*sql`\s*select "feedEntries"\."content" as "content"\s*from "feedEntries"\s*where\s*"feedEntries"\."feed" = \$\{request\.state\.feed\.id\} and\s*"feedEntries"\."publicId" = \$\{request\.pathname\.feedEntryPublicId\};\s*`,\s*\);\s*if \(feedEntry === undefined\) return;\s*response\s*\.setHeader\(\s*"Content-Security-Policy",\s*"default-src ''self''; img-src \*; style-src ''self'' ''unsafe-inline''; frame-src ''none''; object-src ''none''; form-action ''self''; frame-ancestors ''none''",\s*\)\s*\.setHeader\("Cross-Origin-Embedder-Policy", "unsafe-none"\)\s*\.send\(feedEntry\.content\);'
+    replace: "const feedEntry = application.database.get<{\n      title: string;\n      content: string;\n    }>(\n      sql`\n        select \"feedEntries\".\"title\" as \"title\", \"feedEntries\".\"content\" as \"content\"\n        from \"feedEntries\"\n        where\n          \"feedEntries\".\"feed\" = ${request.state.feed.id} and\n          \"feedEntries\".\"publicId\" = ${request.pathname.feedEntryPublicId};\n      `,\n    );\n    if (feedEntry === undefined) return;\n    const escapedTitle = feedEntry.title.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\"', '&quot;');\n    const bodyMatch = feedEntry.content.match(/<body[^>]*>([\\s\\S]*?)<\\/body>/i);\n    const innerBody = bodyMatch ? bodyMatch[1] : feedEntry.content;\n    const styles = (feedEntry.content.match(/<style[^>]*>[\\s\\S]*?<\\/style>/gi) ?? []).join('\\n');\n    response\n      .setHeader(\n        \"Content-Security-Policy\",\n        \"default-src 'self'; img-src *; style-src 'self' 'unsafe-inline'; frame-src 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'none'\",\n      )\n      .setHeader(\"Cross-Origin-Embedder-Policy\", \"unsafe-none\")\n      .send(`<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"/><title>${escapedTitle}</title><style>body{max-width:800px;margin:20px auto;padding:0 20px;font-family:system-ui,sans-serif;line-height:1.6}article{width:100%}img{max-width:100%;height:auto}table{max-width:100%}</style>${styles}</head><body><article class=\"entry-content\"><h1>${escapedTitle}</h1>${innerBody}</article></body></html>`);"
+  register: ktn_entry_article_patch
+
 - name: Check whether KTN dependencies are installed
   ansible.builtin.stat:
     path: "{{ ktn_root }}/node_modules"
@@ -105,11 +112,35 @@
   when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or ktn_autodiscovery_patch.changed or not ktn_node_modules.stat.exists
   changed_when: true
 
+- name: Patch @radically-straightforward/server CSRF protection to allow HTTP HEAD requests
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/node_modules/@radically-straightforward/server/build/index.mjs"
+    regexp: 'if \(request\.method !== "GET" &&'
+    replace: 'if (request.method !== "GET" && request.method !== "HEAD" &&'
+  register: ktn_server_head_csrf_patch
+  notify: Restart KTN
+
+- name: Patch @radically-straightforward/server route matching to support HTTP HEAD requests
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/node_modules/@radically-straightforward/server/build/index.mjs"
+    regexp: '\(typeof route\.method === "string" &&\s*request\.method !== route\.method\) \|\|'
+    replace: '(typeof route.method === "string" && request.method !== route.method && !(route.method === "GET" && request.method === "HEAD")) ||'
+  register: ktn_server_head_route_patch
+  notify: Restart KTN
+
+- name: Patch @radically-straightforward/server response.send to omit body on HTTP HEAD requests
+  ansible.builtin.replace:
+    path: "{{ ktn_root }}/node_modules/@radically-straightforward/server/build/index.mjs"
+    regexp: 'response\.send = \(responseBody\) => \{\s*response\.end\(responseBody\);'
+    replace: 'response.send = (responseBody) => {\n                    if (request.method === "HEAD") { response.end(); } else { response.end(responseBody); }'
+  register: ktn_server_head_send_patch
+  notify: Restart KTN
+
 - name: Build KTN application
   ansible.builtin.command: npm run prepare
   args:
     chdir: "{{ ktn_root }}"
-  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or ktn_autodiscovery_patch.changed
+  when: ktn_source.changed or ktn_smtp_patch.changed or ktn_caddy_patch.changed or ktn_ratelimit_patch.changed or ktn_feed_url_patch.changed or ktn_feed_ui_copy_patch.changed or ktn_autodiscovery_patch.changed or ktn_entry_article_patch.changed
   changed_when: true
   notify: Restart KTN
 
