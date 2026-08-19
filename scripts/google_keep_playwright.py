@@ -112,14 +112,15 @@ class GoogleKeepPlaywright:
                         "url": page.url,
                     }
 
-                # Wait for contenteditable items
-                try:
-                    await page.wait_for_selector('div[contenteditable="true"]', timeout=15000)
-                except Exception:
-                    pass
+                # Find the active opened note dialog container
+                dialog = page.locator('div.IZ65Hb-n0tgYe, div[role="dialog"], div.VIpgJd-TUoAZc').filter(
+                    has=page.locator('div[contenteditable="true"][aria-label="list item"]')
+                ).first
+
+                scope = dialog if await dialog.count() > 0 else page
 
                 # Locate title: editable element in dialog not labeled "list item"
-                editables = await page.locator('div[contenteditable="true"]').all()
+                editables = await scope.locator('div[contenteditable="true"]').all()
                 title = ""
                 for ed in editables:
                     aria = await ed.get_attribute("aria-label")
@@ -129,25 +130,17 @@ class GoogleKeepPlaywright:
                             title = txt
                             break
 
-                # Extract list items: rows containing role="checkbox" and editable
+                # Extract list items within scope
                 items: List[Dict[str, Any]] = []
-                item_rows = await page.locator('div:has(> div[role="checkbox"])').all()
+                checkboxes = await scope.locator('div[role="checkbox"]').all()
 
-                if not item_rows:
-                    item_rows = await page.locator('div:has(div[aria-label="list item"]):has(div[role="checkbox"])').all()
+                for i, cb in enumerate(checkboxes):
+                    aria_checked = await cb.get_attribute("aria-checked")
+                    checked = (aria_checked == "true")
 
-                for i, row in enumerate(item_rows):
-                    checkbox = row.locator('div[role="checkbox"]').first
-                    text_el = row.locator('div[contenteditable="true"], div[aria-label="list item"]').first
-
-                    checked = False
-                    if await checkbox.count() > 0:
-                        aria_checked = await checkbox.get_attribute("aria-checked")
-                        checked = (aria_checked == "true")
-
-                    text = ""
-                    if await text_el.count() > 0:
-                        text = (await text_el.inner_text() or "").strip()
+                    # Find parent row text
+                    parent = cb.locator("xpath=../..")
+                    text = (await parent.inner_text() or "").strip()
 
                     if text:
                         items.append({
@@ -185,10 +178,15 @@ class GoogleKeepPlaywright:
                         "error": "Authentication required. Please log into Google Keep in the browser profile.",
                     }
 
+                dialog = page.locator('div.IZ65Hb-n0tgYe, div[role="dialog"], div.VIpgJd-TUoAZc').filter(
+                    has=page.locator('div[contenteditable="true"][aria-label="list item"]')
+                ).first
+                scope = dialog if await dialog.count() > 0 else page
+
                 # Find the "List item" input (contenteditable with aria-label="list item" or placeholder)
-                new_item_input = page.locator('div[contenteditable="true"][aria-label="list item"]').last
+                new_item_input = scope.locator('div[contenteditable="true"][aria-label="list item"]').last
                 if await new_item_input.count() == 0:
-                    new_item_input = page.locator('div[contenteditable="true"]').last
+                    new_item_input = scope.locator('div[contenteditable="true"]').last
 
                 await new_item_input.click()
                 await new_item_input.fill(text)
@@ -222,27 +220,34 @@ class GoogleKeepPlaywright:
                         "error": "Authentication required. Please log into Google Keep in the browser profile.",
                     }
 
-                # Find row containing the text and checkbox
-                rows = await page.locator('div:has(> div[role="checkbox"])').all()
-                target_row = None
-                for r in rows:
-                    row_txt = await r.inner_text()
-                    if text.lower() in row_txt.lower():
-                        target_row = r
+                dialog = page.locator('div.IZ65Hb-n0tgYe, div[role="dialog"], div.VIpgJd-TUoAZc').filter(
+                    has=page.locator('div[contenteditable="true"][aria-label="list item"]')
+                ).first
+                scope = dialog if await dialog.count() > 0 else page
+
+                checkboxes = await scope.locator('div[role="checkbox"]').all()
+                target_cb = None
+                target_txt = ""
+
+                for cb in checkboxes:
+                    parent = cb.locator("xpath=../..")
+                    parent_txt = (await parent.inner_text() or "").strip()
+                    if text.lower() in parent_txt.lower():
+                        target_cb = cb
+                        target_txt = parent_txt
                         break
 
-                if not target_row:
+                if not target_cb:
                     return {
                         "success": False,
                         "error": f"Item matching '{text}' not found in list.",
                     }
 
-                checkbox = target_row.locator('div[role="checkbox"]').first
-                aria_checked = await checkbox.get_attribute("aria-checked")
+                aria_checked = await target_cb.get_attribute("aria-checked")
                 current_state = (aria_checked == "true")
 
                 if target_state is None or target_state != current_state:
-                    await checkbox.click()
+                    await target_cb.click()
                     await page.wait_for_timeout(1500)
                     new_state = not current_state
                 else:
@@ -250,7 +255,7 @@ class GoogleKeepPlaywright:
 
                 return {
                     "success": True,
-                    "item_text": text,
+                    "item_text": target_txt,
                     "previous_state": current_state,
                     "new_state": new_state,
                 }
