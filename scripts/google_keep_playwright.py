@@ -112,14 +112,20 @@ class GoogleKeepPlaywright:
                         "url": page.url,
                     }
 
-                # Find the active opened note container
-                title_el = page.locator('div[contenteditable="true"]:not([aria-label="list item"])').first
-                if await title_el.count() > 0:
-                    scope = title_el.locator('xpath=ancestor::div[contains(@class, "IZ65Hb")][last()]')
-                    title = (await title_el.inner_text() or "").strip()
+                # Find the active open note container via the list item editable
+                item_editable = page.locator('div[contenteditable="true"][aria-label="list item"]').first
+                if await item_editable.count() > 0:
+                    scope = item_editable.locator('xpath=ancestor::div[contains(@class, "IZ65Hb")][last()]')
                 else:
-                    scope = page
-                    title = "Untitled List"
+                    scope = page.locator('div.IZ65Hb-QQhtn, div.IZ65Hb-n0tgWb').first
+                    if await scope.count() == 0:
+                        scope = page
+
+                # Extract title
+                title_el = scope.locator('div[contenteditable="true"]:not([aria-label="list item"])').first
+                title = ""
+                if await title_el.count() > 0:
+                    title = (await title_el.inner_text() or "").strip()
 
                 # Extract list items within the opened note scope
                 items: List[Dict[str, Any]] = []
