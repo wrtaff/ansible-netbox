@@ -101,7 +101,8 @@ class GoogleKeepPlaywright:
         async with async_playwright() as p:
             browser, context, page, is_cdp = await self._get_context_and_page(p)
             try:
-                await page.goto(url, wait_until="networkidle", timeout=30000)
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(3000)
 
                 # Check if redirected to login
                 if "accounts.google.com" in page.url:
@@ -112,7 +113,10 @@ class GoogleKeepPlaywright:
                     }
 
                 # Wait for note dialog or card to load
-                await page.wait_for_selector('div[role="dialog"], div[data-id], div[aria-label="Title"], div[contenteditable="true"]', timeout=15000)
+                try:
+                    await page.wait_for_selector('div[role="dialog"], div[data-id], div[aria-label="Title"], div[contenteditable="true"]', timeout=15000)
+                except Exception:
+                    pass
 
                 # Locate the active dialog or note editor
                 dialog = page.locator('div[role="dialog"]').first
@@ -178,7 +182,8 @@ class GoogleKeepPlaywright:
         async with async_playwright() as p:
             browser, context, page, is_cdp = await self._get_context_and_page(p)
             try:
-                await page.goto(url, wait_until="networkidle", timeout=30000)
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(3000)
 
                 if "accounts.google.com" in page.url:
                     return {
@@ -204,7 +209,7 @@ class GoogleKeepPlaywright:
                 await new_item_input.click()
                 await new_item_input.fill(text)
                 await page.keyboard.press("Enter")
-                await page.wait_for_timeout(1000)
+                await page.wait_for_timeout(1500)
 
                 return {
                     "success": True,
@@ -224,7 +229,8 @@ class GoogleKeepPlaywright:
         async with async_playwright() as p:
             browser, context, page, is_cdp = await self._get_context_and_page(p)
             try:
-                await page.goto(url, wait_until="networkidle", timeout=30000)
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(3000)
 
                 if "accounts.google.com" in page.url:
                     return {
