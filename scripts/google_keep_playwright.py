@@ -259,45 +259,6 @@ class GoogleKeepPlaywright:
                     await context.close()
                 else:
                     await page.close()
-                    return {
-                        "success": False,
-                        "error": "Authentication required. Please log into Google Keep in the browser profile.",
-                    }
-
-                dialog = page.locator('div[role="dialog"]').first
-                scope = dialog if await dialog.count() > 0 else page
-
-                # Find row containing the text
-                row = scope.locator(f'div:has-text("{text}")').filter(has=page.locator('div[role="checkbox"]')).first
-
-                if await row.count() == 0:
-                    return {
-                        "success": False,
-                        "error": f"Item matching '{text}' not found in list.",
-                    }
-
-                checkbox = row.locator('div[role="checkbox"]').first
-                aria_checked = await checkbox.get_attribute("aria-checked")
-                current_state = (aria_checked == "true")
-
-                if target_state is None or target_state != current_state:
-                    await checkbox.click()
-                    await page.wait_for_timeout(1000)
-                    new_state = not current_state
-                else:
-                    new_state = current_state
-
-                return {
-                    "success": True,
-                    "item_text": text,
-                    "previous_state": current_state,
-                    "new_state": new_state,
-                }
-            finally:
-                if not is_cdp:
-                    await context.close()
-                else:
-                    await page.close()
 
 
 def main():
