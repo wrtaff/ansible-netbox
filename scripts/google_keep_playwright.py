@@ -121,6 +121,15 @@ class GoogleKeepPlaywright:
                     if await scope.count() == 0:
                         scope = page
 
+                # Expand completed items drawer if collapsed so all items are visible
+                drawer_btn = scope.locator('div[role="button"][aria-expanded="false"]').first
+                if await drawer_btn.count() > 0:
+                    try:
+                        await drawer_btn.dispatch_event("click")
+                        await page.wait_for_timeout(500)
+                    except Exception:
+                        pass
+
                 # Extract title
                 title_el = scope.locator('div[contenteditable="true"]:not([aria-label="list item"])').first
                 title = ""
@@ -150,6 +159,13 @@ class GoogleKeepPlaywright:
                             "text": text,
                             "checked": checked,
                         })
+
+                # Close note cleanly
+                try:
+                    await page.keyboard.press("Escape")
+                    await page.wait_for_timeout(1000)
+                except Exception:
+                    pass
 
                 return {
                     "success": True,
@@ -193,7 +209,11 @@ class GoogleKeepPlaywright:
                 await new_item_input.click()
                 await new_item_input.fill(text)
                 await page.keyboard.press("Enter")
-                await page.wait_for_timeout(2000)
+                await page.wait_for_timeout(1000)
+
+                # Close note cleanly to trigger Google cloud sync
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(2500)
 
                 return {
                     "success": True,
@@ -231,6 +251,15 @@ class GoogleKeepPlaywright:
                     if await scope.count() == 0:
                         scope = page
 
+                # Expand completed items drawer if collapsed
+                drawer_btn = scope.locator('div[role="button"][aria-expanded="false"]').first
+                if await drawer_btn.count() > 0:
+                    try:
+                        await drawer_btn.dispatch_event("click")
+                        await page.wait_for_timeout(500)
+                    except Exception:
+                        pass
+
                 checkboxes = await scope.locator('div[role="checkbox"]').all()
                 target_cb = None
                 target_txt = ""
@@ -258,14 +287,17 @@ class GoogleKeepPlaywright:
 
                 if target_state is None or target_state != current_state:
                     try:
-                        await target_cb.click(force=True, timeout=5000)
+                        await target_cb.dispatch_event("click")
                     except Exception:
-                        await target_cb.focus()
-                        await page.keyboard.press("Space")
-                    await page.wait_for_timeout(1500)
+                        await target_cb.click(force=True)
+                    await page.wait_for_timeout(1000)
                     new_state = not current_state
                 else:
                     new_state = current_state
+
+                # Close note to flush changes to Google Keep cloud backend
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(2500)
 
                 return {
                     "success": True,
