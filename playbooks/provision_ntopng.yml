@@ -60,6 +60,11 @@
     redis_eviction_policy: "allkeys-lru"
 
   tasks:
+    - name: Remove any legacy or stale ntop repository list
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/ntop.list
+        state: absent
+
     - name: Ensure prerequisite packages are installed
       ansible.builtin.apt:
         name:
@@ -73,12 +78,6 @@
           - ethtool
           - redis-server
         state: present
-        update_cache: yes
-
-    - name: Remove any legacy or stale ntop repository list
-      ansible.builtin.file:
-        path: /etc/apt/sources.list.d/ntop.list
-        state: absent
 
     - name: Download official ntop stable repository release deb package
       ansible.builtin.get_url:
