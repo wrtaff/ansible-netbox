@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/nextcloud/server.py
-Version:        1.8
+Version:        1.9
 Author:         Gemini CLI
-Last Modified:  2026-03-09
-Context:        http://trac.home.arpa/ticket/3154
+Last Modified:  2026-08-19
+Context:        http://trac.gafla.us.com/ticket/4137
 
 Purpose:
     Model Context Protocol (MCP) server for Nextcloud integration.
@@ -13,6 +13,9 @@ Purpose:
     AI agent sessions.
 
 Revision History:
+    v1.9 (2026-08-19): Hardened credential loading to prioritize Ansible-managed
+                       ~/.config/mcp-secrets.env and removed legacy repository
+                       tmp/nextcloud_pass.txt cache. Ref: Trac #4137 WP-1.
     v1.8 (2026-08-08): Added WebDAV file read, write, and directory listing
                        tools for collaborative Markdown editing.
     v1.7 (2026-03-09): Fixed VCard field extraction to support group prefixes 
@@ -65,13 +68,30 @@ logger = logging.getLogger("nextcloud-mcp")
 mcp = FastMCP("nextcloud-server")
 
 def get_nextcloud_password():
-    """Gets the NEXTCLOUD_PASSWORD, falling back to ~/.bashrc or vault if not set."""
+    """Gets the NEXTCLOUD_PASSWORD, prioritizing environment and managed secrets file."""
     password = os.getenv("NEXTCLOUD_PASSWORD")
     if password:
         logger.info("NEXTCLOUD_PASSWORD found in environment.")
         return password
 
-    # Try ~/.bashrc
+    # Try ~/.config/mcp-secrets.env (Ansible-managed environment)
+    secrets_file = os.path.expanduser("~/.config/mcp-secrets.env")
+    if os.path.exists(secrets_file):
+        try:
+            with open(secrets_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("export "):
+                        line = line[7:].strip()
+                    if line.startswith("NEXTCLOUD_PASSWORD="):
+                        val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        if val:
+                            logger.info("NEXTCLOUD_PASSWORD found in ~/.config/mcp-secrets.env.")
+                            return val
+        except Exception as e:
+            logger.error(f"Error reading ~/.config/mcp-secrets.env: {e}")
+
+    # Fallback to ~/.bashrc
     bashrc_path = os.path.expanduser("~/.bashrc")
     if os.path.exists(bashrc_path):
         try:
@@ -85,17 +105,6 @@ def get_nextcloud_password():
                             return val
         except Exception as e:
             logger.error(f"Error reading ~/.bashrc: {e}")
-
-    # Try vault (via temp file cache first)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    tmp_pass_file = os.path.join(script_dir, "..", "..", "tmp", "nextcloud_pass.txt")
-    if os.path.exists(tmp_pass_file):
-        try:
-            with open(tmp_pass_file, 'r') as f:
-                logger.info("NEXTCLOUD_PASSWORD found in temp cache.")
-                return f.read().strip()
-        except Exception:
-            pass
 
     logger.warning("NEXTCLOUD_PASSWORD not found.")
     return None
