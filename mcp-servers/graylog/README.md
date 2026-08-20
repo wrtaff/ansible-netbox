@@ -18,8 +18,7 @@ For day-based windows, pass `hours=days*24` — there is no separate `days`
 parameter.
 
 ## Configuration
-Requires `GRAYLOG_API_TOKEN` env var, or a `graylog_pops_admin_token` entry
-in `vault.yml` (resolved automatically and cached to `tmp/graylog_token.txt`).
+Requires `GRAYLOG_API_TOKEN` env var, managed via `~/.config/mcp-secrets.env` (or `graylog_pops_admin_token` in `vault.yml` with runtime caching under `/tmp/pops-secrets-<uid>/`).
 Default URL: `http://graylog.home.arpa:9000` (override with `GRAYLOG_URL`).
 
 ## Related
