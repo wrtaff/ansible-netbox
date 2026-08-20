@@ -119,7 +119,7 @@ async def complete_oauth_flow_in_browser(
                         await page.wait_for_timeout(2000)
 
             # Step 2: Google unverified app warning ("Advanced" -> "Go to ... (unsafe)")
-            unverified_hdr = page.locator('text="Google hasn’t verified this app", text="Google hasn\'t verified this app"')
+            unverified_hdr = page.locator(':text("Google hasn’t verified this app"), :text("Google hasn\'t verified this app")')
             if await unverified_hdr.count() > 0:
                 print("[oauth-playwright] Bypassing unverified app warning...")
                 advanced_btn = page.locator('#advancedButton, button:has-text("Advanced"), a:has-text("Advanced")').first
@@ -133,11 +133,22 @@ async def complete_oauth_flow_in_browser(
                         await page.wait_for_timeout(2000)
 
             # Step 3: Select permissions checkboxes if requested
-            select_all = page.locator('input[type="checkbox"][id="select-all"], text="Select all"').first
+            select_all = page.locator('#select-all, input#select-all, :text("Select all")').first
             if await select_all.count() > 0:
                 print("[oauth-playwright] Selecting all permission checkboxes...")
                 await select_all.click()
                 await page.wait_for_timeout(500)
+            else:
+                checkboxes = page.locator('input[type="checkbox"]:not(:checked)')
+                cb_count = await checkboxes.count()
+                if cb_count > 0:
+                    print(f"[oauth-playwright] Selecting {cb_count} permission checkboxes...")
+                    for i in range(cb_count):
+                        try:
+                            await checkboxes.nth(i).click()
+                            await page.wait_for_timeout(200)
+                        except Exception:
+                            pass
 
             # Step 4: Click Continue / Allow button
             continue_btn = page.locator(
@@ -180,14 +191,17 @@ def run_automated_reauth(
     account_email: Optional[str] = None,
 ) -> bool:
     """Orchestrates local server flow with headless browser consent approval."""
+    import secrets
     if not os.path.exists(CREDENTIALS_FILE):
         raise FileNotFoundError(f"Google credentials file not found: {CREDENTIALS_FILE}")
 
+    oauth_state = secrets.token_urlsafe(24)
     flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+    flow.redirect_uri = f"http://127.0.0.1:{port}/"
     auth_url, _ = flow.authorization_url(
         prompt="consent",
         access_type="offline",
-        redirect_uri=f"http://127.0.0.1:{port}/",
+        state=oauth_state,
     )
 
     # Run the browser automation in an async task / thread while local server listens
@@ -216,6 +230,8 @@ def run_automated_reauth(
             host="127.0.0.1",
             port=port,
             prompt="consent",
+            access_type="offline",
+            state=oauth_state,
             open_browser=False,
         )
 
