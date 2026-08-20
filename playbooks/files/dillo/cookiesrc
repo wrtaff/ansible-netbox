@@ -1,5 +1,11 @@
-DEFAULT DENY
-wwos.home.arpa ACCEPT
-192.168.0.99 ACCEPT
-trac-lxc.home.arpa ACCEPT
+# Dillo cookie policy
+# Trac & internal POPS services
+trac.gafla.us.com ACCEPT
 trac.home.arpa ACCEPT
+trac-lxc.home.arpa ACCEPT
+wwos.home.arpa ACCEPT
+wwos.gafla.us.com ACCEPT
+192.168.0.99 ACCEPT
+.gafla.us.com ACCEPT
+.home.arpa ACCEPT
+DEFAULT DENY
