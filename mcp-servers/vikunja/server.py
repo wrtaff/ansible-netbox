@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.4
+Version:        1.5
 Author:         Gemini CLI
-Last Modified:  2026-07-07
+Last Modified:  2026-08-20
 Context:        http://trac.home.arpa/ticket/3321
 
 Purpose:
@@ -13,6 +13,8 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.5 (2026-08-20): Automatically convert Markdown descriptions to HTML so links
+                       render as clickable hyperlinks in the Vikunja web UI.
     v1.4 (2026-07-07): vikunja_create_trac_ticket now builds a properly cited MoinMoin
                        wiki link (task title as link text, WWOS-style <ref> citation)
                        back to the Vikunja task instead of a bare URL, and converts the
@@ -214,6 +216,19 @@ def ping() -> str:
     logger.info("Vikunja: Ping")
     return "pong"
 
+def format_description_for_vikunja(desc: Optional[str]) -> Optional[str]:
+    """Converts Markdown description to HTML so Vikunja's TipTap editor renders clickable links."""
+    if not desc or not desc.strip():
+        return desc
+    s = desc.strip()
+    if s.startswith("<p>") or "</a>" in s or "</div>" in s or "<ul>" in s:
+        return desc
+    try:
+        import markdown
+        return markdown.markdown(s)
+    except Exception:
+        return desc
+
 @mcp.tool(name="vikunja_create_task")
 def create_task(title: str, description: str = "", project_id: int = 1, project: Optional[str] = None, labels: Optional[List[str]] = None, due_date: Optional[str] = None) -> str:
     """
@@ -249,9 +264,11 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
         if labels:
             all_labels.extend(labels)
 
+        html_description = format_description_for_vikunja(description)
+
         cvt.create_task(
             title=clean_title,
-            description=description,
+            description=html_description or "",
             project_id=project_id,
             is_favorite=True,
             host=host,
@@ -303,7 +320,7 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
         if title is not None:
             payload["title"] = title
         if description is not None:
-            payload["description"] = description
+            payload["description"] = format_description_for_vikunja(description)
         if due_date is not None:
             payload["due_date"] = due_date
         if is_favorite is not None:
