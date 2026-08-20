@@ -1,0 +1,168 @@
+---
+# ==============================================================================
+# Filename:       playbooks/provision_ntopng.yml
+# Version:        1.0.0
+# Author:         gemini
+# Last Modified:  2026-08-20
+# Trac Ticket:    #4316 (http://trac.gafla.us.com/ticket/4316)
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/provision_ntopng.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/provision_ntopng.yml
+#
+# Purpose:
+#     Installs and configures ntopng Community Edition and Redis backend on
+#     ntopng-lxc for network traffic analysis and passive flow/packet monitoring.
+#
+# Use Case:
+#     Provides real-time and historical network visibility, protocol breakdown,
+#     bandwidth accounting, and telemetry without proprietary licensing limits.
+#
+# Installation Method:
+#     Official ntop APT repository (Debian 12 Bookworm) & standard Debian packages.
+#
+# Prerequisites:
+#     - Debian 12 LXC container (ntopng-lxc, CT 128 on pve5)
+#     - SSH access via id_rsa_lab key
+#     - Root privileges (become: yes)
+#     - Pi-hole DNS configured (ntopng-lxc.home.arpa -> 192.168.0.43)
+#
+# Configuration:
+#     - /etc/redis/redis.conf (maxmemory 512mb, allkeys-lru, save "")
+#     - /etc/ntopng/ntopng.conf (Web UI port 3000, community mode, subnet definition)
+#
+# Secrets:
+#     None -- no vault variables required for base package installation.
+#
+# Usage:
+#     # Dry run:
+#     ansible-playbook -i inventory.ini playbooks/provision_ntopng.yml --limit ntopng-lxc --check --diff
+#
+#     # Live run:
+#     ansible-playbook -i inventory.ini playbooks/provision_ntopng.yml --limit ntopng-lxc
+#
+# Removal Instructions:
+#     systemctl stop ntopng redis-server
+#     apt purge -y ntopng redis-server
+#     rm -rf /etc/ntopng /var/lib/ntopng /etc/apt/sources.list.d/ntop.list /etc/apt/keyrings/ntop.gpg
+#
+# Revision History:
+#     1.0.0 (2026-08-20): Initial release for Trac #4316 WP-3 application deployment.
+# ==============================================================================
+
+- name: Provision ntopng Community Edition & Redis Backend
+  hosts: ntopng-lxc
+  become: yes
+
+  vars:
+    ntopng_web_port: 3000
+    ntopng_local_networks: "192.168.0.0/24"
+    ntopng_interface: "eth0"
+    redis_max_memory: "512mb"
+    redis_eviction_policy: "allkeys-lru"
+
+  tasks:
+    - name: Remove any legacy or stale ntop repository list
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/ntop.list
+        state: absent
+
+    - name: Ensure prerequisite packages are installed
+      ansible.builtin.apt:
+        name:
+          - curl
+          - gnupg
+          - ca-certificates
+          - lsb-release
+          - software-properties-common
+          - libpcap-dev
+          - tcpdump
+          - ethtool
+          - redis-server
+        state: present
+
+    - name: Download official ntop stable repository release deb package
+      ansible.builtin.get_url:
+        url: https://packages.ntop.org/apt-stable/bookworm/all/apt-ntop-stable.deb
+        dest: /tmp/apt-ntop-stable.deb
+        mode: '0644'
+
+    - name: Install official ntop repository configuration package
+      ansible.builtin.apt:
+        deb: /tmp/apt-ntop-stable.deb
+        state: present
+
+    - name: Remove temporary release deb package
+      ansible.builtin.file:
+        path: /tmp/apt-ntop-stable.deb
+        state: absent
+
+    - name: Update APT cache for ntop repository
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install ntopng package
+      ansible.builtin.apt:
+        name:
+          - ntopng
+        state: present
+
+    - name: Configure Redis for ephemeral in-memory cache and LRU eviction
+      ansible.builtin.blockinfile:
+        path: /etc/redis/redis.conf
+        marker: "# {mark} ANSIBLE MANAGED - NTOPNG REDIS TUNING"
+        block: |
+          maxmemory {{ redis_max_memory }}
+          maxmemory-policy {{ redis_eviction_policy }}
+          save ""
+        state: present
+      notify: Restart redis-server
+
+    - name: Ensure Redis service is enabled and running
+      ansible.builtin.service:
+        name: redis-server
+        state: started
+        enabled: yes
+
+    - name: Ensure ntopng configuration directory exists
+      ansible.builtin.file:
+        path: /etc/ntopng
+        state: directory
+        mode: '0755'
+
+    - name: Deploy ntopng Community Edition configuration (/etc/ntopng/ntopng.conf)
+      ansible.builtin.copy:
+        dest: /etc/ntopng/ntopng.conf
+        content: |
+          # ntopng Configuration - Trac #4316
+          -G=/var/run/ntopng.pid
+          -d=/var/lib/ntopng
+          -w={{ ntopng_web_port }}
+          -m={{ ntopng_local_networks }}
+          -n=1
+          -i={{ ntopng_interface }}
+          --community
+          --disable-alerts=no
+        mode: '0644'
+      notify: Restart ntopng
+
+    - name: Ensure ntopng data directory exists with correct permissions
+      ansible.builtin.file:
+        path: /var/lib/ntopng
+        state: directory
+        mode: '0755'
+
+    - name: Ensure ntopng service is enabled and started
+      ansible.builtin.service:
+        name: ntopng
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Restart redis-server
+      ansible.builtin.service:
+        name: redis-server
+        state: restarted
+
+    - name: Restart ntopng
+      ansible.builtin.service:
+        name: ntopng
+        state: restarted
