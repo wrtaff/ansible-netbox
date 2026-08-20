@@ -1,0 +1,55 @@
+# ==============================================================================
+# Filename:       playbooks/provision_gmail_push_to_task_cron.yml
+# Version:        1.0
+# Author:         OpenCode
+# Last Modified:  2026-08-20
+# Context:        http://trac.gafla.us.com/ticket/3589
+#
+# Purpose:
+#    Deploys a cron job on athena to sweep Gmail for 'push-to-task' messages
+#    every 15 minutes, create corresponding Vikunja tasks, and log output
+#    to /var/log/gmail_push_to_task.log.
+#
+# Secrets:
+#    VIKUNJA_API_TOKEN   (env var in ~/.bashrc / vault) - Vikunja API auth
+#    Gmail OAuth Token   (managed by scripts/google_workspace_manager.py)
+#
+# Revision History:
+#    v1.0 (2026-08-20) - Initial version for Trac #3589 WP 1.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/provision_gmail_push_to_task_cron.yml
+# ==============================================================================
+---
+- name: Deploy Gmail Push-to-Task Cron Job
+  hosts: athena
+  become: false
+
+  vars:
+    script_path: "/home/will/ansible-netbox/scripts/gmail_push_to_task.py"
+    venv_python: "/home/will/ansible-netbox/.venv/bin/python3"
+    log_file: "/var/log/gmail_push_to_task.log"
+
+  tasks:
+    - name: 1. Ensure gmail_push_to_task.py is executable
+      ansible.builtin.file:
+        path: "{{ script_path }}"
+        mode: '0755'
+
+    - name: 2. Ensure /var/log/gmail_push_to_task.log exists with correct permissions
+      become: true
+      ansible.builtin.file:
+        path: "{{ log_file }}"
+        state: touch
+        owner: will
+        group: will
+        mode: '0644'
+        modification_time: preserve
+        access_time: preserve
+
+    - name: 3. Create cron job for gmail_push_to_task (every 15 minutes)
+      ansible.builtin.cron:
+        name: "Gmail push-to-task sweep"
+        minute: "*/15"
+        job: "{{ venv_python }} {{ script_path }} >> {{ log_file }} 2>&1"
+        state: present
