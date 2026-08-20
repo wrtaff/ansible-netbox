@@ -28,3 +28,53 @@
     name: unattended-upgrades
     state: started
     enabled: yes
+
+- name: NetBox Tagging for unattended-upgrades
+  when:
+    - unattended_upgrades_netbox_tag_enabled | bool
+    - unattended_upgrades_netbox_token | length > 0
+  block:
+    - name: Get current VM tags from NetBox
+      ansible.builtin.set_fact:
+        netbox_vm_tags: "{{ query('netbox.netbox.nb_lookup', 'virtual-machines', api_filter='name=' ~ inventory_hostname, api_endpoint=unattended_upgrades_netbox_url, token=unattended_upgrades_netbox_token) }}"
+      delegate_to: localhost
+      when: ansible_virtualization_role is defined and ansible_virtualization_role == 'guest'
+      ignore_errors: yes
+
+    - name: Tag Virtual Machine in NetBox with 'unattended-upgrades'
+      netbox.netbox.netbox_virtual_machine:
+        netbox_url: "{{ unattended_upgrades_netbox_url }}"
+        netbox_token: "{{ unattended_upgrades_netbox_token }}"
+        data:
+          name: "{{ inventory_hostname }}"
+          tags: "{{ (netbox_vm_tags[0].value.tags | map(attribute='slug') | list + ['unattended-upgrades']) | unique }}"
+        state: present
+      delegate_to: localhost
+      when:
+        - ansible_virtualization_role is defined
+        - ansible_virtualization_role == 'guest'
+        - netbox_vm_tags is defined
+        - netbox_vm_tags | length > 0
+      ignore_errors: yes
+
+    - name: Get current Device tags from NetBox
+      ansible.builtin.set_fact:
+        netbox_device_tags: "{{ query('netbox.netbox.nb_lookup', 'devices', api_filter='name=' ~ inventory_hostname, api_endpoint=unattended_upgrades_netbox_url, token=unattended_upgrades_netbox_token) }}"
+      delegate_to: localhost
+      when: ansible_virtualization_role is not defined or ansible_virtualization_role != 'guest'
+      ignore_errors: yes
+
+    - name: Tag Physical Device in NetBox with 'unattended-upgrades'
+      netbox.netbox.netbox_device:
+        netbox_url: "{{ unattended_upgrades_netbox_url }}"
+        netbox_token: "{{ unattended_upgrades_netbox_token }}"
+        data:
+          name: "{{ inventory_hostname }}"
+          tags: "{{ (netbox_device_tags[0].value.tags | map(attribute='slug') | list + ['unattended-upgrades']) | unique }}"
+        state: present
+      delegate_to: localhost
+      when:
+        - (ansible_virtualization_role is not defined or ansible_virtualization_role != 'guest')
+        - netbox_device_tags is defined
+        - netbox_device_tags | length > 0
+      ignore_errors: yes

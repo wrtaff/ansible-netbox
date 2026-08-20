@@ -17,3 +17,8 @@ unattended_upgrades_update_package_lists: 1
 unattended_upgrades_download_upgradeable_packages: 1
 unattended_upgrades_autoclean_interval: 7
 unattended_upgrades_unattended_upgrade: 1
+
+# NetBox auto-tagging
+unattended_upgrades_netbox_tag_enabled: true
+unattended_upgrades_netbox_url: "http://netbox1.home.arpa"
+unattended_upgrades_netbox_token: "{{ netbox_api_token | default('') }}"
