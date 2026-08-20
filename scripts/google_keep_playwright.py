@@ -311,6 +311,66 @@ class GoogleKeepPlaywright:
                 else:
                     await page.close()
 
+    async def archive_note(self, url: str) -> Dict[str, Any]:
+        """Archives a Google Keep note or list."""
+        from playwright.async_api import async_playwright
+
+        async with async_playwright() as p:
+            browser, context, page, is_cdp = await self._get_context_and_page(p)
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(3000)
+
+                if "accounts.google.com" in page.url:
+                    return {
+                        "success": False,
+                        "error": "Authentication required. Please log into Google Keep in the browser profile.",
+                    }
+
+                # Find the active open note container via the list item editable or title
+                item_editable = page.locator('div[contenteditable="true"]').first
+                if await item_editable.count() > 0:
+                    scope = item_editable.locator('xpath=ancestor::div[contains(@class, "IZ65Hb")][last()]')
+                else:
+                    scope = page.locator('div.IZ65Hb-QQhtn, div.IZ65Hb-n0tgWb').first
+                    if await scope.count() == 0:
+                        scope = page
+
+                # Find archive button
+                archive_btn = scope.locator(
+                    'div[role="button"][aria-label="Archive"], '
+                    'div[role="button"][data-tooltip-text="Archive"], '
+                    'div[aria-label="Archive"]'
+                ).first
+
+                if await archive_btn.count() == 0:
+                    # Fallback on page
+                    archive_btn = page.locator('div[role="button"][aria-label="Archive"], div[data-tooltip-text="Archive"]').last
+
+                if await archive_btn.count() == 0:
+                    return {
+                        "success": False,
+                        "error": "Archive button not found in note toolbar.",
+                    }
+
+                try:
+                    await archive_btn.dispatch_event("click")
+                except Exception:
+                    await archive_btn.click(force=True)
+
+                await page.wait_for_timeout(3000)
+
+                return {
+                    "success": True,
+                    "url": url,
+                    "archived": True,
+                }
+            finally:
+                if not is_cdp:
+                    await context.close()
+                else:
+                    await page.close()
+
 
 def main():
     parser = argparse.ArgumentParser(description="Google Keep Playwright Helper")
@@ -332,8 +392,12 @@ def main():
     toggle_parser.add_argument("--checked", dest="checked", action="store_true", default=None, help="Mark as checked")
     toggle_parser.add_argument("--unchecked", dest="checked", action="store_false", help="Mark as unchecked")
 
+    # archive-note
+    archive_parser = subparsers.add_parser("archive-note", help="Archive a note or list")
+    archive_parser.add_argument("--url", required=True, help="Google Keep Note/List URL")
+
     # Global options
-    for p in [get_parser, add_parser, toggle_parser]:
+    for p in [get_parser, add_parser, toggle_parser, archive_parser]:
         p.add_argument("--profile-dir", default=DEFAULT_PROFILE_DIR, help="Persistent browser profile dir")
         p.add_argument("--cdp-url", default=None, help="Connect via Chrome DevTools Protocol URL")
         p.add_argument("--headless", action="store_true", help="Run browser in headless mode")
@@ -353,6 +417,8 @@ def main():
         result = asyncio.run(client.add_item(args.url, args.text))
     elif args.command == "toggle-item":
         result = asyncio.run(client.toggle_item(args.url, args.text, args.checked))
+    elif args.command == "archive-note":
+        result = asyncio.run(client.archive_note(args.url))
     else:
         result = {"error": f"Unknown command {args.command}"}
 
