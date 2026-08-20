@@ -1,8 +1,8 @@
 # Filename:       install_dillo.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Will / Pops agents
-# Last Modified:  2026-08-10
-# Trac Ticket:    #4187
+# Last Modified:  2026-08-20
+# Trac Ticket:    #4187, #4197
 # Purpose:        Install the Dillo lightweight web browser on managed desktops.
 # Use Case:       Provide a consistent lightweight browser on XFCE desktop hosts,
 #                 including limbo-f0.
