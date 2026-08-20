@@ -2,17 +2,21 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.5
+Version:        2.6
 Author:         Gemini CLI
-Last Modified:  2026-06-29
-Context:        http://trac.gafla.us.com/ticket/3571
+Last Modified:  2026-08-19
+Context:        http://trac.gafla.us.com/ticket/3571, http://trac.gafla.us.com/ticket/4334
 
 Purpose:
     Model Context Protocol (MCP) server for Google Workspace integration.
-    Wraps scripts/google_workspace_manager.py to provide tools for Gmail,
-    Google Drive, Calendar, Tasks, and Contacts within AI agent sessions.
+    Wraps scripts/google_workspace_manager.py, scripts/google_keep_playwright.py,
+    and scripts/google_oauth_playwright.py to provide tools for Gmail,
+    Google Drive, Calendar, Tasks, Contacts, Google Keep, and automated OAuth
+    re-authentication within AI agent sessions.
 
 Revision History:
+    v2.6 (2026-08-19): Added keep_get_list, keep_add_item, keep_toggle_item,
+                       and workspace_reauthenticate tools via Playwright (Trac #4334).
     v2.5 (2026-06-29): Updated gmail_get_message to download image attachments 
                        (skipping small inline images) to fix Trac #3746.
     v2.4 (2026-06-10): Added gmail_modify_labels tool to modify Gmail labels (add/remove).
@@ -84,11 +88,11 @@ logger = logging.getLogger("google-workspace-mcp")
 # Initialize FastMCP server
 mcp = FastMCP("google-workspace-server")
 
-logger.info("Initializing Google Workspace MCP Server v2.5")
+logger.info("Initializing Google Workspace MCP Server v2.6")
 
 def handle_auth_error(e):
     logger.error(f"Authentication Error: {e}")
-    return f"ERROR: Authentication required. {str(e)}"
+    return f"ERROR: Authentication required. {str(e)}. Use 'workspace_reauthenticate' tool or run 'python3 scripts/google_workspace_manager.py auth --console'."
 
 def parse_ticket_id(trac_ticket: str) -> Optional[str]:
     """Extract numeric ticket ID from string or URL."""
@@ -584,6 +588,84 @@ def create_contact(given_name: str, family_name: str, job_title: Optional[str] =
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
+
+# --- GOOGLE KEEP TOOLS ---
+
+@mcp.tool(name="keep_get_list")
+def keep_get_list(url: str, profile_dir: Optional[str] = None, cdp_url: Optional[str] = None, headless: bool = True) -> str:
+    """Read a Google Keep checklist note/list via Playwright. Returns JSON with title, item count, and items."""
+    logger.info(f"Keep: Getting list {url}")
+    try:
+        from scripts.google_keep_playwright import GoogleKeepPlaywright, DEFAULT_PROFILE_DIR
+        import asyncio
+        client = GoogleKeepPlaywright(
+            profile_dir=profile_dir or DEFAULT_PROFILE_DIR,
+            cdp_url=cdp_url,
+            headless=headless,
+        )
+        res = asyncio.run(client.get_list(url))
+        return json.dumps(res, indent=2)
+    except Exception as e:
+        logger.error(f"Keep get_list error: {e}")
+        return json.dumps({"success": False, "error": str(e)})
+
+@mcp.tool(name="keep_add_item")
+def keep_add_item(url: str, text: str, profile_dir: Optional[str] = None, cdp_url: Optional[str] = None, headless: bool = True) -> str:
+    """Add a new checklist item to a Google Keep list via Playwright."""
+    logger.info(f"Keep: Adding item '{text}' to {url}")
+    try:
+        from scripts.google_keep_playwright import GoogleKeepPlaywright, DEFAULT_PROFILE_DIR
+        import asyncio
+        client = GoogleKeepPlaywright(
+            profile_dir=profile_dir or DEFAULT_PROFILE_DIR,
+            cdp_url=cdp_url,
+            headless=headless,
+        )
+        res = asyncio.run(client.add_item(url, text))
+        return json.dumps(res, indent=2)
+    except Exception as e:
+        logger.error(f"Keep add_item error: {e}")
+        return json.dumps({"success": False, "error": str(e)})
+
+@mcp.tool(name="keep_toggle_item")
+def keep_toggle_item(url: str, text: str, checked: Optional[bool] = None, profile_dir: Optional[str] = None, cdp_url: Optional[str] = None, headless: bool = True) -> str:
+    """Toggle or set the checked status of an item in a Google Keep list via Playwright."""
+    logger.info(f"Keep: Toggling item '{text}' on {url} (checked={checked})")
+    try:
+        from scripts.google_keep_playwright import GoogleKeepPlaywright, DEFAULT_PROFILE_DIR
+        import asyncio
+        client = GoogleKeepPlaywright(
+            profile_dir=profile_dir or DEFAULT_PROFILE_DIR,
+            cdp_url=cdp_url,
+            headless=headless,
+        )
+        res = asyncio.run(client.toggle_item(url, text, checked))
+        return json.dumps(res, indent=2)
+    except Exception as e:
+        logger.error(f"Keep toggle_item error: {e}")
+        return json.dumps({"success": False, "error": str(e)})
+
+# --- AUTHENTICATION TOOLS ---
+
+@mcp.tool(name="workspace_reauthenticate")
+def workspace_reauthenticate(port: int = 8080, profile_dir: Optional[str] = None, cdp_url: Optional[str] = None, headless: bool = True) -> str:
+    """Trigger automated OAuth 2.0 re-authentication for Google Workspace via Playwright."""
+    logger.info("Workspace: Triggering automated OAuth re-authentication")
+    try:
+        from scripts.google_oauth_playwright import run_automated_reauth, DEFAULT_PROFILE_DIR
+        success = run_automated_reauth(
+            port=port,
+            profile_dir=profile_dir or DEFAULT_PROFILE_DIR,
+            cdp_url=cdp_url,
+            headless=headless,
+        )
+        if success:
+            return json.dumps({"success": True, "message": "Google Workspace OAuth tokens refreshed successfully."})
+        else:
+            return json.dumps({"success": False, "error": "Automated re-authentication failed."})
+    except Exception as e:
+        logger.error(f"Workspace re-authentication error: {e}")
+        return json.dumps({"success": False, "error": str(e)})
 
 if __name__ == "__main__":
     logger.info("Starting Google Workspace MCP server...")
