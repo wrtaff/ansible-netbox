@@ -75,36 +75,26 @@
         state: present
         update_cache: yes
 
-    - name: Create apt keyrings directory
+    - name: Remove any legacy or stale ntop repository list
       ansible.builtin.file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: '0755'
-
-    - name: Download official ntop GPG repository key
-      ansible.builtin.get_url:
-        url: https://packages.ntop.org/apt/ntop.key
-        dest: /tmp/ntop.key
-        mode: '0644'
-
-    - name: Dearmor and install ntop GPG key to keyrings
-      ansible.builtin.shell: |
-        gpg --dearmor < /tmp/ntop.key > /etc/apt/keyrings/ntop.gpg
-      args:
-        creates: /etc/apt/keyrings/ntop.gpg
-
-    - name: Remove temporary ntop key file
-      ansible.builtin.file:
-        path: /tmp/ntop.key
+        path: /etc/apt/sources.list.d/ntop.list
         state: absent
 
-    - name: Add official ntop APT repository for Debian 12 Bookworm
-      ansible.builtin.copy:
-        dest: /etc/apt/sources.list.d/ntop.list
-        content: |
-          deb [signed-by=/etc/apt/keyrings/ntop.gpg] http://packages.ntop.org/apt/12/ all/
-          deb [signed-by=/etc/apt/keyrings/ntop.gpg] http://packages.ntop.org/apt/12/ x86_64/
+    - name: Download official ntop stable repository release deb package
+      ansible.builtin.get_url:
+        url: https://packages.ntop.org/apt-stable/bookworm/all/apt-ntop-stable.deb
+        dest: /tmp/apt-ntop-stable.deb
         mode: '0644'
+
+    - name: Install official ntop repository configuration package
+      ansible.builtin.apt:
+        deb: /tmp/apt-ntop-stable.deb
+        state: present
+
+    - name: Remove temporary release deb package
+      ansible.builtin.file:
+        path: /tmp/apt-ntop-stable.deb
+        state: absent
 
     - name: Update APT cache for ntop repository
       ansible.builtin.apt:
