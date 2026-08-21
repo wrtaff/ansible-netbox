@@ -14,7 +14,9 @@ Purpose:
 
 Revision History:
     v1.6 (2026-08-21): Fix vikunja_get_tasks_by_priority starred/favorite query by removing
-                       invalid server-side is_favorite filter and adding pagination.
+                       invalid server-side is_favorite filter and adding pagination. Add
+                       priority parameter to vikunja_update_task and preserve existing
+                       fields on update to prevent silent field resets.
                        Context: http://trac.gafla.us.com/ticket/4372
     v1.5 (2026-08-20): Automatically convert Markdown descriptions to HTML so links
                        render as clickable hyperlinks in the Vikunja web UI.
@@ -43,7 +45,7 @@ import html
 import logging
 import json
 import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 
 # Add project root to path to allow importing from scripts
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -296,7 +298,7 @@ def get_task(task_id: int) -> str:
         return f"Error fetching Vikunja task {task_id}: {e}"
 
 @mcp.tool(name="vikunja_update_task")
-def update_task(task_id: int, title: Optional[str] = None, description: Optional[str] = None, labels: Optional[List[str]] = None, due_date: Optional[str] = None, is_favorite: Optional[bool] = None, done: Optional[bool] = None) -> str:
+def update_task(task_id: int, title: Optional[str] = None, description: Optional[str] = None, labels: Optional[List[str]] = None, due_date: Optional[str] = None, is_favorite: Optional[bool] = None, done: Optional[bool] = None, priority: Optional[Union[int, str]] = None) -> str:
     """
     Update an existing Vikunja task.
     task_id: The ID of the task to update.
@@ -306,6 +308,7 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
     due_date: ISO format date (e.g., 2026-03-04T13:00:00).
     is_favorite: Boolean to mark as favorite.
     done: Boolean to mark task as done or open.
+    priority: Priority level as name ('now', 'urgent', 'high', 'medium', 'low', 'unset') or integer 0-5.
     """
     logger.info(f"Vikunja: Update task {task_id}")
     try:
@@ -313,13 +316,28 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
         token = os.getenv("VIKUNJA_API_TOKEN")
         host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
         
-        url = f"{host}/api/v1/tasks/{task_id}"
+        task_url = f"{host}/api/v1/tasks/{task_id}"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
         
-        payload = {}
+        # Vikunja POST /tasks/{id} replaces omitted fields with zero-values.
+        # Fetch existing task to preserve unmodified attributes across partial updates.
+        get_resp = requests.get(task_url, headers=headers)
+        get_resp.raise_for_status()
+        existing = get_resp.json()
+
+        payload = {
+            "title": existing.get("title", ""),
+            "description": existing.get("description", ""),
+            "done": existing.get("done", False),
+            "is_favorite": existing.get("is_favorite", False),
+            "priority": existing.get("priority", 0),
+        }
+        if existing.get("due_date") and not existing["due_date"].startswith("0001-01-01"):
+            payload["due_date"] = existing["due_date"]
+
         if title is not None:
             payload["title"] = title
         if description is not None:
@@ -330,10 +348,17 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
             payload["is_favorite"] = is_favorite
         if done is not None:
             payload["done"] = done
+        if priority is not None:
+            if isinstance(priority, str) and not priority.isdigit():
+                p_int = PRIORITY_MAP.get(priority.lower())
+                if p_int is None:
+                    return f"Unknown priority '{priority}'. Use: now, urgent, high, medium, low, unset, or 0-5."
+                payload["priority"] = p_int
+            else:
+                payload["priority"] = int(priority)
             
-        if payload:
-            response = requests.post(url, headers=headers, json=payload)
-            response.raise_for_status()
+        response = requests.post(task_url, headers=headers, json=payload)
+        response.raise_for_status()
             
         if labels:
             resolved_labels = []
@@ -341,9 +366,9 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
             label_map = {l['title'].lower(): l for l in existing_labels}
             
             for label_name in labels:
-                existing = label_map.get(label_name.lower())
-                if existing:
-                    resolved_labels.append({"id": existing['id'], "title": existing['title']})
+                existing_lbl = label_map.get(label_name.lower())
+                if existing_lbl:
+                    resolved_labels.append({"id": existing_lbl['id'], "title": existing_lbl['title']})
                 else:
                     new_label = cvt.create_label(host, token, label_name)
                     if new_label:
