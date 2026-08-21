@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.5
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-08-20
-Context:        http://trac.home.arpa/ticket/3321
+Last Modified:  2026-08-21
+Context:        http://trac.gafla.us.com/ticket/4372
 
 Purpose:
     Model Context Protocol (MCP) server for Vikunja integration.
@@ -13,6 +13,9 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.6 (2026-08-21): Fix vikunja_get_tasks_by_priority starred/favorite query by removing
+                       invalid server-side is_favorite filter and adding pagination.
+                       Context: http://trac.gafla.us.com/ticket/4372
     v1.5 (2026-08-20): Automatically convert Markdown descriptions to HTML so links
                        render as clickable hyperlinks in the Vikunja web UI.
     v1.4 (2026-07-07): vikunja_create_trac_ticket now builds a properly cited MoinMoin
@@ -541,17 +544,42 @@ def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> s
         url = f"{host}/api/v1/tasks"
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
+        tasks = []
+        page = 1
+        max_pages = 100
+
         if is_starred:
-            filter_str = "is_favorite = true"
+            params = {}
+            if not include_done:
+                params["filter"] = "done = false"
+            while page <= max_pages:
+                params["page"] = page
+                response = requests.get(url, headers=headers, params=params, timeout=20)
+                response.raise_for_status()
+                batch = response.json()
+                if not batch:
+                    break
+                tasks.extend([t for t in batch if t.get("is_favorite")])
+                total_pages = int(response.headers.get("x-pagination-total-pages", 1))
+                if page >= total_pages:
+                    break
+                page += 1
         else:
             filter_str = f"priority = {priority_int}"
-            
-        if not include_done:
-            filter_str += " && done = false"
-
-        response = requests.get(url, headers=headers, params={"filter": filter_str})
-        response.raise_for_status()
-        tasks = response.json()
+            if not include_done:
+                filter_str += " && done = false"
+            while page <= max_pages:
+                params = {"filter": filter_str, "page": page}
+                response = requests.get(url, headers=headers, params=params, timeout=20)
+                response.raise_for_status()
+                batch = response.json()
+                if not batch:
+                    break
+                tasks.extend(batch)
+                total_pages = int(response.headers.get("x-pagination-total-pages", 1))
+                if page >= total_pages:
+                    break
+                page += 1
 
         label = "STARRED" if is_starred else next((k for k, v in PRIORITY_MAP.items() if v == priority_int), str(priority_int))
 
