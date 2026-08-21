@@ -1,2 +1,6 @@
 ---
 system_timezone: "America/New_York"
+
+# Unattended Upgrades Tier 2 Window (Core Servers)
+unattended_upgrades_automatic_reboot: true
+unattended_upgrades_automatic_reboot_time: "04:00"

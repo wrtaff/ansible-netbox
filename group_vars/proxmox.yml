@@ -1,4 +1,8 @@
 ---
+# Unattended Upgrades Policy (Hypervisors require manual/coordinated maintenance)
+unattended_upgrades_automatic_reboot: false
+unattended_upgrades_automatic_reboot_time: "03:30"
+
 proxmox_backup_mgmt_enabled: true
 proxmox_backup_jobs:
   - id: "haos-daily-pbs"

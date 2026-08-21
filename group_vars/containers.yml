@@ -1,0 +1,4 @@
+---
+# Unattended Upgrades Tier 3 Window (LXC Containers)
+unattended_upgrades_automatic_reboot: true
+unattended_upgrades_automatic_reboot_time: "04:30"
