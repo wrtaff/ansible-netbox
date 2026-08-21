@@ -25,3 +25,7 @@ unattended_upgrades_netbox_token: "{{ netbox_api_token | default('') }}"
 # Needrestart service management
 unattended_upgrades_needrestart_enabled: true
 unattended_upgrades_needrestart_mode: "a"
+
+# Syslog & Graylog log forwarding
+unattended_upgrades_syslog_enable: true
+unattended_upgrades_syslog_facility: "daemon"
