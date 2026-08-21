@@ -1,7 +1,6 @@
 ---
 unattended_upgrades_allowed_origins:
   - "${distro_id}:${distro_codename}-security"
-  - "${distro_id}:${distro_codename}-updates"
 
 unattended_upgrades_auto_fix_interrupted_dpkg: true
 unattended_upgrades_minimal_steps: true
