@@ -1,9 +1,10 @@
 ---
-- name: Install unattended-upgrades and apt-listchanges
+- name: Install unattended-upgrades, apt-listchanges, and needrestart
   ansible.builtin.apt:
     name:
       - unattended-upgrades
       - apt-listchanges
+      - needrestart
     state: present
     update_cache: yes
 
@@ -22,6 +23,26 @@
     owner: root
     group: root
     mode: '0644'
+
+- name: Ensure needrestart conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/needrestart/conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: unattended_upgrades_needrestart_enabled | bool
+
+- name: Configure needrestart automatic daemon restarts
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible - Any manual changes will be overwritten
+      $nrconf{restart} = '{{ unattended_upgrades_needrestart_mode }}';
+    dest: /etc/needrestart/conf.d/50auto-restart.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: unattended_upgrades_needrestart_enabled | bool
 
 - name: Ensure unattended-upgrades service is enabled and started
   ansible.builtin.service:

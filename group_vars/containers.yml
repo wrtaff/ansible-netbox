@@ -1,0 +1,6 @@
+---
+# Unattended Upgrades Policy (LXC Containers share host kernel; use service restarts via needrestart)
+unattended_upgrades_automatic_reboot: false
+unattended_upgrades_automatic_reboot_time: "04:30"
+unattended_upgrades_needrestart_enabled: true
+unattended_upgrades_needrestart_mode: "a"

@@ -5,6 +5,10 @@ ansible_user: "will"
 # Timezone for Columbus, Georgia
 system_timezone: "America/New_York"
 
+# Unattended Upgrades Tier 4 Window (Workstations & Desktops)
+unattended_upgrades_automatic_reboot: true
+unattended_upgrades_automatic_reboot_time: "05:00"
+
 # --- Network Configuration ---
 # Allow NetworkManager on desktops
 system_common_disable_redundant_networks: false

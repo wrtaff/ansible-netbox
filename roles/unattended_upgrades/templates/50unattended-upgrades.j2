@@ -18,3 +18,5 @@ Unattended-Upgrade::Remove-Unused-Kernel-Packages "{{ unattended_upgrades_remove
 Unattended-Upgrade::Remove-Unused-Dependencies "{{ unattended_upgrades_remove_unused_dependencies | lower }}";
 Unattended-Upgrade::Automatic-Reboot "{{ unattended_upgrades_automatic_reboot | lower }}";
 Unattended-Upgrade::Automatic-Reboot-Time "{{ unattended_upgrades_automatic_reboot_time }}";
+Unattended-Upgrade::SyslogEnable "{{ unattended_upgrades_syslog_enable | lower }}";
+Unattended-Upgrade::SyslogFacility "{{ unattended_upgrades_syslog_facility }}";

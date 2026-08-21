@@ -1,7 +1,6 @@
 ---
 unattended_upgrades_allowed_origins:
   - "${distro_id}:${distro_codename}-security"
-  - "${distro_id}:${distro_codename}-updates"
 
 unattended_upgrades_auto_fix_interrupted_dpkg: true
 unattended_upgrades_minimal_steps: true
@@ -22,3 +21,11 @@ unattended_upgrades_unattended_upgrade: 1
 unattended_upgrades_netbox_tag_enabled: true
 unattended_upgrades_netbox_url: "http://netbox1.home.arpa"
 unattended_upgrades_netbox_token: "{{ netbox_api_token | default('') }}"
+
+# Needrestart service management
+unattended_upgrades_needrestart_enabled: true
+unattended_upgrades_needrestart_mode: "a"
+
+# Syslog & Graylog log forwarding
+unattended_upgrades_syslog_enable: true
+unattended_upgrades_syslog_facility: "daemon"
