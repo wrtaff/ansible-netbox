@@ -127,6 +127,7 @@
           loop:
             - /etc/environment.d
             - /etc/profile.d
+            - /etc/X11/Xsession.d
 
         - name: Deploy scoped environment variables for NVIDIA VA-API
           ansible.builtin.copy:
@@ -153,6 +154,42 @@
               export LIBVA_DRIVER_NAME=nvidia
               export NVD_BACKEND=direct
               export MOZ_DISABLE_RDD_SANDBOX=1
+
+        - name: Deploy X11 session environment script for NVIDIA VA-API
+          ansible.builtin.copy:
+            dest: /etc/X11/Xsession.d/99-nvidia-vaapi
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              # Managed by Ansible: playbooks/configure_firefox_nvidia_vaapi.yml
+              # Direct backend for nvidia-vaapi-driver (NVDEC ASIC offload)
+              export LIBVA_DRIVER_NAME=nvidia
+              export NVD_BACKEND=direct
+              export MOZ_DISABLE_RDD_SANDBOX=1
+
+        - name: Deploy Firefox launcher wrappers with VA-API environment
+          ansible.builtin.copy:
+            dest: "{{ item }}"
+            owner: root
+            group: root
+            mode: '0755'
+            content: |
+              #!/bin/bash
+              # Managed by Ansible: playbooks/configure_firefox_nvidia_vaapi.yml
+              export LIBVA_DRIVER_NAME=nvidia
+              export NVD_BACKEND=direct
+              export MOZ_DISABLE_RDD_SANDBOX=1
+              if [ -x /usr/lib/firefox-esr/firefox-esr ]; then
+                exec /usr/lib/firefox-esr/firefox-esr "$@"
+              elif [ -x /usr/lib/firefox/firefox ]; then
+                exec /usr/lib/firefox/firefox "$@"
+              else
+                exec /usr/bin/firefox-esr "$@"
+              fi
+          loop:
+            - /usr/local/bin/firefox
+            - /usr/local/bin/firefox-esr
 
         - name: Verify vainfo VA-API profiles for NVIDIA driver
           ansible.builtin.command: vainfo --display drm --device /dev/dri/renderD128
