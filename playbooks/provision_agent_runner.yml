@@ -224,6 +224,25 @@
         - pops
         - ansible-netbox
 
+    # Git hooks are NOT carried by `git clone`, so they must be installed per
+    # repo per host. Previously hand-symlinked, which is why coverage drifted
+    # across the fleet and conflict markers reached trunk (Trac #4380 WP-1).
+    # The installer is idempotent; --check reports without changing anything.
+    - name: Install Pops git hooks (trunk guard + conflict-marker guard)
+      ansible.builtin.command:
+        cmd: "{{ target_home }}/pops/scripts/install-git-hooks.sh"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: pops_hooks_install
+      changed_when: "'linked' in pops_hooks_install.stdout"
+      failed_when: pops_hooks_install.rc not in [0, 1]
+      tags: [githooks]
+
+    - name: Report git hook installation
+      ansible.builtin.debug:
+        var: pops_hooks_install.stdout_lines
+      tags: [githooks]
+
     - name: Ensure pops origin remote uses the Athena hub
       community.general.git_config:
         name: remote.origin.url
