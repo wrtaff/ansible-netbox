@@ -1,0 +1,106 @@
+# Filename:       configure_firefox_intel_vaapi.yml
+# Version:        1.0
+# Author:         Will / Pops agents
+# Last Modified:  2026-08-22
+# Trac Ticket:    #4388
+# Purpose:        Configure hardware-accelerated video decoding (Intel Quick Sync via VA-API) in Firefox on Intel GPU desktop workstations.
+# Use Case:       Offload web video decoding (YouTube 1080p/4K, VP9, H.264) to Intel HD Graphics iGPU on desktop hosts (such as athena) to prevent CPU saturation and thermal throttling.
+# Installation Method: Declarative Firefox system preferences + user group membership
+# Prerequisites:  Debian-based desktop host with Intel iGPU (intel-media-va-driver-non-free or i965-va-driver)
+# Configuration:  /etc/firefox/syspref.js, /etc/firefox-esr/syspref.js
+# Secrets:        ansible_become_pass (vault.yml) - sudo on desktop hosts
+# Usage:          ansible-playbook -i inventory.ini playbooks/configure_firefox_intel_vaapi.yml --limit athena --check --diff
+# Removal Instructions: Remove /etc/firefox*/syspref.js preferences.
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/configure_firefox_intel_vaapi.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/configure_firefox_intel_vaapi.yml
+---
+- name: Configure Firefox Intel VA-API Hardware Acceleration
+  hosts: desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  vars:
+    # Optional override per host_vars (defaults to dynamic detection)
+    enable_intel_vaapi: true
+
+  tasks:
+    - name: Detect Intel GPU presence via lspci / kernel module
+      ansible.builtin.shell: "lspci -nn | grep -iE 'vga|3d|display' | grep -i intel || [ -d /sys/module/i915 ] || lsmod | grep -i i915 || true"
+      register: intel_gpu_check
+      changed_when: false
+
+    - name: Evaluate Intel VA-API enablement condition
+      ansible.builtin.set_fact:
+        target_has_intel_gpu: "{{ (intel_gpu_check.stdout | length > 0) or (enable_intel_vaapi | default(false) | bool) }}"
+
+    - name: Report Intel GPU hardware detection status
+      ansible.builtin.debug:
+        msg: "Intel GPU detection result for {{ inventory_hostname }}: {{ target_has_intel_gpu }}"
+
+    - name: Apply Intel VA-API configuration block
+      when: target_has_intel_gpu | bool
+      block:
+        - name: Install Intel VA-API packages and diagnostics
+          ansible.builtin.apt:
+            name:
+              - intel-media-va-driver-non-free
+              - vainfo
+              - mesa-va-drivers
+            state: present
+            update_cache: false
+
+        - name: Ensure desktop user is member of render and video groups
+          ansible.builtin.user:
+            name: will
+            groups:
+              - video
+              - render
+            append: true
+
+        - name: Ensure Firefox system preference directories exist
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+          loop:
+            - /etc/firefox
+            - /etc/firefox-esr
+
+        - name: Deploy declarative Firefox system-wide preferences (syspref.js)
+          ansible.builtin.copy:
+            dest: "{{ item }}"
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              // Managed by Ansible: playbooks/configure_firefox_intel_vaapi.yml
+              // Trac Ticket #4388: Hardware video acceleration via Intel VA-API (Quick Sync)
+
+              // Enable VA-API and force hardware video decoding
+              pref("media.ffmpeg.vaapi.enabled", true);
+              pref("media.hardware-video-decoding.force-enabled", true);
+              pref("media.rdd-ffmpeg.enabled", true);
+
+              // Force EGL backend on X11 for VA-API DMABUF/EGLImage surface export
+              pref("gfx.x11-egl.force-enabled", true);
+              pref("widget.dmabuf.force-enabled", true);
+
+              // On Gen 7 Intel Kaby Lake (no silicon AV1), disable software AV1
+              // to force YouTube / web video to use hardware-accelerated VP9 / H.264
+              pref("media.av1.enabled", false);
+              pref("media.webm.enabled", true);
+          loop:
+            - /etc/firefox/syspref.js
+            - /etc/firefox-esr/syspref.js
+
+        - name: Verify vainfo VA-API profiles for Intel driver
+          ansible.builtin.command: vainfo --display drm --device /dev/dri/renderD128
+          register: vainfo_output
+          changed_when: false
+          failed_when: false
+
+        - name: Display vainfo verification summary
+          ansible.builtin.debug:
+            msg: "vainfo return code: {{ vainfo_output.rc }}. Check Trac #4388 for telemetry validation."
