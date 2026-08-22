@@ -93,6 +93,7 @@
               // Enable VA-API and force hardware video decoding
               pref("media.ffmpeg.vaapi.enabled", true);
               pref("media.hardware-video-decoding.force-enabled", true);
+              pref("media.rdd-ffmpeg.enabled", true);
 
               // Force EGL backend on X11 for VA-API DMABUF/EGLImage surface export
               pref("gfx.x11-egl.force-enabled", true);
@@ -104,6 +105,17 @@
           loop:
             - /etc/firefox/syspref.js
             - /etc/firefox-esr/syspref.js
+
+        - name: Configure system-wide PAM environment in /etc/environment
+          ansible.builtin.blockinfile:
+            path: /etc/environment
+            create: true
+            mode: '0644'
+            marker: "# {mark} ANSIBLE MANAGED BLOCK (nvidia-vaapi)"
+            block: |
+              LIBVA_DRIVER_NAME=nvidia
+              NVD_BACKEND=direct
+              MOZ_DISABLE_RDD_SANDBOX=1
 
         - name: Ensure environment directories exist
           ansible.builtin.file:
@@ -127,6 +139,7 @@
               # Direct backend for nvidia-vaapi-driver (NVDEC ASIC offload)
               LIBVA_DRIVER_NAME=nvidia
               NVD_BACKEND=direct
+              MOZ_DISABLE_RDD_SANDBOX=1
 
         - name: Deploy login profile script for NVIDIA VA-API
           ansible.builtin.copy:
@@ -139,6 +152,7 @@
               # Direct backend for nvidia-vaapi-driver (NVDEC ASIC offload)
               export LIBVA_DRIVER_NAME=nvidia
               export NVD_BACKEND=direct
+              export MOZ_DISABLE_RDD_SANDBOX=1
 
         - name: Verify vainfo VA-API profiles for NVIDIA driver
           ansible.builtin.command: vainfo --display drm --device /dev/dri/renderD128
