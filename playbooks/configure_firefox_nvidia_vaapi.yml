@@ -1,0 +1,134 @@
+# Filename:       configure_firefox_nvidia_vaapi.yml
+# Version:        1.0
+# Author:         Will / Pops agents
+# Last Modified:  2026-08-22
+# Trac Ticket:    #4384
+# Purpose:        Configure hardware-accelerated video decoding (NVDEC via VA-API bridge) in Firefox on GPU desktop workstations.
+# Use Case:       Offload web video decoding (YouTube 4K/1080p, VP9, AV1, H.264) to NVIDIA NVDEC ASIC on desktop hosts with NVIDIA GPUs (e.g. limbo-f0) without interfering with CUDA/Whisper compute workloads.
+# Installation Method: Debian apt packages + declarative /etc/firefox/syspref.js configuration + scoped environment profile
+# Prerequisites:  Debian-based desktop host with NVIDIA proprietary drivers installed and active NVIDIA GPU
+# Configuration:  /etc/firefox/syspref.js, /etc/environment.d/99-nvidia-vaapi.conf, /etc/profile.d/nvidia-vaapi.sh
+# Secrets:        ansible_become_pass (vault.yml) - sudo on desktop hosts
+# Usage:          ansible-playbook -i inventory.ini playbooks/configure_firefox_nvidia_vaapi.yml --limit limbo-f0 --check --diff
+# Removal Instructions: Purge nvidia-vaapi-driver package and remove /etc/firefox/syspref.js settings.
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/configure_firefox_nvidia_vaapi.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/configure_firefox_nvidia_vaapi.yml
+---
+- name: Configure Firefox NVIDIA VA-API Hardware Acceleration
+  hosts: desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  vars:
+    # Optional override per host_vars (defaults to dynamic detection)
+    enable_nvidia_vaapi: true
+
+  tasks:
+    - name: Detect NVIDIA GPU presence via lspci / kernel module
+      ansible.builtin.shell: "lspci -nn | grep -iE 'vga|3d|display' | grep -i nvidia || [ -d /proc/driver/nvidia ] || lsmod | grep -i nvidia || true"
+      register: nvidia_gpu_check
+      changed_when: false
+
+    - name: Evaluate NVIDIA VA-API enablement condition
+      ansible.builtin.set_fact:
+        target_has_nvidia_gpu: "{{ (nvidia_gpu_check.stdout | length > 0) or (enable_nvidia_vaapi | default(false) | bool) }}"
+
+    - name: Report GPU hardware detection status
+      ansible.builtin.debug:
+        msg: "NVIDIA GPU detection result for {{ inventory_hostname }}: {{ target_has_nvidia_gpu }}"
+
+    - name: Apply NVIDIA VA-API configuration block
+      when: target_has_nvidia_gpu | bool
+      block:
+        - name: Install VA-API bridge and diagnostic packages
+          ansible.builtin.apt:
+            name:
+              - nvidia-vaapi-driver
+              - vainfo
+              - mesa-va-drivers
+            state: present
+            update_cache: true
+
+        - name: Ensure Firefox system preference directories exist
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+          loop:
+            - /etc/firefox
+            - /etc/firefox-esr
+
+        - name: Deploy declarative Firefox system-wide preferences (syspref.js)
+          ansible.builtin.copy:
+            dest: "{{ item }}"
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              // Managed by Ansible: playbooks/configure_firefox_nvidia_vaapi.yml
+              // Trac Ticket #4384: Hardware video acceleration via nvidia-vaapi-driver (NVDEC)
+
+              // Enable VA-API and force hardware video decoding
+              pref("media.ffmpeg.vaapi.enabled", true);
+              pref("media.hardware-video-decoding.force-enabled", true);
+
+              // Force EGL backend on X11 for VA-API DMABUF/EGLImage surface export
+              pref("gfx.x11-egl.force-enabled", true);
+              pref("widget.dmabuf.force-enabled", true);
+
+              // Standard web video codec support
+              pref("media.av1.enabled", true);
+              pref("media.webm.enabled", true);
+          loop:
+            - /etc/firefox/syspref.js
+            - /etc/firefox-esr/syspref.js
+
+        - name: Ensure environment directories exist
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+          loop:
+            - /etc/environment.d
+            - /etc/profile.d
+
+        - name: Deploy scoped environment variables for NVIDIA VA-API
+          ansible.builtin.copy:
+            dest: /etc/environment.d/99-nvidia-vaapi.conf
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              # Managed by Ansible: playbooks/configure_firefox_nvidia_vaapi.yml
+              # Direct backend for nvidia-vaapi-driver (NVDEC ASIC offload)
+              LIBVA_DRIVER_NAME=nvidia
+              NVD_BACKEND=direct
+
+        - name: Deploy login profile script for NVIDIA VA-API
+          ansible.builtin.copy:
+            dest: /etc/profile.d/nvidia-vaapi.sh
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              # Managed by Ansible: playbooks/configure_firefox_nvidia_vaapi.yml
+              # Direct backend for nvidia-vaapi-driver (NVDEC ASIC offload)
+              export LIBVA_DRIVER_NAME=nvidia
+              export NVD_BACKEND=direct
+
+        - name: Verify vainfo VA-API profiles for NVIDIA driver
+          ansible.builtin.command: vainfo --display drm --device /dev/dri/renderD128
+          environment:
+            LIBVA_DRIVER_NAME: nvidia
+            NVD_BACKEND=direct
+          register: vainfo_output
+          changed_when: false
+          failed_when: false
+
+        - name: Display vainfo verification summary
+          ansible.builtin.debug:
+            msg: "vainfo return code: {{ vainfo_output.rc }}. Check Trac #4384 for telemetry validation."
