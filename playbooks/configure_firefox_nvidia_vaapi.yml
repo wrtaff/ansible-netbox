@@ -106,7 +106,7 @@
               # Managed by Ansible: playbooks/configure_firefox_nvidia_vaapi.yml
               # Direct backend for nvidia-vaapi-driver (NVDEC ASIC offload)
               LIBVA_DRIVER_NAME=nvidia
-              NVD_BACKEND=direct
+              NVD_BACKEND: direct
 
         - name: Deploy login profile script for NVIDIA VA-API
           ansible.builtin.copy:
@@ -118,13 +118,13 @@
               # Managed by Ansible: playbooks/configure_firefox_nvidia_vaapi.yml
               # Direct backend for nvidia-vaapi-driver (NVDEC ASIC offload)
               export LIBVA_DRIVER_NAME=nvidia
-              export NVD_BACKEND=direct
+              export NVD_BACKEND: direct
 
         - name: Verify vainfo VA-API profiles for NVIDIA driver
           ansible.builtin.command: vainfo --display drm --device /dev/dri/renderD128
           environment:
             LIBVA_DRIVER_NAME: nvidia
-            NVD_BACKEND=direct
+            NVD_BACKEND: direct
           register: vainfo_output
           changed_when: false
           failed_when: false
