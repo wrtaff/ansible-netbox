@@ -49,6 +49,26 @@
             state: present
             update_cache: true
 
+        - name: Ensure desktop user is member of render and video groups
+          ansible.builtin.user:
+            name: "{{ target_user | default('will') }}"
+            groups:
+              - video
+              - render
+            append: true
+
+        - name: Configure nvidia-drm kernel module modeset option
+          ansible.builtin.copy:
+            dest: /etc/modprobe.d/nvidia-drm-modeset.conf
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              # Managed by Ansible: playbooks/configure_firefox_nvidia_vaapi.yml
+              # Required for nvidia-vaapi-driver Direct backend DRM export
+              options nvidia-drm modeset=1
+          notify: Update initramfs
+
         - name: Ensure Firefox system preference directories exist
           ansible.builtin.file:
             path: "{{ item }}"
@@ -132,3 +152,7 @@
         - name: Display vainfo verification summary
           ansible.builtin.debug:
             msg: "vainfo return code: {{ vainfo_output.rc }}. Check Trac #4384 for telemetry validation."
+
+  handlers:
+    - name: Update initramfs
+      ansible.builtin.command: update-initramfs -u
