@@ -191,6 +191,41 @@
             - /usr/local/bin/firefox
             - /usr/local/bin/firefox-esr
 
+        - name: Ensure /usr/local/share/applications directory exists
+          ansible.builtin.file:
+            path: /usr/local/share/applications
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+
+        - name: Deploy overridden desktop launcher with VA-API environment
+          ansible.builtin.copy:
+            dest: /usr/local/share/applications/firefox-esr.desktop
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              [Desktop Entry]
+              Name=Firefox ESR
+              Comment=Browse the World Wide Web
+              GenericName=Web Browser
+              X-GNOME-FullName=Firefox ESR Web Browser
+              Exec=env LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct MOZ_DISABLE_RDD_SANDBOX=1 /usr/lib/firefox-esr/firefox-esr %u
+              Terminal=false
+              X-MultipleArgs=false
+              Type=Application
+              Icon=firefox-esr
+              Categories=Network;WebBrowser;
+              MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/vnd.mozilla.xul+xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;
+              StartupWMClass=firefox-esr
+              StartupNotify=true
+
+        - name: Update desktop database
+          ansible.builtin.command: update-desktop-database /usr/local/share/applications
+          changed_when: false
+          failed_when: false
+
         - name: Verify vainfo VA-API profiles for NVIDIA driver
           ansible.builtin.command: vainfo --display drm --device /dev/dri/renderD128
           environment:
