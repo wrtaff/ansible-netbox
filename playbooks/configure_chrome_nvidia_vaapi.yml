@@ -61,13 +61,10 @@
               export LIBVA_DRIVER_NAME=nvidia
               export NVD_BACKEND=direct
               exec /opt/google/chrome/google-chrome \
-                --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,CanvasOopRasterization \
-                --use-gl=angle \
-                --use-angle=vulkan \
+                --enable-features=VaapiVideoDecodeLinuxGL,VaapiIgnoreDriverChecks \
                 --ignore-gpu-blocklist \
                 --enable-gpu-rasterization \
                 --enable-zero-copy \
-                --disable-features=UseChromeOSDirectVideoDecoder \
                 "$@"
           loop:
             - /usr/local/bin/google-chrome
@@ -85,7 +82,7 @@
               Name=Google Chrome
               GenericName=Web Browser
               Comment=Access the Internet
-              Exec=env LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct /opt/google/chrome/google-chrome --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,CanvasOopRasterization --use-gl=angle --use-angle=vulkan --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --disable-features=UseChromeOSDirectVideoDecoder %U
+              Exec=/usr/local/bin/google-chrome-stable %U
               Terminal=false
               Icon=google-chrome
               Type=Application
@@ -95,11 +92,11 @@
 
               [Desktop Action new-window]
               Name=New Window
-              Exec=env LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct /opt/google/chrome/google-chrome --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,CanvasOopRasterization --use-gl=angle --use-angle=vulkan --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --disable-features=UseChromeOSDirectVideoDecoder
+              Exec=/usr/local/bin/google-chrome-stable
 
               [Desktop Action new-private-window]
               Name=New Incognito Window
-              Exec=env LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct /opt/google/chrome/google-chrome --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,CanvasOopRasterization --use-gl=angle --use-angle=vulkan --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --disable-features=UseChromeOSDirectVideoDecoder --incognito
+              Exec=/usr/local/bin/google-chrome-stable --incognito
 
         - name: Update desktop database
           ansible.builtin.command: update-desktop-database /usr/local/share/applications
