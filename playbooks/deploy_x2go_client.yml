@@ -1,8 +1,27 @@
 #
-# FILENAME: deploy_x2go_client.yml
+# FILENAME: playbooks/deploy_x2go_client.yml
 # PURPOSE:  Install x2goclient and configure session profiles in the correct single-file format.
-# VERSION:  2.5
-# Trac Ticket: #4187
+# VERSION:  2.6
+# AUTHOR:   opencode
+# LAST MODIFIED: 2026-08-22
+# TRAC TICKET: #4389 (supersedes #4187)
+# USE CASE: Provide consistent desktop client environment and passwordless X2Go login to managed desktop hosts.
+# INSTALLATION METHOD: Native Debian apt package (x2goclient).
+# PREREQUISITES: Debian-based host in 'desktops' group, user 'will' exists, vaulted keys in vault.yml.
+# CONFIGURATION: /home/will/.ssh/id_ed25519_x2go, /home/will/.x2goclient/sessions
+# SECRETS:
+#   x2go_dedicated_private_key (vault.yml) — deployed to client host
+#   x2go_dedicated_public_key (vault.yml) — authorized for target user
+#   ansible_become_pass (vault.yml) — sudo on target hosts
+# USAGE:
+#   ansible-playbook -i inventory.ini playbooks/deploy_x2go_client.yml --limit titan --check --diff
+#   ansible-playbook -i inventory.ini playbooks/deploy_x2go_client.yml --limit desktops
+# REMOVAL INSTRUCTIONS:
+#   Remove x2goclient package (apt purge x2goclient) and ~/.x2goclient / dedicated key files.
+# WWOS:
+#   http://wwos.home.arpa/index.php/Playbooks/deploy_x2go_client.yml
+# GITHUB:
+#   https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/deploy_x2go_client.yml
 #
 ---
 - name: Deploy and Configure X2Go Client
@@ -40,48 +59,6 @@
         settings:
           - { key: "name", value: "Zeus - Manual Login" }
           - { key: "host", value: "zeus.home.arpa" }
-          - { key: "autologin", value: "false" }
-          - { key: "usekey", value: "false" }
-          - { key: "command", value: "XFCE" }
-          - { key: "speed", value: "2" }
-          - { key: "quality", value: "9" }
-          - { key: "pack", value: "16m-jpeg" }
-          - { key: "width", value: "800" }
-          - { key: "height", value: "600" }
-          - { key: "dpi", value: "141" }
-          - { key: "clipboard", value: "both" }
-          - { key: "sound", value: "true" }
-          - { key: "soundsystem", value: "pulse" }
-          - { key: "soundtunnel", value: "true" }
-          - { key: "print", value: "true" }
-          - { key: "fstunnel", value: "true" }
-
-      - section: "venus_autologin_will"
-        settings:
-          - { key: "name", value: "Venus - Auto Login" }
-          - { key: "host", value: "venus.home.arpa" }
-          - { key: "user", value: "{{ target_user }}" }
-          - { key: "autologin", value: "true" }
-          - { key: "usekey", value: "true" }
-          - { key: "key", value: "/home/{{ target_user }}/.ssh/id_ed25519_x2go" }
-          - { key: "command", value: "XFCE" }
-          - { key: "speed", value: "2" }
-          - { key: "quality", value: "9" }
-          - { key: "pack", value: "16m-jpeg" }
-          - { key: "width", value: "800" }
-          - { key: "height", value: "600" }
-          - { key: "dpi", value: "141" }
-          - { key: "clipboard", value: "both" }
-          - { key: "sound", value: "true" }
-          - { key: "soundsystem", value: "pulse" }
-          - { key: "soundtunnel", value: "true" }
-          - { key: "print", value: "true" }
-          - { key: "fstunnel", value: "true" }
-
-      - section: "venus_manual_login"
-        settings:
-          - { key: "name", value: "Venus - Manual Login" }
-          - { key: "host", value: "venus.home.arpa" }
           - { key: "autologin", value: "false" }
           - { key: "usekey", value: "false" }
           - { key: "command", value: "XFCE" }
