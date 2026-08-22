@@ -1,0 +1,107 @@
+# Filename:       configure_chrome_nvidia_vaapi.yml
+# Version:        1.0
+# Author:         Will / Pops agents
+# Last Modified:  2026-08-22
+# Trac Ticket:    #4386
+# Purpose:        Configure hardware-accelerated video decoding (NVDEC via VA-API bridge) in Google Chrome on GPU desktop workstations.
+# Use Case:       Offload web video decoding (YouTube 4K/1080p, VP9, AV1, H.264) to NVIDIA NVDEC ASIC in Google Chrome on desktop hosts with NVIDIA GPUs (e.g. limbo-f0) without configuration drift or compute contention.
+# Installation Method: Declarative Chrome wrapper scripts + overridden XDG desktop entry with VA-API/ANGLE flags
+# Prerequisites:  Debian-based desktop host with Google Chrome installed and active NVIDIA GPU (nvidia-vaapi-driver)
+# Configuration:  /usr/local/bin/google-chrome-stable, /usr/local/share/applications/google-chrome.desktop
+# Secrets:        ansible_become_pass (vault.yml) - sudo on desktop hosts
+# Usage:          ansible-playbook -i inventory.ini playbooks/configure_chrome_nvidia_vaapi.yml --limit limbo-f0 --check --diff
+# Removal Instructions: Remove /usr/local/bin/google-chrome* wrappers and /usr/local/share/applications/google-chrome.desktop.
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/configure_chrome_nvidia_vaapi.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/configure_chrome_nvidia_vaapi.yml
+---
+- name: Configure Google Chrome NVIDIA VA-API Hardware Acceleration
+  hosts: desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  vars:
+    # Optional override per host_vars (defaults to dynamic detection)
+    enable_nvidia_vaapi: true
+
+  tasks:
+    - name: Detect NVIDIA GPU presence via lspci / kernel module
+      ansible.builtin.shell: "lspci -nn | grep -iE 'vga|3d|display' | grep -i nvidia || [ -d /proc/driver/nvidia ] || lsmod | grep -i nvidia || true"
+      register: nvidia_gpu_check
+      changed_when: false
+
+    - name: Evaluate NVIDIA VA-API enablement condition
+      ansible.builtin.set_fact:
+        target_has_nvidia_gpu: "{{ (nvidia_gpu_check.stdout | length > 0) or (enable_nvidia_vaapi | default(false) | bool) }}"
+
+    - name: Report GPU hardware detection status
+      ansible.builtin.debug:
+        msg: "NVIDIA GPU detection result for {{ inventory_hostname }}: {{ target_has_nvidia_gpu }}"
+
+    - name: Apply Google Chrome VA-API configuration block
+      when: target_has_nvidia_gpu | bool
+      block:
+        - name: Ensure /usr/local/share/applications directory exists
+          ansible.builtin.file:
+            path: /usr/local/share/applications
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+
+        - name: Deploy Google Chrome launcher wrappers with VA-API & ANGLE flags
+          ansible.builtin.copy:
+            dest: "{{ item }}"
+            owner: root
+            group: root
+            mode: '0755'
+            content: |
+              #!/bin/bash
+              # Managed by Ansible: playbooks/configure_chrome_nvidia_vaapi.yml
+              # Trac Ticket #4386: Google Chrome NVDEC hardware acceleration
+              export LIBVA_DRIVER_NAME=nvidia
+              export NVD_BACKEND=direct
+              exec /opt/google/chrome/google-chrome \
+                --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,CanvasOopRasterization \
+                --use-gl=angle \
+                --use-angle=vulkan \
+                --ignore-gpu-blocklist \
+                --enable-gpu-rasterization \
+                --enable-zero-copy \
+                --disable-features=UseChromeOSDirectVideoDecoder \
+                "$@"
+          loop:
+            - /usr/local/bin/google-chrome
+            - /usr/local/bin/google-chrome-stable
+
+        - name: Deploy overridden Google Chrome desktop launcher with VA-API flags
+          ansible.builtin.copy:
+            dest: /usr/local/share/applications/google-chrome.desktop
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              [Desktop Entry]
+              Version=1.0
+              Name=Google Chrome
+              GenericName=Web Browser
+              Comment=Access the Internet
+              Exec=env LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct /opt/google/chrome/google-chrome --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,CanvasOopRasterization --use-gl=angle --use-angle=vulkan --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --disable-features=UseChromeOSDirectVideoDecoder %U
+              Terminal=false
+              Icon=google-chrome
+              Type=Application
+              Categories=Network;WebBrowser;
+              MimeType=application/pdf;application/rdf+xml;application/rss+xml;application/xhtml+xml;application/xhtml_xml;application/xml;image/gif;image/jpeg;image/png;image/webp;text/html;text/xml;x-scheme-handler/http;x-scheme-handler/https;
+              Actions=new-window;new-private-window;
+
+              [Desktop Action new-window]
+              Name=New Window
+              Exec=env LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct /opt/google/chrome/google-chrome --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,CanvasOopRasterization --use-gl=angle --use-angle=vulkan --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --disable-features=UseChromeOSDirectVideoDecoder
+
+              [Desktop Action new-private-window]
+              Name=New Incognito Window
+              Exec=env LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct /opt/google/chrome/google-chrome --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,CanvasOopRasterization --use-gl=angle --use-angle=vulkan --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --disable-features=UseChromeOSDirectVideoDecoder --incognito
+
+        - name: Update desktop database
+          ansible.builtin.command: update-desktop-database /usr/local/share/applications
+          changed_when: false
+          failed_when: false
