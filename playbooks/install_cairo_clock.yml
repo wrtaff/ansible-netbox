@@ -1,0 +1,84 @@
+# Filename:       install_cairo_clock.yml
+# Version:        1.2
+# Author:         Will / Pops agents
+# Last Modified:  2026-08-22
+# Trac Ticket:    #4390, #4381
+# Purpose:        Deploy and configure the cairo-clock analog desktop clock on managed desktops.
+# Use Case:       Provide an analog clock desktop widget on XFCE workstation hosts (limbo-f0).
+# Installation Method: Self-contained binary and shared theme deployment from files/cairo-clock
+# Prerequisites:  Debian-based desktop host with X11 / XFCE environment
+# Configuration:  ~/.cairo-clock, /usr/share/cairo-clock/themes/
+# Secrets:        ansible_become_pass (vault.yml) - sudo on desktop hosts
+# Usage:          ansible-playbook -i inventory.ini playbooks/install_cairo_clock.yml --limit limbo-f0
+# Removal Instructions: Remove /usr/local/bin/cairo-clock, /usr/share/cairo-clock/, and libglade-2.0.so.0
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/install_cairo_clock.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_cairo_clock.yml
+---
+- name: Deploy cairo-clock on managed desktops
+  hosts: desktops, limbo-f0
+  become: true
+  vars_files:
+    - ../vault.yml
+  tasks:
+    - name: Install runtime dependencies for cairo-clock
+      ansible.builtin.apt:
+        name:
+          - libcairo2
+          - librsvg2-2
+          - libxml2
+          - libgtk2.0-0t64
+        state: present
+        update_cache: true
+      ignore_errors: true
+
+    - name: Install legacy libglade-2.0 shared library
+      ansible.builtin.copy:
+        src: files/cairo-clock/libglade-2.0.so.0.0.7
+        dest: /usr/lib/x86_64-linux-gnu/libglade-2.0.so.0.0.7
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Ensure libglade-2.0 symlink exists
+      ansible.builtin.file:
+        src: /usr/lib/x86_64-linux-gnu/libglade-2.0.so.0.0.7
+        dest: /usr/lib/x86_64-linux-gnu/libglade-2.0.so.0
+        state: link
+        owner: root
+        group: root
+
+    - name: Deploy cairo-clock executable binary
+      ansible.builtin.copy:
+        src: files/cairo-clock/cairo-clock
+        dest: /usr/local/bin/cairo-clock
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy cairo-clock themes directory
+      ansible.builtin.copy:
+        src: files/cairo-clock/share-cairo-clock/
+        dest: /usr/share/cairo-clock/
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy cairo-clock desktop launcher
+      ansible.builtin.copy:
+        src: files/cairo-clock/cairo-clock.desktop
+        dest: /usr/share/applications/cairo-clock.desktop
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Verify cairo-clock binary exists and is executable
+      ansible.builtin.stat:
+        path: /usr/local/bin/cairo-clock
+      register: cairo_bin
+
+    - name: Assert cairo-clock is executable
+      ansible.builtin.assert:
+        that:
+          - cairo_bin.stat.exists
+          - cairo_bin.stat.executable
+        fail_msg: "cairo-clock binary is not executable at /usr/local/bin/cairo-clock"
