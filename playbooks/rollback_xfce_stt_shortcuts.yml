@@ -1,0 +1,43 @@
+---
+# ==============================================================================
+# Filename:       rollback_xfce_stt_shortcuts.yml
+# Version:        1.0
+# Author:         opencode
+# Context:        http://trac.gafla.us.com/ticket/4395
+#
+# Purpose:
+#   Rolls back XFCE STT voice typing keyboard shortcuts from limbo-f0.
+# ==============================================================================
+- name: Rollback XFCE voice typing shortcut delta
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    stt_shortcut_primary: "/commands/custom/<Primary><Alt>v"
+    stt_shortcut_super: "/commands/custom/<Super>space"
+
+  tasks:
+    - name: Reset Primary-Alt-v shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ stt_shortcut_primary }}"
+          - -r
+      become_user: "{{ xfce_user }}"
+      failed_when: false
+
+    - name: Reset Super-space shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ stt_shortcut_super }}"
+          - -r
+      become_user: "{{ xfce_user }}"
+      failed_when: false

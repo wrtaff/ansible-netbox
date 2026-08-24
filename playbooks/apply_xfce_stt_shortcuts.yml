@@ -1,0 +1,153 @@
+---
+# ==============================================================================
+# Filename:       apply_xfce_stt_shortcuts.yml
+# Version:        1.0
+# Author:         opencode
+# Context:        http://trac.gafla.us.com/ticket/4395
+#
+# Purpose:
+#   Configures global XFCE keyboard shortcuts for push-to-talk STT voice typing
+#   on limbo-f0 (<Primary><Alt>v and <Super>space -> /home/will/.local/bin/whisper-dictate).
+# ==============================================================================
+- name: Apply XFCE voice typing shortcut delta
+  hosts: limbo-f0
+  gather_facts: false
+  become: true
+  vars:
+    xfce_user: will
+    xfce_home: /home/will
+    keyboard_shortcut_file: "{{ xfce_home }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
+    backup_stamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+    stt_cmd: "/home/will/.local/bin/whisper-dictate"
+    stt_shortcut_primary: "/commands/custom/<Primary><Alt>v"
+    stt_shortcut_super: "/commands/custom/<Super>space"
+
+  tasks:
+    - name: Confirm the inventory reaches limbo-f0
+      ansible.builtin.command: hostname
+      become_user: "{{ xfce_user }}"
+      register: target_hostname
+      changed_when: false
+      check_mode: false
+
+    - name: Refuse to modify a host with the wrong identity
+      ansible.builtin.assert:
+        that:
+          - target_hostname.stdout | trim == 'limbo-f0'
+        fail_msg: "Refusing to modify unexpected host {{ target_hostname.stdout | trim }}"
+
+    - name: Read current Primary-Alt-v shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ stt_shortcut_primary }}"
+      become_user: "{{ xfce_user }}"
+      register: primary_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read current Super-space shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ stt_shortcut_super }}"
+      become_user: "{{ xfce_user }}"
+      register: super_current
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Back up keyboard shortcut channel before modifying
+      ansible.builtin.copy:
+        src: "{{ keyboard_shortcut_file }}"
+        dest: "{{ keyboard_shortcut_file }}.bak.{{ backup_stamp }}"
+        remote_src: true
+        mode: preserve
+      when:
+        - not ansible_check_mode
+        - primary_current.stdout | trim != stt_cmd or super_current.stdout | trim != stt_cmd
+      become_user: "{{ xfce_user }}"
+      register: keyboard_shortcut_backup
+
+    - name: Set Primary-Alt-v voice typing shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ stt_shortcut_primary }}"
+          - -n
+          - -t
+          - string
+          - -s
+          - "{{ stt_cmd }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - primary_current.stdout | trim != stt_cmd
+
+    - name: Set Super-space voice typing shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ stt_shortcut_super }}"
+          - -n
+          - -t
+          - string
+          - -s
+          - "{{ stt_cmd }}"
+      become_user: "{{ xfce_user }}"
+      when:
+        - not ansible_check_mode
+        - super_current.stdout | trim != stt_cmd
+
+    - name: Verify Primary-Alt-v shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ stt_shortcut_primary }}"
+      become_user: "{{ xfce_user }}"
+      register: primary_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Verify Super-space shortcut
+      ansible.builtin.command:
+        argv:
+          - xfconf-query
+          - -c
+          - xfce4-keyboard-shortcuts
+          - -p
+          - "{{ stt_shortcut_super }}"
+      become_user: "{{ xfce_user }}"
+      register: super_verified
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Confirm both STT shortcuts are active
+      ansible.builtin.assert:
+        that:
+          - primary_verified.stdout | trim == stt_cmd
+          - super_verified.stdout | trim == stt_cmd
+        fail_msg: "XFCE STT shortcut verification failed"
+      when: not ansible_check_mode
+
+    - name: Report backup and rollback instructions
+      ansible.builtin.debug:
+        msg: >-
+          Backup created at {{ keyboard_shortcut_backup.dest | default('existing') }}.
+          Rollback available via playbooks/rollback_xfce_stt_shortcuts.yml
