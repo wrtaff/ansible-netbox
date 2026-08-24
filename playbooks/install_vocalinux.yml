@@ -131,18 +131,26 @@
           - "pyaudio>=0.2.13"
           - "psutil>=5.9.0"
           - "onnxruntime>=1.16.0"
-          - "pywhispercpp>=1.5.0"
         state: present
       tags: [vocalinux, pip]
 
-    - name: 9. Install Vocalinux package in virtualenv
+    - name: 9. Build and install pywhispercpp without AVX2 (for AMD FX-4300 compatibility)
+      ansible.builtin.pip:
+        virtualenv: "{{ vocalinux_venv_dir }}"
+        name: "pywhispercpp>=1.5.0"
+        extra_args: "--no-binary pywhispercpp"
+      environment:
+        CMAKE_ARGS: "-DGGML_AVX2=OFF -DGGML_F16C=OFF -DGGML_FMA=OFF"
+      tags: [vocalinux, pip]
+
+    - name: 10. Install Vocalinux package in virtualenv
       ansible.builtin.pip:
         virtualenv: "{{ vocalinux_venv_dir }}"
         name: "{{ vocalinux_install_dir }}"
         extra_args: "--no-deps"
       tags: [vocalinux, pip]
 
-    - name: 10. Deploy Vocalinux configuration file
+    - name: 11. Deploy Vocalinux configuration file
       ansible.builtin.copy:
         dest: "{{ vocalinux_config_dir }}/config.json"
         mode: '0644'
@@ -177,7 +185,7 @@
           }
       tags: [vocalinux, config]
 
-    - name: 11. Deploy Vocalinux CLI launcher wrapper
+    - name: 12. Deploy Vocalinux CLI launcher wrapper
       ansible.builtin.copy:
         dest: "{{ ansible_user_dir }}/.local/bin/vocalinux"
         mode: '0755'
@@ -185,11 +193,12 @@
           #!/bin/bash
           export PYTHONNOUSERSITE=1
           export GI_TYPELIB_PATH=/usr/lib/x86_64-linux-gnu/girepository-1.0:/usr/lib/girepository-1.0:$GI_TYPELIB_PATH
+          export LD_LIBRARY_PATH="{{ vocalinux_venv_dir }}/lib/python3.13/site-packages:$LD_LIBRARY_PATH"
           source "{{ vocalinux_venv_dir }}/bin/activate"
           exec python3 -m vocalinux.main "$@"
       tags: [vocalinux, launcher]
 
-    - name: 12. Deploy desktop and autostart entries for Vocalinux
+    - name: 13. Deploy desktop and autostart entries for Vocalinux
       ansible.builtin.copy:
         dest: "{{ item }}"
         mode: '0644'
@@ -208,14 +217,15 @@
         - "{{ ansible_user_dir }}/.config/autostart/vocalinux.desktop"
       tags: [vocalinux, desktop]
 
-    - name: 13. Deploy local CUDA faster-whisper CLI wrapper
+    - name: 14. Deploy local CUDA faster-whisper CLI wrapper
       ansible.builtin.copy:
         dest: "{{ ansible_user_dir }}/.local/bin/whisper-local"
         mode: '0755'
         content: |
-          #!/usr/bin/env python3
+          #!/bin/bash
+          export LD_LIBRARY_PATH={{ ansible_user_dir }}/whisper-env/lib/python3.13/site-packages/nvidia/cublas/lib:{{ ansible_user_dir }}/whisper-env/lib/python3.13/site-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH
+          exec {{ ansible_user_dir }}/whisper-env/bin/python3 -c '
           import sys, argparse, os
-          os.environ['LD_LIBRARY_PATH'] = f"{os.path.expanduser('~')}/whisper-env/lib/python3.13/site-packages/nvidia/cublas/lib:{os.path.expanduser('~')}/whisper-env/lib/python3.13/site-packages/nvidia/cudnn/lib:" + os.environ.get('LD_LIBRARY_PATH', '')
           from faster_whisper import WhisperModel
 
           parser = argparse.ArgumentParser(description="Local CUDA Whisper transcription CLI")
@@ -228,9 +238,10 @@
           segments, info = model.transcribe(args.audio_file, language=args.language, beam_size=5)
           for segment in segments:
               print(f"[{segment.start:.2f} --> {segment.end:.2f}] {segment.text.strip()}")
+          ' "$@"
       tags: [vocalinux, whisper]
 
-    - name: 14. Deploy native CUDA faster-whisper dictation fallback script
+    - name: 15. Deploy native CUDA faster-whisper dictation fallback script
       ansible.builtin.copy:
         dest: "{{ ansible_user_dir }}/.local/bin/whisper-dictate"
         mode: '0755'
@@ -258,7 +269,7 @@
           
           if [ -f "$RECORD_FILE" ] && [ $(stat -c%s "$RECORD_FILE") -gt 4000 ]; then
               notify-send -t 1000 -i audio-input-microphone "Voice Typing" "Transcribing..." 2>/dev/null || true
-              TEXT=$(/home/will/whisper-env/bin/python3 /home/will/.local/bin/whisper-local "$RECORD_FILE" --model base.en --language en 2>/dev/null | sed -E 's/^\[[0-9:.]+ --> [0-9:.]+\]\s*//' | tr '\n' ' ' | sed 's/^[ \t]*//;s/[ \t]*$//')
+              TEXT=$({{ ansible_user_dir }}/.local/bin/whisper-local "$RECORD_FILE" --model base.en --language en 2>/dev/null | sed -E 's/^\[[0-9:.]+ --> [0-9:.]+\]\s*//' | tr '\n' ' ' | sed 's/^[ \t]*//;s/[ \t]*$//')
               if [ -n "$TEXT" ]; then
                   # Type into active window
                   xdotool type --delay 12 "$TEXT " 2>/dev/null || (printf '%s ' "$TEXT" | xclip -selection clipboard && xdotool key ctrl+v)
