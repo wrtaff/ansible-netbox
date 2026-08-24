@@ -1,0 +1,246 @@
+# ==============================================================================
+# Filename:       install_vocalinux.yml
+# Version:        1.0
+# Author:         opencode
+# Context:        http://trac.gafla.us.com/ticket/4395
+#
+# Purpose:
+#   Installs and configures Vocalinux voice-to-text dictation application and
+#   supporting STT tools on host limbo-f0 (Debian 13 Trixie / XFCE).
+#
+# Tasks:
+#   1. Install system dependencies (GTK3, PyGObject, Ayatana AppIndicator,
+#      PortAudio, xdotool, xclip, xbindkeys, sox, libnotify).
+#   2. Configure default PulseAudio recording source for Logitech USB microphone.
+#   3. Clone Vocalinux repository into ~/.local/share/vocalinux-install.
+#   4. Create Python virtual environment with --system-site-packages.
+#   5. Install Vocalinux python dependencies.
+#   6. Deploy configuration file (~/.config/vocalinux/config.json) with push-to-talk.
+#   7. Deploy desktop launcher and autostart entry.
+#   8. Deploy native CUDA fallback dictation script (/home/will/.local/bin/whisper-dictate).
+# ==============================================================================
+---
+- name: Install and configure Vocalinux STT voice typing
+  hosts: desktops,limbo-f0
+  become: false
+  gather_facts: true
+
+  vars:
+    vocalinux_git_repo: "https://github.com/VocaHQ/vocalinux.git"
+    vocalinux_git_version: "v0.16.0"
+    vocalinux_install_dir: "{{ ansible_env.HOME }}/.local/share/vocalinux-install"
+    vocalinux_venv_dir: "{{ ansible_env.HOME }}/.local/share/vocalinux/venv"
+    vocalinux_config_dir: "{{ ansible_env.HOME }}/.config/vocalinux"
+    usb_mic_source: "alsa_input.usb-046d_0825_BF9FE4A0-02.mono-fallback"
+
+  tasks:
+    - name: 1. Install system packages for Vocalinux and input injection
+      become: true
+      ansible.builtin.apt:
+        name:
+          - python3-pip
+          - python3-venv
+          - python3-gi
+          - python3-gi-cairo
+          - python3-dev
+          - gir1.2-gtk-3.0
+          - gir1.2-ibus-1.0
+          - gir1.2-ayatanaappindicator3-0.1
+          - libcairo2-dev
+          - cmake
+          - build-essential
+          - portaudio19-dev
+          - pkg-config
+          - wget
+          - curl
+          - unzip
+          - xclip
+          - xsel
+          - xdotool
+          - xbindkeys
+          - sox
+          - libsox-fmt-all
+          - libnotify-bin
+          - git
+        state: present
+        update_cache: true
+      tags: [packages, system]
+
+    - name: 2. Ensure PulseAudio default source is set to USB microphone in user profile
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.profile"
+        regexp: '^pactl set-default-source'
+        line: 'pactl set-default-source {{ usb_mic_source }} 2>/dev/null || true'
+        state: present
+        create: true
+        mode: '0644'
+      tags: [audio]
+
+    - name: 3. Set runtime default PulseAudio source if PulseAudio daemon is running
+      ansible.builtin.shell: |
+        pactl set-default-source {{ usb_mic_source }} 2>/dev/null || true
+      changed_when: false
+      tags: [audio]
+
+    - name: 4. Ensure directory structures exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ ansible_env.HOME }}/.local/bin"
+        - "{{ ansible_env.HOME }}/.local/share/applications"
+        - "{{ ansible_env.HOME }}/.config/autostart"
+        - "{{ vocalinux_config_dir }}"
+        - "{{ ansible_env.HOME }}/.local/share/vocalinux"
+      tags: [vocalinux, dirs]
+
+    - name: 5. Clone or update Vocalinux repository
+      ansible.builtin.git:
+        repo: "{{ vocalinux_git_repo }}"
+        dest: "{{ vocalinux_install_dir }}"
+        version: "{{ vocalinux_git_version }}"
+        depth: 1
+        force: true
+      tags: [vocalinux, git]
+
+    - name: 6. Create virtualenv with system site packages for PyGObject bindings
+      ansible.builtin.command:
+        cmd: python3 -m venv --system-site-packages {{ vocalinux_venv_dir }}
+        creates: "{{ vocalinux_venv_dir }}/bin/python3"
+      tags: [vocalinux, venv]
+
+    - name: 7. Upgrade pip, setuptools, wheel in virtualenv
+      ansible.builtin.pip:
+        virtualenv: "{{ vocalinux_venv_dir }}"
+        name:
+          - pip
+          - setuptools
+          - wheel
+        state: latest
+      tags: [vocalinux, pip]
+
+    - name: 8. Install Python runtime dependencies in virtualenv
+      ansible.builtin.pip:
+        virtualenv: "{{ vocalinux_venv_dir }}"
+        name:
+          - "pynput>=1.7.6"
+          - "evdev>=1.6.0"
+          - "requests>=2.28.0"
+          - "numpy>=1.22.0"
+          - "pyaudio>=0.2.13"
+          - "psutil>=5.9.0"
+          - "onnxruntime>=1.16.0"
+          - "pywhispercpp>=1.5.0"
+        state: present
+      tags: [vocalinux, pip]
+
+    - name: 9. Install Vocalinux package in virtualenv
+      ansible.builtin.pip:
+        virtualenv: "{{ vocalinux_venv_dir }}"
+        name: "{{ vocalinux_install_dir }}"
+        extra_args: "--no-deps"
+      tags: [vocalinux, pip]
+
+    - name: 10. Deploy Vocalinux configuration file
+      ansible.builtin.copy:
+        dest: "{{ vocalinux_config_dir }}/config.json"
+        mode: '0644'
+        content: |
+          {
+              "speech_recognition": {
+                  "engine": "whisper_cpp",
+                  "model_size": "base.en",
+                  "vosk_model_size": "small",
+                  "whisper_model_size": "base.en",
+                  "whisper_cpp_model_size": "base.en",
+                  "vad_sensitivity": 3,
+                  "silence_timeout": 1.5
+              },
+              "audio": {
+                  "device_index": null,
+                  "device_name": "{{ usb_mic_source }}"
+              },
+              "shortcuts": {
+                  "toggle_recognition": "right_alt+right_alt",
+                  "mode": "push_to_talk"
+              },
+              "ui": {
+                  "start_minimized": true,
+                  "show_notifications": true,
+                  "show_missing_tray_warning": false
+              },
+              "advanced": {
+                  "debug_logging": false,
+                  "wayland_mode": false
+              }
+          }
+      tags: [vocalinux, config]
+
+    - name: 11. Deploy Vocalinux CLI launcher wrapper
+      ansible.builtin.copy:
+        dest: "{{ ansible_env.HOME }}/.local/bin/vocalinux"
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          export PYTHONNOUSERSITE=1
+          export GI_TYPELIB_PATH=/usr/lib/x86_64-linux-gnu/girepository-1.0:/usr/lib/girepository-1.0:$GI_TYPELIB_PATH
+          source "{{ vocalinux_venv_dir }}/bin/activate"
+          exec python3 -m vocalinux.main "$@"
+      tags: [vocalinux, launcher]
+
+    - name: 12. Deploy desktop and autostart entries for Vocalinux
+      ansible.builtin.copy:
+        dest: "{{ item }}"
+        mode: '0644'
+        content: |
+          [Desktop Entry]
+          Name=Vocalinux
+          Comment=Universal Voice Dictation for Linux
+          Exec={{ ansible_env.HOME }}/.local/bin/vocalinux --minimized
+          Icon=audio-input-microphone
+          Terminal=false
+          Type=Application
+          Categories=Utility;Accessibility;Audio;
+          StartupNotify=false
+      loop:
+        - "{{ ansible_env.HOME }}/.local/share/applications/vocalinux.desktop"
+        - "{{ ansible_env.HOME }}/.config/autostart/vocalinux.desktop"
+      tags: [vocalinux, desktop]
+
+    - name: 13. Deploy native CUDA faster-whisper dictation fallback script
+      ansible.builtin.copy:
+        dest: "{{ ansible_env.HOME }}/.local/bin/whisper-dictate"
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # Universal Voice Typing helper using CUDA faster-whisper on RTX 3060
+          RECORD_FILE="/tmp/stt_input.wav"
+          LOCK_FILE="/tmp/stt_dictate.lock"
+          
+          if [ -f "$LOCK_FILE" ]; then
+              # Stop recording if already running
+              kill -INT $(cat "$LOCK_FILE") 2>/dev/null || true
+              rm -f "$LOCK_FILE"
+              exit 0
+          fi
+          
+          notify-send -t 1500 -i audio-input-microphone "Voice Typing" "Listening..." 2>/dev/null || true
+          
+          # Record audio from default PulseAudio source
+          sox -d -r 16000 -c 1 -b 16 "$RECORD_FILE" silence 1 0.1 1% 1 1.2 2% 2>/dev/null &
+          SOX_PID=$!
+          echo $SOX_PID > "$LOCK_FILE"
+          wait $SOX_PID
+          rm -f "$LOCK_FILE"
+          
+          if [ -f "$RECORD_FILE" ] && [ $(stat -c%s "$RECORD_FILE") -gt 4000 ]; then
+              notify-send -t 1000 -i audio-input-microphone "Voice Typing" "Transcribing..." 2>/dev/null || true
+              TEXT=$(/home/will/.local/bin/whisper-local "$RECORD_FILE" --model base.en --language en 2>/dev/null | sed -E 's/^\[[0-9:.]+ --> [0-9:.]+\]\s*//' | tr '\n' ' ' | sed 's/^[ \t]*//;s/[ \t]*$//')
+              if [ -n "$TEXT" ]; then
+                  # Type into active window
+                  xdotool type --delay 12 "$TEXT " 2>/dev/null || (printf '%s ' "$TEXT" | xclip -selection clipboard && xdotool key ctrl+v)
+              fi
+              rm -f "$RECORD_FILE"
+          fi
+      tags: [vocalinux, fallback]
