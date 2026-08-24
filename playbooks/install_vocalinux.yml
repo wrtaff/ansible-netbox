@@ -28,9 +28,9 @@
   vars:
     vocalinux_git_repo: "https://github.com/VocaHQ/vocalinux.git"
     vocalinux_git_version: "v0.16.0"
-    vocalinux_install_dir: "{{ ansible_env.HOME }}/.local/share/vocalinux-install"
-    vocalinux_venv_dir: "{{ ansible_env.HOME }}/.local/share/vocalinux/venv"
-    vocalinux_config_dir: "{{ ansible_env.HOME }}/.config/vocalinux"
+    vocalinux_install_dir: "{{ ansible_user_dir }}/.local/share/vocalinux-install"
+    vocalinux_venv_dir: "{{ ansible_user_dir }}/.local/share/vocalinux/venv"
+    vocalinux_config_dir: "{{ ansible_user_dir }}/.config/vocalinux"
     usb_mic_source: "alsa_input.usb-046d_0825_BF9FE4A0-02.mono-fallback"
 
   tasks:
@@ -68,7 +68,7 @@
 
     - name: 2. Ensure PulseAudio default source is set to USB microphone in user profile
       ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.profile"
+        path: "{{ ansible_user_dir }}/.profile"
         regexp: '^pactl set-default-source'
         line: 'pactl set-default-source {{ usb_mic_source }} 2>/dev/null || true'
         state: present
@@ -88,11 +88,11 @@
         state: directory
         mode: '0755'
       loop:
-        - "{{ ansible_env.HOME }}/.local/bin"
-        - "{{ ansible_env.HOME }}/.local/share/applications"
-        - "{{ ansible_env.HOME }}/.config/autostart"
+        - "{{ ansible_user_dir }}/.local/bin"
+        - "{{ ansible_user_dir }}/.local/share/applications"
+        - "{{ ansible_user_dir }}/.config/autostart"
         - "{{ vocalinux_config_dir }}"
-        - "{{ ansible_env.HOME }}/.local/share/vocalinux"
+        - "{{ ansible_user_dir }}/.local/share/vocalinux"
       tags: [vocalinux, dirs]
 
     - name: 5. Clone or update Vocalinux repository
@@ -179,7 +179,7 @@
 
     - name: 11. Deploy Vocalinux CLI launcher wrapper
       ansible.builtin.copy:
-        dest: "{{ ansible_env.HOME }}/.local/bin/vocalinux"
+        dest: "{{ ansible_user_dir }}/.local/bin/vocalinux"
         mode: '0755'
         content: |
           #!/bin/bash
@@ -197,20 +197,20 @@
           [Desktop Entry]
           Name=Vocalinux
           Comment=Universal Voice Dictation for Linux
-          Exec={{ ansible_env.HOME }}/.local/bin/vocalinux --minimized
+          Exec={{ ansible_user_dir }}/.local/bin/vocalinux --minimized
           Icon=audio-input-microphone
           Terminal=false
           Type=Application
           Categories=Utility;Accessibility;Audio;
           StartupNotify=false
       loop:
-        - "{{ ansible_env.HOME }}/.local/share/applications/vocalinux.desktop"
-        - "{{ ansible_env.HOME }}/.config/autostart/vocalinux.desktop"
+        - "{{ ansible_user_dir }}/.local/share/applications/vocalinux.desktop"
+        - "{{ ansible_user_dir }}/.config/autostart/vocalinux.desktop"
       tags: [vocalinux, desktop]
 
     - name: 13. Deploy native CUDA faster-whisper dictation fallback script
       ansible.builtin.copy:
-        dest: "{{ ansible_env.HOME }}/.local/bin/whisper-dictate"
+        dest: "{{ ansible_user_dir }}/.local/bin/whisper-dictate"
         mode: '0755'
         content: |
           #!/bin/bash
