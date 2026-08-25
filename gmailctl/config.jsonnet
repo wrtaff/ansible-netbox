@@ -419,6 +419,9 @@
     {
       name: "ktn/8dhanwh8seounh4oybl5"
     },
+    {
+      name: "ktn/49tyujhfa96kbu2802d7"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -1961,6 +1964,17 @@
         archive: true,
         labels: [
           "ktn/8dhanwh8seounh4oybl5"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "news@newsletter.ledger-enquirer.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/49tyujhfa96kbu2802d7"
         ]
       }
     }
