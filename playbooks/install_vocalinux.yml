@@ -168,8 +168,8 @@
                   "silence_timeout": 1.5
               },
               "audio": {
-                  "device_index": null,
-                  "device_name": "{{ usb_mic_source }}"
+                  "device_index": 10,
+                  "device_name": "pulse"
               },
               "shortcuts": {
                   "toggle_recognition": "right_alt+right_alt",
