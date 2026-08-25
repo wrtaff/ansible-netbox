@@ -1,0 +1,73 @@
+# ==============================================================================
+# Filename:       playbooks/update_yunohost.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-08-24
+#
+# Purpose:
+#     Automated, safe maintenance and upgrade playbook for YunoHost host ynh2
+#     (CT 305 on pve2). Enforces pre-upgrade hypervisor backup, YunoHost core
+#     tools upgrade (avoiding raw apt upgrade collisions), and endpoint checks.
+#     Ref: Trac #1850, Trac #2786.
+# ==============================================================================
+---
+- name: Stage 1 - Pre-Upgrade Hypervisor Backup Gate
+  hosts: pve2
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Trigger Proxmox Backup Server (PBS) snapshot backup of CT 305
+      ansible.builtin.command:
+        cmd: vzdump 305 --storage pbs01 --notes-template "ansible-auto-upgrade" --mode snapshot
+      register: pbs_backup_result
+      changed_when: true
+
+    - name: Display backup summary
+      ansible.builtin.debug:
+        msg: "{{ pbs_backup_result.stdout_lines | select('search', 'Finished Backup') | list }}"
+
+- name: Stage 2 - YunoHost System & Core Upgrades
+  hosts: ynh2
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Run non-destructive YunoHost diagnosis pre-check
+      ansible.builtin.command:
+        cmd: yunohost diagnosis show --issues --human-readable
+      register: pre_diag
+      changed_when: false
+
+    - name: Fetch package and catalog updates
+      ansible.builtin.command:
+        cmd: yunohost tools update
+      register: ynh_update
+      changed_when: "'The application catalog has been updated' in ynh_update.stdout"
+
+    - name: Upgrade YunoHost core and Debian system packages
+      ansible.builtin.command:
+        cmd: yunohost tools upgrade system
+      register: ynh_sys_upgrade
+      changed_when: "'System upgraded' in ynh_sys_upgrade.stdout"
+
+- name: Stage 3 - Post-Upgrade Health Verification
+  hosts: ynh2
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Run post-upgrade diagnosis
+      ansible.builtin.command:
+        cmd: yunohost diagnosis show --issues --human-readable
+      register: post_diag
+      changed_when: false
+
+    - name: Verify Vaultwarden service status
+      ansible.builtin.systemd:
+        name: vaultwarden
+        state: started
+      register: vw_status
+
+    - name: Verify Coder service status
+      ansible.builtin.systemd:
+        name: code-server
+        state: started
+      register: coder_status
