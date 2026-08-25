@@ -428,6 +428,15 @@
     {
       name: "ktn/jx51hdx26x8eyqxzn4ic"
     },
+    {
+      name: "ktn/j1cj6l2u0sjddczmikdp"
+    },
+    {
+      name: "ktn/6jioebtzi6x5isz9vzb3"
+    },
+    {
+      name: "ktn/5bsvou89889kc5psey6h"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2014,6 +2023,39 @@
         archive: true,
         labels: [
           "ktn/jx51hdx26x8eyqxzn4ic"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "no-reply@email.claude.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/j1cj6l2u0sjddczmikdp"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "julia@wizardzines.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/6jioebtzi6x5isz9vzb3"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "info@email.philips-hue.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/5bsvou89889kc5psey6h"
         ]
       }
     }
