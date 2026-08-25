@@ -1,12 +1,13 @@
 # ==============================================================================
 # Filename:       install_vocalinux.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         opencode
-# Context:        http://trac.gafla.us.com/ticket/4395
+# Context:        http://trac.gafla.us.com/ticket/4395, http://trac.gafla.us.com/ticket/4397
 #
 # Purpose:
-#   Installs and configures Vocalinux voice-to-text dictation application and
-#   supporting STT tools on host limbo-f0 (Debian 13 Trixie / XFCE).
+#   Installs and configures Vocalinux voice-to-text dictation application, VOSK
+#   streaming recognition engine, and supporting STT tools on host limbo-f0
+#   (Debian 13 Trixie / XFCE).
 #
 # Tasks:
 #   1. Install system dependencies (GTK3, PyGObject, Ayatana AppIndicator,
@@ -14,7 +15,7 @@
 #   2. Configure default PulseAudio recording source for Logitech USB microphone.
 #   3. Clone Vocalinux repository into ~/.local/share/vocalinux-install.
 #   4. Create Python virtual environment with --system-site-packages.
-#   5. Install Vocalinux python dependencies.
+#   5. Install Vocalinux python dependencies (including VOSK streaming engine).
 #   6. Deploy configuration file (~/.config/vocalinux/config.json) with push-to-talk.
 #   7. Deploy desktop launcher and autostart entry.
 #   8. Deploy native CUDA fallback dictation script (/home/will/.local/bin/whisper-dictate).
@@ -124,6 +125,7 @@
       ansible.builtin.pip:
         virtualenv: "{{ vocalinux_venv_dir }}"
         name:
+          - "vosk>=0.3.45"
           - "pynput>=1.7.6"
           - "evdev>=1.6.0"
           - "requests>=2.28.0"
