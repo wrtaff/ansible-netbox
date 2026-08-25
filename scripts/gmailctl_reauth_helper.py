@@ -34,8 +34,10 @@ def get_gmailctl_init_info(host_ip="192.168.0.25"):
         ], capture_output=True, text=True)
         
         output = res.stdout
+        # Join wrapped lines in tmux buffer
+        clean_output = re.sub(r"\n(?=[^\n])", "", output)
         # Look for the URL
-        match = re.search(r"(https://accounts\.google\.com/[^\s]+)", output)
+        match = re.search(r"(https://accounts\.google\.com/[^\s]+)", clean_output)
         if match:
             url = match.group(1)
             # Extract port
