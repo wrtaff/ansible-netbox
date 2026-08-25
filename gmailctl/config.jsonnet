@@ -434,6 +434,18 @@
     {
       name: "ktn/zp161pr1sc4h7oazas29"
     },
+    {
+      name: "ktn/4hl4txajdhqwrs34l70c"
+    },
+    {
+      name: "ktn/576zvewjkp31t7ib59bk"
+    },
+    {
+      name: "ktn/0zmlok6n7yaw2vmpc6ky"
+    },
+    {
+      name: "ktn/nzm4ezzpxhow4i3k0hts"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -1754,7 +1766,7 @@
         markImportant: true,
         category: "promotions",
         labels: [
-          "*InBucket"
+          "ktn/0zmlok6n7yaw2vmpc6ky"
         ],
         forward: "jbtaff@gmail.com"
       }
@@ -2031,6 +2043,39 @@
         archive: true,
         labels: [
           "ktn/zp161pr1sc4h7oazas29"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "priyankavergadia@substack.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/4hl4txajdhqwrs34l70c"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "*@thecolumbusite.net"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/576zvewjkp31t7ib59bk"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "awaisaftab@substack.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/nzm4ezzpxhow4i3k0hts"
         ]
       }
     }
