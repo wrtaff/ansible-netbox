@@ -419,6 +419,15 @@
     {
       name: "ktn/8dhanwh8seounh4oybl5"
     },
+    {
+      name: "ktn/qu64x5k41h1vtwb7vbqi"
+    },
+    {
+      name: "ktn/rcvkk2eq9is79vq7v01a"
+    },
+    {
+      name: "ktn/jx51hdx26x8eyqxzn4ic"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -1961,6 +1970,50 @@
         archive: true,
         labels: [
           "ktn/8dhanwh8seounh4oybl5"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "welcome@openrouter.ai"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/qu64x5k41h1vtwb7vbqi"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "awaisaftab@substack.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/rcvkk2eq9is79vq7v01a"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "DoNotReply@rewards-militarystar.com"
+      },
+      actions: {
+        labels: [
+          "C/errands",
+          "C/awp"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "no-reply@principles.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/jx51hdx26x8eyqxzn4ic"
         ]
       }
     }
