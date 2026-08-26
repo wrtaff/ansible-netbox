@@ -422,6 +422,30 @@
     {
       name: "ktn/49tyujhfa96kbu2802d7"
     },
+    {
+      name: "ktn/ax1j36meiwfv952qkc7t"
+    },
+    {
+      name: "ktn/xqc2vpp9g31xvfxqc262"
+    },
+    {
+      name: "ktn/hw7yajxo95kkt5tv34n1"
+    },
+    {
+      name: "ktn/zp161pr1sc4h7oazas29"
+    },
+    {
+      name: "ktn/4hl4txajdhqwrs34l70c"
+    },
+    {
+      name: "ktn/576zvewjkp31t7ib59bk"
+    },
+    {
+      name: "ktn/0zmlok6n7yaw2vmpc6ky"
+    },
+    {
+      name: "ktn/nzm4ezzpxhow4i3k0hts"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -1742,7 +1766,7 @@
         markImportant: true,
         category: "promotions",
         labels: [
-          "*InBucket"
+          "ktn/0zmlok6n7yaw2vmpc6ky"
         ],
         forward: "jbtaff@gmail.com"
       }
@@ -1975,6 +1999,83 @@
         archive: true,
         labels: [
           "ktn/49tyujhfa96kbu2802d7"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "newsletter@adafruitdaily.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/ax1j36meiwfv952qkc7t"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "info@hrcga.org"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/xqc2vpp9g31xvfxqc262"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "fullstackfocus@mail.beehiiv.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/hw7yajxo95kkt5tv34n1"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "no-reply@principles.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/zp161pr1sc4h7oazas29"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "priyankavergadia@substack.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/4hl4txajdhqwrs34l70c"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "*@thecolumbusite.net"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/576zvewjkp31t7ib59bk"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "awaisaftab@substack.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/nzm4ezzpxhow4i3k0hts"
         ]
       }
     }
