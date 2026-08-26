@@ -446,6 +446,27 @@
     {
       name: "ktn/nzm4ezzpxhow4i3k0hts"
     },
+    {
+      name: "ktn/qu64x5k41h1vtwb7vbqi"
+    },
+    {
+      name: "ktn/rcvkk2eq9is79vq7v01a"
+    },
+    {
+      name: "ktn/jx51hdx26x8eyqxzn4ic"
+    },
+    {
+      name: "ktn/j1cj6l2u0sjddczmikdp"
+    },
+    {
+      name: "ktn/6jioebtzi6x5isz9vzb3"
+    },
+    {
+      name: "ktn/5bsvou89889kc5psey6h"
+    },
+    {
+      name: "ktn/cpzyabz6nmu41zylmdk5"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2070,12 +2091,90 @@
     },
     {
       filter: {
+        from: "welcome@openrouter.ai"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/qu64x5k41h1vtwb7vbqi"
+        ]
+      }
+    },
+    {
+      filter: {
         from: "awaisaftab@substack.com"
       },
       actions: {
         archive: true,
         labels: [
           "ktn/nzm4ezzpxhow4i3k0hts"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "DoNotReply@rewards-militarystar.com"
+      },
+      actions: {
+        labels: [
+          "C/errands",
+          "C/awp"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "no-reply@principles.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/jx51hdx26x8eyqxzn4ic"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "no-reply@email.claude.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/j1cj6l2u0sjddczmikdp"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "julia@wizardzines.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/6jioebtzi6x5isz9vzb3"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "info@email.philips-hue.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/5bsvou89889kc5psey6h"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "CloudPlatform-noreply@google.com",
+        subject: "Leader's Digest"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/cpzyabz6nmu41zylmdk5"
         ]
       }
     }
