@@ -437,6 +437,9 @@
     {
       name: "ktn/5bsvou89889kc5psey6h"
     },
+    {
+      name: "ktn/cpzyabz6nmu41zylmdk5"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2056,6 +2059,18 @@
         archive: true,
         labels: [
           "ktn/5bsvou89889kc5psey6h"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "CloudPlatform-noreply@google.com",
+        subject: "Leader's Digest"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/cpzyabz6nmu41zylmdk5"
         ]
       }
     }
