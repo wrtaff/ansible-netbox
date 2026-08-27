@@ -2338,7 +2338,7 @@
     },
     {
       filter: {
-        from: "googlecommunityteam-noreply@google.com"
+        from: "googlecommunityteam-noreply@google.com OR jay-jweusa.com@shared1.ccsend.com"
       },
       actions: {
         archive: true,
