@@ -1,9 +1,12 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        2.0
+# Version:        2.1
 # Author:         Antigravity
-# Last Modified:  2026-08-17
-# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029, #4186, #4308
+# Last Modified:  2026-08-27
+# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029, #4186, #4308, #4426
+#
+# Update 2.1:
+#     - Add cdpod, cdpgd, and cdpcd aliases to agent runner .bashrc settings (Trac #4426).
 #
 # Update 2.0:
 #     - Deploy systemd drop-ins for apt-daily.service and apt-daily-upgrade.service
@@ -466,6 +469,9 @@
           alias cdpc='clear; cd $HOME/pops; claude'
           alias cdpo='clear; cd $HOME/pops; opencode'
           alias cdpg='clear; cd $HOME/pops; agy'
+          alias cdpgd='clear; cd $HOME/pops; agy --dangerously-skip-permissions'
+          alias cdpod='clear; cd $HOME/pops; opencode --dangerously-skip-permissions'
+          alias cdpcd='clear; cd $HOME/pops; claude --dangerously-skip-permissions'
 
           # Fleet readiness preflight (Trac #4026). Read-only; 'rtwf' merges
           # outstanding agent/* branches first. Harness-agnostic entry point:

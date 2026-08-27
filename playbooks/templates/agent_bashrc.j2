@@ -32,6 +32,13 @@ alias cdp='cd $HOME/pops'
 alias cdpc='clear; cd $HOME/pops; claude'
 alias cdpo='clear; cd $HOME/pops; opencode'
 alias cdpg='clear; cd $HOME/pops; agy'
+alias cdpgd='clear; cd $HOME/pops; agy --dangerously-skip-permissions'
+alias cdpod='clear; cd $HOME/pops; opencode --dangerously-skip-permissions'
+alias cdpcd='clear; cd $HOME/pops; claude --dangerously-skip-permissions'
+
+# Fleet readiness preflight (Trac #4026)
+alias rtw='$HOME/pops/scripts/ready-to-work.sh'
+alias rtwf='$HOME/pops/scripts/ready-to-work.sh --merge'
 
 # BEGIN ANSIBLE MANAGED BLOCK: Agent Sync Check
 # Run agent sync check on session start (for Antigravity, OpenCode, and human sessions)
