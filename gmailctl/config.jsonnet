@@ -488,6 +488,9 @@
     {
       name: "ktn/qvy2voq4e9t3vepeijdg"
     },
+    {
+      name: "ktn/34enmwryw7wuytnsf3ud"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2336,6 +2339,39 @@
     {
       filter: {
         from: "veteransaffairs@messages.va.gov"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/qvy2voq4e9t3vepeijdg"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "hello@tailscale.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/34enmwryw7wuytnsf3ud"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "home-assistant@ghost.io"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/5bsvou89889kc5psey6h"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "USNAAlumniAssociationandFoundation@usna.com"
       },
       actions: {
         archive: true,
