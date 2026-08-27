@@ -453,6 +453,7 @@
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0644'
+      tags: [bashrc]
 
     - name: Ensure Agent Runner path, aliases, and sync check are in .bashrc
       ansible.builtin.blockinfile:
@@ -487,6 +488,7 @@
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0644'
+      tags: [bashrc]
 
     - name: Create apt-daily systemd drop-in directories
       ansible.builtin.file:
