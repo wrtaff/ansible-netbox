@@ -467,6 +467,15 @@
     {
       name: "ktn/cpzyabz6nmu41zylmdk5"
     },
+    {
+      name: "ktn/0kq2cghrqtud48cmzt02"
+    },
+    {
+      name: "ktn/2h4uqgpjh3sprqzgzcqi"
+    },
+    {
+      name: "ktn/l7g2tge1ik9mq7xq72vl"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2175,6 +2184,39 @@
         archive: true,
         labels: [
           "ktn/cpzyabz6nmu41zylmdk5"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "googlehome-devs-noreply@google.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/0kq2cghrqtud48cmzt02"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "msc-reply@moaa.org"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/2h4uqgpjh3sprqzgzcqi"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "news@defensenews.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/l7g2tge1ik9mq7xq72vl"
         ]
       }
     }

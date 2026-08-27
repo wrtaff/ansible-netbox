@@ -139,7 +139,7 @@ def main():
     user = os.getenv("FRESHRSS_USER")
     passwd = os.getenv("FRESHRSS_PASSWORD")
 
-    if not args.use-playwright and user and passwd:
+    if not args.use_playwright and user and passwd:
         try:
             add_feed_via_greader_api(args.base_url, user, passwd, args.feed_url, args.title, args.category)
             return
