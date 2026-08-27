@@ -1801,6 +1801,19 @@
     },
     {
       filter: {
+        from: "order-update@amazon.com"
+      },
+      actions: {
+        archive: true,
+        markImportant: false,
+        category: "updates",
+        labels: [
+          "*InBucket"
+        ]
+      }
+    },
+    {
+      filter: {
         from: "boxoffice@springeroperahouse.org"
       },
       actions: {
