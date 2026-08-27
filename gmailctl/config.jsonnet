@@ -485,6 +485,9 @@
     {
       name: "ktn/zcp49r0tpzzn5mqbt49l"
     },
+    {
+      name: "ktn/qvy2voq4e9t3vepeijdg"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2303,6 +2306,28 @@
         archive: true,
         labels: [
           "ktn/zcp49r0tpzzn5mqbt49l"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "googlecommunityteam-noreply@google.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/0zmlok6n7yaw2vmpc6ky"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "veteransaffairs@messages.va.gov"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/qvy2voq4e9t3vepeijdg"
         ]
       }
     }
