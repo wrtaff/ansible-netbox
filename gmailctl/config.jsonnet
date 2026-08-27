@@ -2291,7 +2291,7 @@
     },
     {
       filter: {
-        from: "googleaistudio-noreply@google.com"
+        from: "googleaistudio-noreply@google.com OR googlecloud@google.com"
       },
       actions: {
         archive: true,
