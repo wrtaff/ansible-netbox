@@ -1,0 +1,33 @@
+# Playbook: Configure Trac Apache ServerAlias
+# Path: /home/will/ansible-netbox/playbooks/configure_trac_apache_serveralias.yml
+# Purpose: Deploys the updated Trac Apache virtual host configuration with explicit ServerAlias entries.
+# Prerequisites: 
+#   - Trac server (trac-lxc) reachable via SSH.
+# Usage: ansible-playbook -i inventory.ini playbooks/configure_trac_apache_serveralias.yml --vault-password-file ~/.vault_pass
+# Trac Ticket: http://trac.gafla.us.com/ticket/4197
+---
+- name: Configure Trac Apache ServerAlias
+  hosts: trac-lxc
+  become: true
+  vars_files:
+    - ../vault.yml
+  tasks:
+    - name: Deploy updated Apache virtual host configuration
+      ansible.builtin.template:
+        src: ../roles/trac_server/templates/trac-apache.conf.j2
+        dest: /etc/apache2/sites-available/trac.conf
+        owner: root
+        group: root
+        mode: '0644'
+      register: trac_apache_conf
+
+    - name: Ensure Apache configuration is valid
+      ansible.builtin.command: apache2ctl configtest
+      changed_when: false
+      when: trac_apache_conf.changed
+
+    - name: Reload Apache service
+      ansible.builtin.service:
+        name: apache2
+        state: reloaded
+      when: trac_apache_conf.changed
