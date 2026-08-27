@@ -476,6 +476,21 @@
     {
       name: "ktn/l7g2tge1ik9mq7xq72vl"
     },
+    {
+      name: "ktn/5e9f15pu1onssg6t1a6v"
+    },
+    {
+      name: "ktn/tpx2lh0v8r9rrdfq3yt2"
+    },
+    {
+      name: "ktn/zcp49r0tpzzn5mqbt49l"
+    },
+    {
+      name: "ktn/qvy2voq4e9t3vepeijdg"
+    },
+    {
+      name: "ktn/34enmwryw7wuytnsf3ud"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -1789,6 +1804,19 @@
     },
     {
       filter: {
+        from: "order-update@amazon.com"
+      },
+      actions: {
+        archive: true,
+        markImportant: false,
+        category: "updates",
+        labels: [
+          "*InBucket"
+        ]
+      }
+    },
+    {
+      filter: {
         from: "boxoffice@springeroperahouse.org"
       },
       actions: {
@@ -2045,6 +2073,28 @@
     },
     {
       filter: {
+        from: "noreply@adafruit.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/ax1j36meiwfv952qkc7t"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "newsletter@seeed.cc"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/ax1j36meiwfv952qkc7t"
+        ]
+      }
+    },
+    {
+      filter: {
         from: "info@hrcga.org"
       },
       actions: {
@@ -2200,7 +2250,7 @@
     },
     {
       filter: {
-        from: "msc-reply@moaa.org"
+        from: "msc-reply@moaa.org OR msc@moaa.org"
       },
       actions: {
         archive: true,
@@ -2217,6 +2267,127 @@
         archive: true,
         labels: [
           "ktn/l7g2tge1ik9mq7xq72vl"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "store-news@amazon.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/0zmlok6n7yaw2vmpc6ky"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "info@columbusjazzsociety.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/5e9f15pu1onssg6t1a6v"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "google-health-noreply@google.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/0zmlok6n7yaw2vmpc6ky"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "googleaistudio-noreply@google.com OR googlecloud@google.com OR googlenewsinitiative-noreply@google.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/cpzyabz6nmu41zylmdk5"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "academy@nowackhoward.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/tpx2lh0v8r9rrdfq3yt2"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "customerservice-springcreekmodeltrains.com@shared1.ccsend.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/zcp49r0tpzzn5mqbt49l"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "googlecommunityteam-noreply@google.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/0zmlok6n7yaw2vmpc6ky"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "veteransaffairs@messages.va.gov"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/qvy2voq4e9t3vepeijdg"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "hello@tailscale.com OR updates@ui.com OR marketing@netboxlabs.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/34enmwryw7wuytnsf3ud"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "home-assistant@ghost.io"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/5bsvou89889kc5psey6h"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "USNAAlumniAssociationandFoundation@usna.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/qvy2voq4e9t3vepeijdg"
         ]
       }
     }
