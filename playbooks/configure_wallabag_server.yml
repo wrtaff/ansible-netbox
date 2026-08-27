@@ -1,0 +1,19 @@
+# ==============================================================================
+# Filename:       playbooks/configure_wallabag_server.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-08-27
+#
+# Purpose:
+#     Configures Wallabag scraping engine (Graby) and SSRF whitelist settings
+#     on host ynh2 (CT 305 on pve2) to enable archiving local KTN newsletters
+#     and LAN articles.
+#     Ref: Trac #4315.
+# ==============================================================================
+---
+- name: Configure Wallabag Server & Graby Scraper Settings
+  hosts: ynh2
+  gather_facts: no
+  become: yes
+  roles:
+    - wallabag_server
