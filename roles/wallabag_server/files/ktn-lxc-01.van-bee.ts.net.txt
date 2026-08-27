@@ -1,0 +1,15 @@
+# Site config for Kill the Newsletter! (KTN) on ktn-lxc-01.van-bee.ts.net
+title: //title
+title: //article[@class="entry-content"]//h1
+title: //h1
+
+body: //article[@class="entry-content"]
+body: //article
+body: //body
+
+# Clean up tracking pixels and hidden previews
+strip: //img[@width="1" and @height="1"]
+strip: //img[contains(@src, "p.gif")]
+strip: //div[@class="preview"]
+
+test_url: https://ktn-lxc-01.van-bee.ts.net/feeds/8dhanwh8seounh4oybl5/entries/4wto1tss3y7136zbgbfn.html

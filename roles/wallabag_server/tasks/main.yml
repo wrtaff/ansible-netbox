@@ -1,0 +1,31 @@
+---
+# Tasks for Wallabag server configuration and Graby scraping rules on YunoHost (ynh2)
+
+- name: Deploy Graby site config for KTN local and Tailscale endpoints
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/var/www/wallabag2/vendor/j0k3r/graby-site-config/{{ item }}"
+    owner: wallabag2
+    group: www-data
+    mode: "0640"
+  loop:
+    - ktn-lxc-01.home.arpa.txt
+    - ktn-lxc-01.van-bee.ts.net.txt
+
+- name: Whitelist KTN custom HTTP port 8088 in httplug-ssrf-plugin
+  ansible.builtin.replace:
+    path: /var/www/wallabag2/vendor/j0k3r/httplug-ssrf-plugin/src/Options.php
+    regexp: "'port' => \\['80', '443', '8080'\\],"
+    replace: "'port' => ['80', '443', '8080', '8088'],"
+
+- name: Unblacklist private LAN CIDRs from httplug-ssrf-plugin
+  ansible.builtin.replace:
+    path: /var/www/wallabag2/vendor/j0k3r/httplug-ssrf-plugin/src/Options.php
+    regexp: "^\\s*'192\\.168\\.0\\.0/16',\\n"
+    replace: ""
+
+- name: Unblacklist Tailscale mesh CIDRs from httplug-ssrf-plugin
+  ansible.builtin.replace:
+    path: /var/www/wallabag2/vendor/j0k3r/httplug-ssrf-plugin/src/Options.php
+    regexp: "^\\s*'100\\.64\\.0\\.0/10',\\n"
+    replace: ""
