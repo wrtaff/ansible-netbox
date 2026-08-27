@@ -2084,6 +2084,17 @@
     },
     {
       filter: {
+        from: "newsletter@seeed.cc"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/ax1j36meiwfv952qkc7t"
+        ]
+      }
+    },
+    {
+      filter: {
         from: "info@hrcga.org"
       },
       actions: {
@@ -2294,7 +2305,7 @@
     },
     {
       filter: {
-        from: "googleaistudio-noreply@google.com OR googlecloud@google.com"
+        from: "googleaistudio-noreply@google.com OR googlecloud@google.com OR googlenewsinitiative-noreply@google.com"
       },
       actions: {
         archive: true,
