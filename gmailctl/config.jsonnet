@@ -2360,7 +2360,7 @@
     },
     {
       filter: {
-        from: "hello@tailscale.com"
+        from: "hello@tailscale.com OR updates@ui.com OR marketing@netboxlabs.com"
       },
       actions: {
         archive: true,
