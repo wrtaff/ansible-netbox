@@ -495,7 +495,6 @@
       name: "ktn/w5usx0nueqh0uxtxkle5"
     },
 
-
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
     },
@@ -2231,8 +2230,14 @@
     },
     {
       filter: {
-        from: "CloudPlatform-noreply@google.com",
-        subject: "Leader's Digest"
+        and: [
+          {
+            from: "CloudPlatform-noreply@google.com"
+          },
+          {
+            subject: "Leader's Digest"
+          }
+        ]
       },
       actions: {
         archive: true,
