@@ -491,6 +491,9 @@
     {
       name: "ktn/34enmwryw7wuytnsf3ud"
     },
+    {
+      name: "ktn/w5usx0nueqh0uxtxkle5"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2227,8 +2230,14 @@
     },
     {
       filter: {
-        from: "CloudPlatform-noreply@google.com",
-        subject: "Leader's Digest"
+        and: [
+          {
+            from: "CloudPlatform-noreply@google.com"
+          },
+          {
+            subject: "Leader's Digest"
+          }
+        ]
       },
       actions: {
         archive: true,
@@ -2388,6 +2397,17 @@
         archive: true,
         labels: [
           "ktn/qvy2voq4e9t3vepeijdg"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "donotreply@email.schwab.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/w5usx0nueqh0uxtxkle5"
         ]
       }
     }
