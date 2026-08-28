@@ -491,6 +491,10 @@
     {
       name: "ktn/34enmwryw7wuytnsf3ud"
     },
+    {
+      name: "ktn/w5usx0nueqh0uxtxkle5"
+    },
+
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2338,7 +2342,7 @@
     },
     {
       filter: {
-        from: "googlecommunityteam-noreply@google.com"
+        from: "googlecommunityteam-noreply@google.com OR jay-jweusa.com@shared1.ccsend.com OR googlestore-noreply@google.com"
       },
       actions: {
         archive: true,
@@ -2349,7 +2353,7 @@
     },
     {
       filter: {
-        from: "veteransaffairs@messages.va.gov"
+        from: "veteransaffairs@messages.va.gov OR TRICARE@news.dha.mil"
       },
       actions: {
         archive: true,
@@ -2360,7 +2364,7 @@
     },
     {
       filter: {
-        from: "hello@tailscale.com OR updates@ui.com OR marketing@netboxlabs.com"
+        from: "hello@tailscale.com OR updates@ui.com OR marketing@netboxlabs.com OR hello@truenas.com"
       },
       actions: {
         archive: true,
@@ -2390,7 +2394,19 @@
           "ktn/qvy2voq4e9t3vepeijdg"
         ]
       }
+    },
+    {
+      filter: {
+        from: "donotreply@email.schwab.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/w5usx0nueqh0uxtxkle5"
+        ]
+      }
     }
   ]
 }
+
 
