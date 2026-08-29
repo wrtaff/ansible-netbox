@@ -1,0 +1,121 @@
+# ==============================================================================
+# Filename:       roles/printing/tasks/main.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-08-29
+# Trac Ticket:    #4436 (Provision network printing via Ansible on limbo-f0 and update WWOS documentation)
+#
+# Purpose:
+#     Main task file for configuring CUPS and lab network printer queues.
+# ==============================================================================
+---
+- name: Update apt package cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags:
+    - printing_setup
+
+- name: Install CUPS and printer driver packages
+  ansible.builtin.apt:
+    name: "{{ printing_packages }}"
+    state: present
+  tags:
+    - printing_setup
+
+- name: Ensure CUPS services are running and enabled at boot
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop: "{{ printing_services }}"
+  tags:
+    - printing_setup
+
+- name: Configure CUPS web interface listening (if enabled)
+  ansible.builtin.lineinfile:
+    path: /etc/cups/cupsd.conf
+    regexp: '^#?Listen 0.0.0.0:631'
+    line: 'Listen 0.0.0.0:631'
+    backup: yes
+  when: enable_cups_web_access | bool
+  notify: Restart cups
+  tags:
+    - printing_config
+
+- name: Allow CUPS web interface administration from local network (if enabled)
+  ansible.builtin.blockinfile:
+    path: /etc/cups/cupsd.conf
+    block: |
+      <Location />
+        Order allow,deny
+        Allow @LOCAL
+      </Location>
+      <Location /admin>
+        Order allow,deny
+        Allow @LOCAL
+      </Location>
+      <Location /admin/conf>
+        AuthType Basic
+        Require user @SYSTEM
+        Order allow,deny
+        Allow @LOCAL
+      </Location>
+    marker: "# {mark} ANSIBLE MANAGED BLOCK FOR CUPS LOCAL ACCESS"
+    backup: yes
+  when: enable_cups_web_access | bool
+  notify: Restart cups
+  tags:
+    - printing_config
+
+- name: Copy role PPD files to target workstation
+  ansible.builtin.copy:
+    src: "{{ item.ppd_file }}"
+    dest: "/tmp/{{ item.ppd_target_filename }}"
+    mode: '0644'
+  when: item.ppd_file is defined and item.ppd_file != ''
+  loop: "{{ printers }}"
+  loop_control:
+    loop_var: item
+  tags:
+    - printing_config
+
+- name: Add network printers using lpadmin
+  ansible.builtin.command: >-
+    lpadmin -p {{ item.name }}
+    -v {{ item.device_uri }}
+    -E
+    {% if item.device_uri.startswith('ipp://') %}
+    -m everywhere
+    {% elif item.ppd_file is defined and item.ppd_file != '' %}
+    -P /tmp/{{ item.ppd_target_filename }}
+    {% else %}
+    -m raw
+    {% endif %}
+  args:
+    creates: "/etc/cups/ppd/{{ item.name }}.ppd"
+  register: add_printer_result
+  changed_when: add_printer_result.rc != 0 and "printer already exists" not in add_printer_result.stderr
+  failed_when: add_printer_result.rc != 0 and "printer already exists" not in add_printer_result.stderr
+  loop: "{{ printers }}"
+  tags:
+    - printing_config
+
+- name: Clean up temporary PPD files on target workstation
+  ansible.builtin.file:
+    path: "/tmp/{{ item.ppd_target_filename }}"
+    state: absent
+  when: item.ppd_file is defined and item.ppd_file != ''
+  loop: "{{ printers }}"
+  loop_control:
+    loop_var: item
+  tags:
+    - printing_cleanup
+
+- name: Set default printer queue
+  ansible.builtin.command: "lpoptions -d {{ item.name }}"
+  changed_when: true
+  when: item.is_default | default(false) | bool
+  loop: "{{ printers }}"
+  tags:
+    - printing_config
