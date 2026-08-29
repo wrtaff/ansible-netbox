@@ -58,6 +58,29 @@
   tags:
     - gdrive_printing_setup
 
+- name: Install Google Drive spool uploader
+  ansible.builtin.copy:
+    src: gdrive_spool_uploader.py
+    dest: /usr/local/bin/gdrive_spool_uploader.py
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - gdrive_printing_setup
+
+- name: Install Google Drive spool watcher units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - gdrive-spool-watcher.path
+    - gdrive-spool-watcher.service
+  tags:
+    - gdrive_printing_setup
+
 - name: Ensure CUPS services are running and enabled at boot
   ansible.builtin.systemd:
     name: "{{ item }}"

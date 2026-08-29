@@ -1,0 +1,16 @@
+[Unit]
+Description=Upload Google Drive print spool
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ gdrive_uploader_user }}
+Group={{ gdrive_uploader_group }}
+UMask=0002
+ExecStart=/usr/local/bin/gdrive_spool_uploader.py --spool-root {{ gdrive_spool_root }} --folder-id {{ gdrive_folder_id }} --credentials /etc/gdrive-uploader/service-account.json
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths={{ gdrive_spool_root }}
