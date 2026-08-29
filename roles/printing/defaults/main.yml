@@ -29,6 +29,7 @@ gdrive_queue_name: "Print_to_Google_Drive"
 gdrive_folder_id: "1Ubrwq-ZhRiCuADsiaNC9uplvcUXr0lhX"
 gdrive_uploader_user: "gdrive-uploader"
 gdrive_uploader_group: "gdrive-uploader"
+gdrive_print_enabled: false
 
 printers:
   - name: "HP_LaserJet_P2055dn"

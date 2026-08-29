@@ -58,6 +58,38 @@
   tags:
     - gdrive_printing_setup
 
+- name: Install cups-pdf package for Google Drive printing
+  ansible.builtin.apt:
+    name: cups-pdf
+    state: present
+  when: gdrive_print_enabled | bool
+  tags:
+    - gdrive_printing_setup
+
+- name: Configure cups-pdf output for Google Drive printing
+  ansible.builtin.template:
+    src: cups-pdf.conf.j2
+    dest: /etc/cups/cups-pdf.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: gdrive_print_enabled | bool
+  notify: Restart cups
+  tags:
+    - gdrive_printing_setup
+
+- name: Register Google Drive CUPS-PDF queue
+  ansible.builtin.command: >-
+    lpadmin -p {{ gdrive_queue_name }}
+    -v cups-pdf:/
+    -m lsb/usr/cups-pdf/CUPS-PDF_opt.ppd
+    -E
+  args:
+    creates: "/etc/cups/ppd/{{ gdrive_queue_name }}.ppd"
+  when: gdrive_print_enabled | bool
+  tags:
+    - gdrive_printing_setup
+
 - name: Install Google Drive spool uploader
   ansible.builtin.copy:
     src: gdrive_spool_uploader.py
