@@ -68,8 +68,8 @@
 - name: Raise feed visualization rate limit for self-hosted instances
   ansible.builtin.replace:
     path: "{{ ktn_root }}/source/index.mts"
-    regexp: 'count" > 10\b'
-    replace: 'count" > 999999999'
+    regexp: '\.count > 10\b'
+    replace: '.count > 999999999'
   register: ktn_ratelimit_patch
 
 - name: Emit LAN HTTP endpoint in Atom feed XML links
@@ -97,7 +97,31 @@
   ansible.builtin.replace:
     path: "{{ ktn_root }}/source/index.mts"
     regexp: 'const feedEntry = application\.database\.get<\{\s*content: string;\s*\}\>\(\s*sql`\s*select "feedEntries"\."content" as "content"\s*from "feedEntries"\s*where\s*"feedEntries"\."feed" = \$\{request\.state\.feed\.id\} and\s*"feedEntries"\."publicId" = \$\{request\.pathname\.feedEntryPublicId\};\s*`,\s*\);\s*if \(feedEntry === undefined\) return;\s*response\s*\.setHeader\(\s*"Content-Security-Policy",\s*"default-src ''self''; img-src \*; style-src ''self'' ''unsafe-inline''; frame-src ''none''; object-src ''none''; form-action ''self''; frame-ancestors ''none''",\s*\)\s*\.setHeader\("Cross-Origin-Embedder-Policy", "unsafe-none"\)\s*\.send\(feedEntry\.content\);'
-    replace: "const feedEntry = application.database.get<{\n      title: string;\n      content: string;\n    }>(\n      sql`\n        select \"feedEntries\".\"title\" as \"title\", \"feedEntries\".\"content\" as \"content\"\n        from \"feedEntries\"\n        where\n          \"feedEntries\".\"feed\" = ${request.state.feed.id} and\n          \"feedEntries\".\"publicId\" = ${request.pathname.feedEntryPublicId};\n      `,\n    );\n    if (feedEntry === undefined) return;\n    const escapedTitle = feedEntry.title.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\"', '&quot;');\n    const bodyMatch = feedEntry.content.match(/<body[^>]*>([\\s\\S]*?)<\\/body>/i);\n    const innerBody = bodyMatch ? bodyMatch[1] : feedEntry.content;\n    const styles = (feedEntry.content.match(/<style[^>]*>[\\s\\S]*?<\\/style>/gi) ?? []).join('\\n');\n    response\n      .setHeader(\n        \"Content-Security-Policy\",\n        \"default-src 'self'; img-src *; style-src 'self' 'unsafe-inline'; frame-src 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'none'\",\n      )\n      .setHeader(\"Cross-Origin-Embedder-Policy\", \"unsafe-none\")\n      .send(`<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"/><title>${escapedTitle}</title><style>body{max-width:800px;margin:20px auto;padding:0 20px;font-family:system-ui,sans-serif;line-height:1.6}article{width:100%}img{max-width:100%;height:auto}table{max-width:100%}</style>${styles}</head><body><article class=\"entry-content\"><h1>${escapedTitle}</h1>${innerBody}</article></body></html>`);"
+    replace: |
+      const feedEntry = application.database.get<{
+            title: string;
+            content: string;
+          }>(
+            sql`
+              select "feedEntries"."title" as "title", "feedEntries"."content" as "content"
+              from "feedEntries"
+              where
+                "feedEntries"."feed" = ${request.state.feed.id} and
+                "feedEntries"."publicId" = ${request.pathname.feedEntryPublicId};
+            `,
+          );
+          if (feedEntry === undefined) return;
+          const escapedTitle = feedEntry.title.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+          const bodyMatch = feedEntry.content.match(/<body[^>]*>([\\s\\S]*?)<\\/body>/i);
+          const innerBody = bodyMatch ? bodyMatch[1] : feedEntry.content;
+          const styles = (feedEntry.content.match(/<style[^>]*>[\\s\\S]*?<\\/style>/gi) ?? []).join('\\n');
+          response
+            .setHeader(
+              "Content-Security-Policy",
+              "default-src 'self'; img-src *; style-src 'self' 'unsafe-inline'; frame-src 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'none'",
+            )
+            .setHeader("Cross-Origin-Embedder-Policy", "unsafe-none")
+            .send(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>${escapedTitle}</title><style>body{max-width:800px;margin:20px auto;padding:0 20px;font-family:system-ui,sans-serif;line-height:1.6}article{width:100%}img{max-width:100%;height:auto}table{max-width:100%}</style>${styles}</head><body><article class="entry-content"><h1>${escapedTitle}</h1>${innerBody}</article></body></html>`);
   register: ktn_entry_article_patch
 
 - name: Check whether KTN dependencies are installed

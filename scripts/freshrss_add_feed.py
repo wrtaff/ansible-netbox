@@ -2,27 +2,31 @@
 """
 ================================================================================
 Filename:       scripts/freshrss_add_feed.py
-Version:        1.0
-Author:         Gemini CLI / opencode
-Last Modified:  2026-08-25
-Context:        http://trac.gafla.us.com/ticket/4398
+Version:        1.1
+Author:         Gemini CLI / opencode / Antigravity
+Last Modified:  2026-08-29
+Context:        http://trac.gafla.us.com/ticket/4437 (ref #4398)
 
 Purpose:
     Automate adding a feed subscription to FreshRSS.
     Supports:
-    1. Direct FreshRSS Google Reader API (when FRESHRSS_USER & FRESHRSS_PASSWORD set)
+    1. Direct FreshRSS Google Reader API (when FRESHRSS_USER & FRESHRSS_PASSWORD set in env or ~/.config/mcp-secrets.env)
     2. Playwright Browser Automation (local browser or remote CDP connection)
     3. Web UI form submission fallback
 
+Secrets:
+    FRESHRSS_USER       (~/.config/mcp-secrets.env, vault.yml) — FreshRSS account username (default: will)
+    FRESHRSS_PASSWORD   (~/.config/mcp-secrets.env, vault.yml) — FreshRSS account password or API token
+
 Usage:
     # Google Reader API method:
-    FRESHRSS_USER=will FRESHRSS_PASSWORD=secret python3 freshrss_add_feed.py \\
-        --feed-url "http://ktn-lxc-01.home.arpa:8088/feeds/49tyujhfa96kbu2802d7.xml" \\
+    python3 freshrss_add_feed.py \
+        --feed-url "http://ktn-lxc-01.home.arpa:8088/feeds/49tyujhfa96kbu2802d7.xml" \
         --title "Columbus Ledger-Enquirer"
 
     # Playwright browser automation method (e.g. over CDP):
-    python3 freshrss_add_feed.py \\
-        --feed-url "http://ktn-lxc-01.home.arpa:8088/feeds/49tyujhfa96kbu2802d7.xml" \\
+    python3 freshrss_add_feed.py \
+        --feed-url "http://ktn-lxc-01.home.arpa:8088/feeds/49tyujhfa96kbu2802d7.xml" \
         --use-playwright --cdp-url "http://127.0.0.1:9222"
 ================================================================================
 """
@@ -36,6 +40,24 @@ import requests
 
 
 DEFAULT_FRESHRSS_BASE_URL = "https://ynh2.van-bee.ts.net/freshrss"
+
+
+def load_mcp_secrets():
+    """Load credentials from ~/.config/mcp-secrets.env if present."""
+    secrets_path = os.path.expanduser("~/.config/mcp-secrets.env")
+    if os.path.exists(secrets_path):
+        try:
+            with open(secrets_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"\'')
+                        if k not in os.environ:
+                            os.environ[k] = v
+        except Exception as e:
+            print(f"[!] Warning: Failed reading {secrets_path}: {e}", file=sys.stderr)
 
 
 def add_feed_via_greader_api(base_url, username, password, feed_url, title=None, category=None):
@@ -126,6 +148,8 @@ async def add_feed_via_playwright(base_url, feed_url, title=None, category=None,
 
 
 def main():
+    load_mcp_secrets()
+
     parser = argparse.ArgumentParser(description="Add a feed subscription to FreshRSS.")
     parser.add_argument("--feed-url", required=True, help="URL of the Atom/RSS feed to subscribe")
     parser.add_argument("--title", help="Optional title for the feed")
@@ -136,7 +160,7 @@ def main():
     parser.add_argument("--headless", action="store_true", default=True, help="Run Playwright headlessly")
     args = parser.parse_args()
 
-    user = os.getenv("FRESHRSS_USER")
+    user = os.getenv("FRESHRSS_USER") or "will"
     passwd = os.getenv("FRESHRSS_PASSWORD")
 
     if not args.use_playwright and user and passwd:
