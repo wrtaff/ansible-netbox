@@ -494,6 +494,9 @@
     {
       name: "ktn/w5usx0nueqh0uxtxkle5"
     },
+    {
+      name: "ktn/5vi1vhbgfwjanqtzeuyf"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2408,6 +2411,17 @@
         archive: true,
         labels: [
           "ktn/w5usx0nueqh0uxtxkle5"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "eric@firecrawl.dev"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/5vi1vhbgfwjanqtzeuyf"
         ]
       }
     }
