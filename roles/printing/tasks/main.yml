@@ -23,6 +23,41 @@
   tags:
     - printing_setup
 
+- name: Create Google Drive uploader group
+  ansible.builtin.group:
+    name: "{{ gdrive_uploader_group }}"
+    system: yes
+    state: present
+  tags:
+    - gdrive_printing_setup
+
+- name: Create Google Drive uploader user
+  ansible.builtin.user:
+    name: "{{ gdrive_uploader_user }}"
+    group: "{{ gdrive_uploader_group }}"
+    system: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+    state: present
+  tags:
+    - gdrive_printing_setup
+
+- name: Create Google Drive spool directories
+  ansible.builtin.file:
+    path: "{{ gdrive_spool_root }}/{{ item }}"
+    state: directory
+    owner: root
+    group: "{{ gdrive_uploader_group }}"
+    mode: '0775'
+  loop:
+    - incoming
+    - processing
+    - completed
+    - quarantine
+    - state
+  tags:
+    - gdrive_printing_setup
+
 - name: Ensure CUPS services are running and enabled at boot
   ansible.builtin.systemd:
     name: "{{ item }}"

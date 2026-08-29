@@ -24,6 +24,12 @@ printing_services:
 
 enable_cups_web_access: false
 
+gdrive_spool_root: "/var/spool/gdrive"
+gdrive_queue_name: "Print_to_Google_Drive"
+gdrive_folder_id: "1Ubrwq-ZhRiCuADsiaNC9uplvcUXr0lhX"
+gdrive_uploader_user: "gdrive-uploader"
+gdrive_uploader_group: "gdrive-uploader"
+
 printers:
   - name: "HP_LaserJet_P2055dn"
     ip: "hp-laserjet.home.arpa"
