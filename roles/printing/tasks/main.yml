@@ -63,7 +63,7 @@
 
 - name: Install cups-pdf package for Google Drive printing
   ansible.builtin.apt:
-    name: cups-pdf
+    name: printer-driver-cups-pdf
     state: present
   when: gdrive_print_enabled | default(false) | bool
   tags:
@@ -214,3 +214,13 @@
   loop: "{{ printers }}"
   tags:
     - printing_config
+
+- name: Ensure Google Drive spool watcher path unit is running and enabled
+  ansible.builtin.systemd:
+    name: gdrive-spool-watcher.path
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  when: gdrive_print_enabled | default(false) | bool
+  tags:
+    - gdrive_printing_setup
