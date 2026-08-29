@@ -23,6 +23,101 @@
   tags:
     - printing_setup
 
+- name: Create Google Drive uploader group
+  ansible.builtin.group:
+    name: "{{ gdrive_uploader_group }}"
+    system: yes
+    state: present
+  tags:
+    - gdrive_printing_setup
+  when: gdrive_print_enabled | default(false) | bool
+
+- name: Create Google Drive uploader user
+  ansible.builtin.user:
+    name: "{{ gdrive_uploader_user }}"
+    group: "{{ gdrive_uploader_group }}"
+    system: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+    state: present
+  tags:
+    - gdrive_printing_setup
+  when: gdrive_print_enabled | default(false) | bool
+
+- name: Create Google Drive spool directories
+  ansible.builtin.file:
+    path: "{{ gdrive_spool_root }}/{{ item }}"
+    state: directory
+    owner: root
+    group: "{{ gdrive_uploader_group }}"
+    mode: '0775'
+  loop:
+    - incoming
+    - processing
+    - completed
+    - quarantine
+    - state
+  tags:
+    - gdrive_printing_setup
+  when: gdrive_print_enabled | default(false) | bool
+
+- name: Install cups-pdf package for Google Drive printing
+  ansible.builtin.apt:
+    name: printer-driver-cups-pdf
+    state: present
+  when: gdrive_print_enabled | default(false) | bool
+  tags:
+    - gdrive_printing_setup
+
+- name: Configure cups-pdf output for Google Drive printing
+  ansible.builtin.template:
+    src: cups-pdf.conf.j2
+    dest: /etc/cups/cups-pdf.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: gdrive_print_enabled | default(false) | bool
+  notify: Restart cups
+  tags:
+    - gdrive_printing_setup
+
+- name: Register Google Drive CUPS-PDF queue
+  ansible.builtin.command: >-
+    lpadmin -p {{ gdrive_queue_name }}
+    -v cups-pdf:/
+    -m lsb/usr/cups-pdf/CUPS-PDF_opt.ppd
+    -E
+  args:
+    creates: "/etc/cups/ppd/{{ gdrive_queue_name }}.ppd"
+  tags:
+    - gdrive_printing_setup
+  when: gdrive_print_enabled | default(false) | bool
+
+- name: Install Google Drive spool uploader
+  ansible.builtin.copy:
+    src: gdrive_spool_uploader.py
+    dest: /usr/local/bin/gdrive_spool_uploader.py
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - gdrive_printing_setup
+  when: gdrive_print_enabled | default(false) | bool
+
+- name: Install Google Drive spool watcher units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - gdrive-spool-watcher.path
+    - gdrive-spool-watcher.service
+  tags:
+    - gdrive_printing_setup
+  when: gdrive_print_enabled | default(false) | bool
+
 - name: Ensure CUPS services are running and enabled at boot
   ansible.builtin.systemd:
     name: "{{ item }}"
@@ -119,3 +214,13 @@
   loop: "{{ printers }}"
   tags:
     - printing_config
+
+- name: Ensure Google Drive spool watcher path unit is running and enabled
+  ansible.builtin.systemd:
+    name: gdrive-spool-watcher.path
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  when: gdrive_print_enabled | default(false) | bool
+  tags:
+    - gdrive_printing_setup

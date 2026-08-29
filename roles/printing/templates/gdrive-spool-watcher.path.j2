@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch Google Drive print spool
+
+[Path]
+DirectoryNotEmpty={{ gdrive_spool_root }}/incoming
+Unit=gdrive-spool-watcher.service
+
+[Install]
+WantedBy=multi-user.target
