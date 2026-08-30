@@ -1,0 +1,117 @@
+# Playbook: Manage Trac Reports
+# Path: /opt/netbox/ansible-netbox/playbooks/manage_trac_reports.yml
+# Purpose: Manages custom Trac SQL reports in /var/trac/trac_prod/db/trac.db.
+# Prerequisites:
+#   - Trac server (trac-lxc) must be reachable via SSH from athena.
+#   - sqlite3 installed on trac-lxc.
+# Usage: ansible-playbook playbooks/manage_trac_reports.yml -i inventory.ini
+# Trac Tickets: http://trac.gafla.us.com/ticket/4447, http://trac.gafla.us.com/ticket/3892
+
+- name: Manage Trac Reports
+  hosts: trac-lxc
+  become: true
+  vars:
+    trac_db_path: /var/trac/trac_prod/db/trac.db
+    trac_custom_reports:
+      - id: 31
+        title: "Jimmy's Work Queue (Active, Delegated, Blocked/Review)"
+        author: "jimmy"
+        description: "Tickets assigned to or involving the Jimmy AI assistant persona, grouped by execution lane (Active In Progress, Delegated/New, and Blocked/Review/Waiting)."
+        query: |
+          SELECT p.value AS __color__,
+             '1. Active / In Progress' AS __group__,
+             t.id AS ticket, t.summary, t.component, t.priority,
+             t.time AS created,
+             t.changetime AS _changetime,
+             t.reporter AS _reporter
+            FROM ticket t
+            LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+            WHERE t.status IN ('accepted', 'assigned')
+              AND t.owner = 'jimmy'
+          UNION ALL
+          SELECT p.value AS __color__,
+             '2. Delegated / Unacknowledged' AS __group__,
+             t.id AS ticket, t.summary, t.component, t.priority,
+             t.time AS created,
+             t.changetime AS _changetime,
+             t.reporter AS _reporter
+            FROM ticket t
+            LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+            WHERE t.status = 'new'
+              AND t.owner = 'jimmy'
+          UNION ALL
+          SELECT p.value AS __color__,
+             '3. Blocked / Waiting / Review' AS __group__,
+             t.id AS ticket, t.summary, t.component, t.priority,
+             t.time AS created,
+             t.changetime AS _changetime,
+             t.reporter AS _reporter
+            FROM ticket t
+            LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+            WHERE (t.status = 'review' OR t.keywords LIKE '%waiting-for%' OR t.keywords LIKE '%awp%')
+              AND (t.owner = 'jimmy' OR t.keywords LIKE '%jimmy%')
+            ORDER BY __group__, CAST(p.value AS integer), t.id
+
+  tasks:
+    - name: Back up Trac database before modifying reports
+      ansible.builtin.copy:
+        src: "{{ trac_db_path }}"
+        dest: "{{ trac_db_path }}.pre-reports-update"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0640"
+
+    - name: Ensure custom report records exist or are updated in Trac SQLite database
+      ansible.builtin.shell: |
+        set -euo pipefail
+        python3 - <<'EOF'
+        import sqlite3
+
+        db_path = "{{ trac_db_path }}"
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS report (
+                id integer PRIMARY KEY,
+                author text,
+                title text,
+                query text,
+                description text
+            );
+        """)
+
+        report_id = {{ item.id }}
+        author = """{{ item.author }}"""
+        title = """{{ item.title }}"""
+        query = """{{ item.query }}"""
+        description = """{{ item.description }}"""
+
+        cur.execute("SELECT id FROM report WHERE id = ?", (report_id,))
+        exists = cur.fetchone()
+
+        if exists:
+            cur.execute("""
+                UPDATE report
+                SET author = ?, title = ?, query = ?, description = ?
+                WHERE id = ?
+            """, (author, title, query, description, report_id))
+            print("report-updated")
+        else:
+            cur.execute("""
+                INSERT INTO report (id, author, title, query, description)
+                VALUES (?, ?, ?, ?, ?)
+            """, (report_id, author, title, query, description))
+            print("report-inserted")
+
+        conn.commit()
+        conn.close()
+        EOF
+      args:
+        executable: /bin/bash
+      loop: "{{ trac_custom_reports }}"
+      loop_control:
+        label: "Report {{ item.id }}: {{ item.title }}"
+      register: report_db_changes
+      changed_when: "'report-inserted' in report_db_changes.stdout or 'report-updated' in report_db_changes.stdout"
