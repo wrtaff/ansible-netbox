@@ -61,6 +61,16 @@
     - gdrive_printing_setup
   when: gdrive_print_enabled | default(false) | bool
 
+- name: Install Google API client Python packages for spool uploader
+  ansible.builtin.apt:
+    name:
+      - python3-google-auth
+      - python3-googleapi
+    state: present
+  when: gdrive_print_enabled | default(false) | bool
+  tags:
+    - gdrive_printing_setup
+
 - name: Install cups-pdf package for Google Drive printing
   ansible.builtin.apt:
     name: printer-driver-cups-pdf

@@ -62,9 +62,13 @@ def is_transient(error):
 
 
 def drive_service(credentials_path):
-    credentials = service_account.Credentials.from_service_account_file(
-        credentials_path, scopes=SCOPES
-    )
+    with open(credentials_path, "r") as handle:
+        data = json.load(handle)
+    if "type" in data and data["type"] == "service_account":
+        credentials = service_account.Credentials.from_service_account_info(data, scopes=SCOPES)
+    else:
+        from google.oauth2.credentials import Credentials
+        credentials = Credentials.from_authorized_user_info(data, scopes=SCOPES)
     return build("drive", "v3", credentials=credentials, cache_discovery=False)
 
 
