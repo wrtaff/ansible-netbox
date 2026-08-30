@@ -11,8 +11,97 @@
   hosts: trac-lxc
   become: true
   vars:
+    # INVARIANT: the lanes in report 31 must cover every non-closed status.
+    # Lane 2 is deliberately written as a NOT IN exclusion, not an enumeration --
+    # an enumeration silently dropped 'reopened' (82 open tickets, incl. critical #1454).
+    # ORDER BY in a compound SELECT may only reference output aliases (__group__, __color__, ticket).
     trac_db_path: /var/trac/trac_prod/db/trac.db
     trac_custom_reports:
+      - id: 26
+        title: "Queues -- all open work by owner"
+        author: "claude"
+        description: "Every open ticket, grouped by who owns it. The master 'who owns what' view. Tickets with no owner are grouped as (unassigned) -- those are captured but never routed."
+        query: |
+          SELECT p.value AS __color__,
+                 (CASE WHEN COALESCE(t.owner,'') IN ('', '< default >') THEN '(unassigned)' ELSE t.owner END) AS __group__,
+                 t.id AS ticket, t.summary AS summary, t.component AS component,
+                 t.status AS status, t.owner AS owner,
+                 t.type AS type, t.priority AS priority, t.time AS created,
+                 t.changetime AS _changetime, t.description AS _description,
+                 t.reporter AS _reporter
+            FROM ticket t
+            LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+           WHERE t.status <> 'closed'
+           ORDER BY (CASE WHEN COALESCE(t.owner,'') IN ('', '< default >') THEN '(unassigned)' ELSE t.owner END),  CAST(p.value AS signed), t.changetime DESC
+      - id: 27
+        title: "Waiting on others -- open work owned by someone other than will"
+        author: "claude"
+        description: "Everything delegated away and not yet closed, grouped by the person it is waiting on. Answers 'what am I waiting on, and from whom?' without a keyword search."
+        query: |
+          SELECT p.value AS __color__,
+                 (CASE WHEN COALESCE(t.owner,'') IN ('', '< default >') THEN '(unassigned)' ELSE t.owner END) AS __group__,
+                 t.id AS ticket, t.summary AS summary, t.component AS component,
+                 t.status AS status, t.owner AS owner,
+                 t.type AS type, t.priority AS priority, t.time AS created,
+                 t.changetime AS _changetime, t.description AS _description,
+                 t.reporter AS _reporter
+            FROM ticket t
+            LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+           WHERE t.status <> 'closed'
+             AND NOT (COALESCE(t.owner,'') IN ('', '< default >'))
+             AND t.owner <> 'will'
+           ORDER BY (CASE WHEN COALESCE(t.owner,'') IN ('', '< default >') THEN '(unassigned)' ELSE t.owner END),  CAST(p.value AS signed), t.changetime DESC
+      - id: 28
+        title: "My queue -- open tickets assigned to me"
+        author: "claude"
+        description: "Open tickets where you are the owner. Each person sees only their own queue when logged in."
+        query: |
+          SELECT p.value AS __color__,
+                 t.status AS __group__,
+                 t.id AS ticket, t.summary AS summary, t.component AS component,
+                 t.status AS status, t.owner AS owner,
+                 t.type AS type, t.priority AS priority, t.time AS created,
+                 t.changetime AS _changetime, t.description AS _description,
+                 t.reporter AS _reporter
+            FROM ticket t
+            LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+           WHERE t.status <> 'closed'
+             AND t.owner = $USER
+           ORDER BY t.status,  CAST(p.value AS signed), t.changetime DESC
+      - id: 29
+        title: "Unassigned -- open tickets with no owner"
+        author: "claude"
+        description: "Open tickets nobody owns. In GTD terms these are captured but not yet routed; this report should trend toward empty."
+        query: |
+          SELECT p.value AS __color__,
+                 t.component AS __group__,
+                 t.id AS ticket, t.summary AS summary, t.component AS component,
+                 t.status AS status, t.owner AS owner,
+                 t.type AS type, t.priority AS priority, t.time AS created,
+                 t.changetime AS _changetime, t.description AS _description,
+                 t.reporter AS _reporter
+            FROM ticket t
+            LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+           WHERE t.status <> 'closed'
+             AND COALESCE(t.owner,'') IN ('', '< default >')
+           ORDER BY t.component,  CAST(p.value AS signed), t.changetime DESC
+      - id: 30
+        title: "Waiting-for keyword hacks -- migration worklist for #4447 WP-4"
+        author: "claude"
+        description: "Open tickets still encoding workflow state in the keywords field (waiting-for, awp, awp-s, tabled-biz). These are the tickets to convert once real statuses exist. Should reach zero when #4447 WP-4 completes."
+        query: |
+          SELECT p.value AS __color__,
+                 t.keywords AS __group__,
+                 t.id AS ticket, t.summary AS summary, t.component AS component,
+                 t.status AS status, t.owner AS owner,
+                 t.type AS type, t.priority AS priority, t.time AS created,
+                 t.changetime AS _changetime, t.description AS _description,
+                 t.reporter AS _reporter
+            FROM ticket t
+            LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+           WHERE t.status <> 'closed'
+             AND (t.keywords LIKE '%waiting-for%' OR t.keywords LIKE '%awp%' OR t.keywords LIKE '%tabled-biz%')
+           ORDER BY t.keywords,  CAST(p.value AS signed), t.changetime DESC
       - id: 31
         title: "Jimmy's Work Queue (Active, Delegated, Blocked/Review)"
         author: "jimmy"
@@ -37,7 +126,7 @@
              t.reporter AS _reporter
             FROM ticket t
             LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
-            WHERE t.status = 'new'
+            WHERE t.status NOT IN ('accepted', 'assigned', 'closed', 'review', 'waiting')
               AND t.owner = 'jimmy'
           UNION ALL
           SELECT p.value AS __color__,
@@ -50,7 +139,7 @@
             LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
             WHERE (t.status = 'review' OR t.keywords LIKE '%waiting-for%' OR t.keywords LIKE '%awp%')
               AND (t.owner = 'jimmy' OR t.keywords LIKE '%jimmy%')
-            ORDER BY __group__, CAST(p.value AS integer), t.id
+            ORDER BY __group__, __color__, ticket
 
   tasks:
     - name: Back up Trac database before modifying reports
