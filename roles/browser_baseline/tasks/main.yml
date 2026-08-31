@@ -1,7 +1,7 @@
 ---
 # ==============================================================================
 # Filename:       roles/browser_baseline/tasks/main.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Pops AI / Gemini
 # Last Modified:  2026-08-31
 # Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
@@ -22,3 +22,30 @@
 - name: Apply Dillo browser baseline
   ansible.builtin.include_tasks: dillo.yml
   when: browser_baseline_manage_dillo | bool
+
+- name: Ensure Wallabag user configuration directory exists
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/.config/wallabag"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0700'
+
+- name: Ensure user Downloads directory exists
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/Downloads"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0755'
+
+- name: Deploy Wallabag extension settings JSON for 1-click import
+  ansible.builtin.template:
+    src: wallabag-settings.json.j2
+    dest: "{{ item }}"
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0600'
+  loop:
+    - "/home/{{ browser_baseline_user }}/.config/wallabag/wallabag-settings.json"
+    - "/home/{{ browser_baseline_user }}/Downloads/wallabag-settings.json"

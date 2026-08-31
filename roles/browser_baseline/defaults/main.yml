@@ -1,6 +1,6 @@
 # ==============================================================================
 # Filename:       roles/browser_baseline/defaults/main.yml
-# Version:        1.2
+# Version:        1.3
 # Author:         Pops AI / Gemini
 # Last Modified:  2026-08-31
 # Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
@@ -14,8 +14,21 @@ browser_baseline_manage_chrome: true
 browser_baseline_manage_firefox: true
 browser_baseline_manage_dillo: true
 
-# Target user for user-level dotfile/config placement (e.g. Dillo, Firefox profiles)
+# Target user for user-level dotfile/config placement
 browser_baseline_user: "will"
+
+# ------------------------------------------------------------------------------
+# VaultWarden / Bitwarden Server Preconfiguration
+# ------------------------------------------------------------------------------
+vaultwarden_server_url: "https://ynh2.van-bee.ts.net/vaultwarden"
+
+# ------------------------------------------------------------------------------
+# Wallabag Server Preconfiguration
+# ------------------------------------------------------------------------------
+wallabag_server_url: "https://ynh2.van-bee.ts.net/wallabag"
+wallabag_client_id: "33_42f5x9mbk0mcgo0scw40g4gk4gkc0cwwcc0sswcw4880osc8w8"
+wallabag_client_secret: "1lsp6913rs74sgkgcwc4cgss444o0w8k0sk4w444so00cgww4g"
+wallabag_username: "will"
 
 # ------------------------------------------------------------------------------
 # Default Search Engine (DuckDuckGo across Chrome and Firefox)
@@ -74,7 +87,7 @@ chrome_policy_file: "{{ chrome_policy_dir }}/default_policies.json"
 
 # Chrome Extension IDs:
 # - Bitwarden: nngceckbapebfimnlniiiahkandclblb
-# - Wallabag: pelehflaaofaepelocifahojgipgndoc
+# - Wallabag (Wallabagger): pelehflaaofaepelocifahojgipgndoc
 chrome_extension_install_forcelist:
   - "nngceckbapebfimnlniiiahkandclblb;https://clients2.google.com/service/update2/crx"
   - "pelehflaaofaepelocifahojgipgndoc;https://clients2.google.com/service/update2/crx"
@@ -88,18 +101,18 @@ firefox_policy_file: "{{ firefox_policy_dir }}/policies.json"
 
 # Firefox Extension IDs and URLs:
 # - Bitwarden: {446900e4-71c2-419f-a6a7-df9c091e268b}
-# - Wallabag: {6026a0c5-5b4a-49ae-8692-a1f94c4eed83}
+# - Wallabag (Wallabagger): {7a7b1d36-d7a4-481b-92c6-9f5427cb9eb1}
 firefox_extensions_install:
   - "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi"
-  - "https://addons.mozilla.org/firefox/downloads/latest/wallabag-v2/latest.xpi"
+  - "https://addons.mozilla.org/firefox/downloads/latest/wallabagger/latest.xpi"
 
 firefox_extension_settings:
   "{446900e4-71c2-419f-a6a7-df9c091e268b}":
     installation_mode: "normal_installed"
     install_url: "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi"
-  "{6026a0c5-5b4a-49ae-8692-a1f94c4eed83}":
+  "{7a7b1d36-d7a4-481b-92c6-9f5427cb9eb1}":
     installation_mode: "normal_installed"
-    install_url: "https://addons.mozilla.org/firefox/downloads/latest/wallabag-v2/latest.xpi"
+    install_url: "https://addons.mozilla.org/firefox/downloads/latest/wallabagger/latest.xpi"
 
 # Firefox Named Profiles (concurrent isolation)
 firefox_named_profiles:

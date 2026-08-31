@@ -17,6 +17,14 @@
     # Ticket access is intentionally explicit. Existing non-ticket permissions
     # are preserved; this list declares only the requested ticket capabilities.
     trac_ticket_permissions:
+      anonymous:
+        - TICKET_VIEW
+        - WIKI_VIEW
+        - SEARCH_VIEW
+        - REPORT_VIEW
+        - ROADMAP_VIEW
+        - MILESTONE_VIEW
+        - TIMELINE_VIEW
       henry:
         - TICKET_VIEW
         - TICKET_CREATE
