@@ -82,15 +82,23 @@ def get_credentials():
     }
 
 def generate_export_json(output_path, creds):
-    """Generate extension options JSON file for direct UI import."""
+    """Generate extension options JSON file matching v2.6.14 schema for direct UI import."""
+    url = creds["url"].rstrip("/")
     data = {
-        "Url": creds["url"],
+        "Url": url,
+        "ApiVersion": "2.6.14",
         "ClientId": creds["client_id"],
         "ClientSecret": creds["client_secret"],
         "UserLogin": creds["username"],
         "UserPassword": creds["password"],
-        "AllowSelfSignedCerts": False,
-        "CheckUrl": True
+        "AllowSpaceInTags": False,
+        "AllowExistCheck": True,
+        "AllowExistSafe": True,
+        "Debug": False,
+        "AutoAddSingleTag": True,
+        "ArchiveByDefault": False,
+        "sitesToFetchLocally": None,
+        "FetchLocallyByDefault": False
     }
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
