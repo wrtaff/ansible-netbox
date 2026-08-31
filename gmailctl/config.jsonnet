@@ -2383,7 +2383,7 @@
     },
     {
       filter: {
-        from: "home-assistant@ghost.io"
+        from: "home-assistant@ghost.io OR support@apolloautomation.com"
       },
       actions: {
         archive: true,
