@@ -1,21 +1,24 @@
 # ==============================================================================
 # Filename:       playbooks/install_ghostty.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Will / Pops agents
-# Last Modified:  2026-08-27
+# Last Modified:  2026-08-31
 # Trac Ticket:    #4419 - Install Ghostty terminal emulator on limbo-f0
 #
 # Purpose:
-#     Install Ghostty terminal emulator on managed Debian desktops.
+#     Install Ghostty terminal emulator on managed Debian desktops while
+#     preserving xfce4-terminal as the default system and XFCE terminal emulator.
 #
 # Use Case:
-#     Provide Ghostty as a modern GPU-accelerated terminal emulator, beginning
-#     with limbo-f0 as the test host.
+#     Provide Ghostty as a modern GPU-accelerated terminal emulator for native
+#     sessions, beginning with limbo-f0 as the test host, while keeping
+#     xfce4-terminal as the default terminal for full X2Go/XInput compatibility.
 #
 # Installation Method:
 #     Downloads the release asset for the target architecture from the
 #     community-maintained mkasberg/ghostty-ubuntu GitHub repository, verifies
-#     its published SHA-256 digest, then installs it with apt.
+#     its published SHA-256 digest, then installs it with apt. Explicitly sets
+#     update-alternatives for x-terminal-emulator to xfce4-terminal.wrapper.
 #
 # Prerequisites:
 #     - Debian Trixie or Forky desktop in the desktops inventory group
@@ -27,7 +30,7 @@
 #       ~/.config/ghostty/config.
 #     - Ghostty works in native XFCE sessions. The current X2Go x2goagent
 #       server exposes XInput 1.3 rather than the XInput2 required by GTK 4;
-#       use xfce4-terminal in X2Go sessions.
+#       xfce4-terminal is preserved as the default terminal emulator.
 #
 # Secrets:
 #     None - no vault variables required
@@ -45,6 +48,7 @@
 #     apt purge ghostty
 #
 # Revision History:
+#     1.2 - Preserved xfce4-terminal as the default x-terminal-emulator alternative.
 #     1.1 - Documented current X2Go/XInput2 incompatibility.
 #     1.0 - Initial playbook for limbo-f0 test deployment.
 #
@@ -134,3 +138,10 @@
         state: present
       # The .deb is intentionally not downloaded during a dry run.
       when: not ansible_check_mode
+
+    - name: Ensure xfce4-terminal remains default x-terminal-emulator alternative
+      community.general.alternatives:
+        name: x-terminal-emulator
+        path: /usr/bin/xfce4-terminal.wrapper
+      when: not ansible_check_mode
+
