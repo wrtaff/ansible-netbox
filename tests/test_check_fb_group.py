@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Filename:       test_check_fb_group.py
-Version:        1.0
-Last Modified:  2026-08-10
+Version:        1.1
+Last Modified:  2026-08-31
 Context:        Facebook Group Updates (EPSC)
 
 Secrets:
@@ -52,7 +52,24 @@ class CheckFbGroupTests(unittest.TestCase):
         ]
         self.assertEqual(failures[0], [])
         self.assertEqual(failures[1], [])
-        self.assertEqual(set(failures[2]), {"missing_url", "missing_author"})
+        self.assertEqual(set(failures[2]), {"missing_url"})
+
+    def test_post_with_missing_or_unknown_author_is_eligible_for_notification(self):
+        # Trac #4460: Missing author must not suppress notification delivery
+        failures = scraper.get_validation_failures({
+            "display_url": "https://www.facebook.com/groups/473971729877417/posts/2061905577750683/",
+            "is_comment": False,
+            "author": "EPSC Member",
+            "author_status": "missing",
+            "content": "A post whose author could not be resolved from DOM.",
+        })
+        self.assertEqual(failures, [])
+
+    def test_clean_author_defaults_to_epsc_member(self):
+        self.assertEqual(scraper.clean_author(""), "EPSC Member")
+        self.assertEqual(scraper.clean_author(None), "EPSC Member")
+        self.assertEqual(scraper.clean_author("Alice Example 2 hrs ago"), "Alice Example")
+        self.assertEqual(scraper.clean_author("Bob Example yesterday"), "Bob Example")
 
     def test_comment_cannot_use_parent_post_permalink(self):
         parent_url = "https://www.facebook.com/groups/473971729877417/posts/123/"

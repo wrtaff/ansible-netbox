@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Filename:       check_fb_group.py
-Version:        2.2
+Version:        2.3
 Author:         Antigravity
-Last Modified:  2026-08-10
+Last Modified:  2026-08-31
 Context:        Facebook Group Updates (EPSC)
 
 Purpose:
@@ -15,6 +15,7 @@ Secrets:
     None - delegates to google_workspace_manager.py
 
 Revision History:
+    v2.3 (2026-08-31) - Harden post author extraction, fallback to "EPSC Member", permit delivery on missing author.
     v2.2 (2026-08-10) - Enforce notification metadata and aggregate health alerts.
     v2.1 (2026-08-10) - Versioned observable state with atomic writes and migration.
     v2.0 (2026-06-22) - Email notifications, comment support, hash-based state.
@@ -72,12 +73,13 @@ def get_canonical_url(url):
     except Exception:
         return url
 
-def clean_author(author):
+def clean_author(author, default="EPSC Member"):
     """Strips relative time strings that Facebook occasionally includes in author elements."""
     if not author:
-        return "Unknown Author"
+        return default
     pattern = r'\s+(a week ago|yesterday|just now|\d+\s+(h|m|d|w|y|hr|hrs|min|mins|day|days|week|weeks|month|months|year|years)\s+ago|last night).*$'
-    return re.sub(pattern, '', author, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(pattern, '', author, flags=re.IGNORECASE).strip()
+    return cleaned if cleaned else default
 
 
 def is_facebook_permalink(url, is_comment):
@@ -108,8 +110,6 @@ def get_validation_failures(post):
         failures.append("missing_url")
     elif not is_facebook_permalink(display_url, post.get("is_comment", False)):
         failures.append("invalid_permalink")
-    if post.get("author_status") != "present" or post.get("author") == "Unknown Author":
-        failures.append("missing_author")
     if not post.get("content"):
         failures.append("missing_content")
     return failures
@@ -236,6 +236,16 @@ def extract_feed_items(page):
             href.includes('comment_id=') ||
             href.includes('reply_comment_id=')
         );
+        const isGroupRootUrl = (href) => {
+            if (!href) return false;
+            try {
+                const u = new URL(href);
+                const path = u.pathname.replace(/\/$/, '');
+                return path === '/groups/473971729877417' || path === '' || path === '/';
+            } catch (e) {
+                return false;
+            }
+        };
         const text = (element) => element ? element.innerText.trim() : '';
         const records = [];
         const seen = new Set();
@@ -253,12 +263,71 @@ def extract_feed_items(page):
             if (!article) return;
             const links = Array.from(article.querySelectorAll('a'));
             const urlLink = links.find((link) => isCandidateUrl(link.href));
-            const authorLink = links.find((link) => text(link) && !isCandidateUrl(link.href));
-            const author = text(authorLink);
+
+            // Hardened post author extraction strategy:
+            // 1. Heading element link (h2, h3, h4, role="heading", strong)
+            const heading = article.querySelector('h2, h3, h4, [role="heading"]');
+            let authorLink = null;
+            let authorSource = 'missing';
+
+            if (heading) {
+                authorLink = Array.from(heading.querySelectorAll('a')).find((link) => text(link) && !isCandidateUrl(link.href) && !isGroupRootUrl(link.href));
+                if (authorLink) authorSource = 'heading-link';
+            }
+
+            // 2. Strong tag enclosing or inside an anchor
+            if (!authorLink) {
+                const strongLinks = Array.from(article.querySelectorAll('strong a, a strong'));
+                for (const sl of strongLinks) {
+                    const a = sl.tagName === 'A' ? sl : sl.closest('a');
+                    if (a && text(a) && !isCandidateUrl(a.href) && !isGroupRootUrl(a.href)) {
+                        authorLink = a;
+                        authorSource = 'strong-link';
+                        break;
+                    }
+                }
+            }
+
+            // 3. User profile link patterns (href contains /user/ or /profile.php)
+            if (!authorLink) {
+                authorLink = links.find((link) => {
+                    const href = link.href || '';
+                    return (href.includes('/user/') || href.includes('/profile.php')) && text(link);
+                });
+                if (authorLink) authorSource = 'profile-link';
+            }
+
+            // 4. Any non-candidate, non-group anchor with text appearing before the message
+            if (!authorLink) {
+                authorLink = links.find((link) => text(link) && !isCandidateUrl(link.href) && !isGroupRootUrl(link.href));
+                if (authorLink) authorSource = 'link';
+            }
+
+            let author = text(authorLink);
+
+            // 5. If authorLink wasn't found but heading has text
+            if (!author && heading) {
+                const hText = text(heading);
+                if (hText) {
+                    author = hText.split(/\s+(?:in|shared|posted|at)\s+/i)[0].trim();
+                    if (author) authorSource = 'heading-text';
+                }
+            }
+
+            // 6. Check aria-label on article
+            if (!author) {
+                const articleLabel = article.getAttribute('aria-label') || '';
+                const match = articleLabel.match(/(?:Post|Story)\s+by\s+([^,]+)/i);
+                if (match && match[1].trim()) {
+                    author = match[1].trim();
+                    authorSource = 'aria-label';
+                }
+            }
+
             addRecord({
                 type: 'post',
-                author: author || 'Unknown Author',
-                author_source: author ? 'link' : 'missing',
+                author: author || 'EPSC Member',
+                author_source: author ? authorSource : 'fallback',
                 author_status: author ? 'present' : 'missing',
                 content: text(message),
                 url: urlLink ? urlLink.href : ''
@@ -275,8 +344,8 @@ def extract_feed_items(page):
             const author = label.replace(/^Comment (by|from) /, '').trim();
             addRecord({
                 type: 'comment',
-                author: author || 'Unknown Author',
-                author_source: author ? 'aria-label' : 'missing',
+                author: author || 'EPSC Member',
+                author_source: author ? 'aria-label' : 'fallback',
                 author_status: author ? 'present' : 'missing',
                 content: text(commentText),
                 url: commentLink ? commentLink.href : ''
