@@ -1,14 +1,15 @@
 ---
 # ==============================================================================
 # Filename:       playbooks/apply_browser_baseline.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Pops AI / Gemini
 # Last Modified:  2026-08-31
 # Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
 #
 # Purpose:
 #     Deploy the declarative browser baseline (Chrome, Firefox, Dillo)
-#     with enterprise managed policies for extension staging (Bitwarden, Wallabag)
+#     with enterprise managed policies for extension staging (Bitwarden, Wallabag),
+#     unified bookmarks, search shortcut keywords, and Firefox multi-profiles
 #     across managed desktop workstations.
 #
 # Usage:
@@ -18,5 +19,7 @@
 - name: Apply Browser Baseline to Workstations
   hosts: desktops
   become: true
+  vars_files:
+    - ../vault.yml
   roles:
     - role: browser_baseline

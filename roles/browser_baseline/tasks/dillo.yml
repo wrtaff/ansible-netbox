@@ -41,7 +41,7 @@
 
 - name: Deploy Dillo authentication wrapper
   ansible.builtin.copy:
-    src: ../../../playbooks/files/dillo/dillo-wrapper.py
+    src: dillo-wrapper.py
     dest: /usr/local/bin/dillo
     owner: root
     group: root
@@ -59,4 +59,4 @@
       machine trac.gafla.us.com login {{ browser_baseline_user }} password {{ vault_trac_user_password_will }}
       machine trac.home.arpa login {{ browser_baseline_user }} password {{ vault_trac_user_password_will }}
       machine trac-lxc.home.arpa login {{ browser_baseline_user }} password {{ vault_trac_user_password_will }}
-
+  when: vault_trac_user_password_will is defined
