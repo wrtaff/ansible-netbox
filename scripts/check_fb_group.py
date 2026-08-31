@@ -224,7 +224,7 @@ def prune_state(state, now_epoch=None):
 
 def extract_feed_items(page):
     """Extract structured candidates without adding state to the page DOM."""
-    return page.evaluate('''() => {
+    return page.evaluate(r'''() => {
         const feed = document.querySelector('div[role="feed"]');
         if (!feed) return [];
 
