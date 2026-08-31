@@ -1,0 +1,66 @@
+# ==============================================================================
+# Filename:       playbooks/provision_jimmy_queue_cron.yml
+# Version:        1.0
+# Author:         Claude
+# Last Modified:  2026-08-30
+# Context:        http://trac.gafla.us.com/ticket/4447 (WP-6)
+#                 http://trac.gafla.us.com/ticket/3953 (scheduled agent wake-up)
+#                 http://trac.gafla.us.com/ticket/3892 (push-not-pull work queue)
+#
+# Purpose:
+#    Schedules the unattended Jimmy Trac queue sweep on athena. Jimmy's queue
+#    workflow existed but nothing triggered it, so delegated work sat idle.
+#    This is the trigger. heartbeat.md forbids ad-hoc crontab entries, so the
+#    schedule is managed here.
+#
+#    The sweep runs before the Daily Morning Meeting so the queue is already
+#    triaged by the time Will sits down to it, rather than competing with it.
+#
+# Secrets:
+#    None. The sweep authenticates via ~/.claude/.credentials.json and reaches
+#    Trac through the pops .mcp.json server definitions.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/provision_jimmy_queue_cron.yml
+#    ansible-playbook -i inventory.ini playbooks/provision_jimmy_queue_cron.yml \
+#        -e jimmy_sweep_state=absent          # unschedule
+# ==============================================================================
+---
+- name: Schedule the Jimmy Trac queue sweep
+  hosts: athena
+  become: false
+
+  vars:
+    script_path: "/home/will/ansible-netbox/scripts/jimmy_queue_sweep.sh"
+    log_file: "/home/will/ansible-netbox/logs/jimmy_queue_sweep.log"
+    jimmy_sweep_state: present
+    jimmy_sweep_minute: "0"
+    jimmy_sweep_hour: "7"
+
+  tasks:
+    - name: Ensure the sweep script is present and executable
+      ansible.builtin.file:
+        path: "{{ script_path }}"
+        mode: '0755'
+        state: file
+
+    - name: Ensure the log directory exists
+      ansible.builtin.file:
+        path: "{{ log_file | dirname }}"
+        state: directory
+        mode: '0755'
+
+    - name: Schedule the Jimmy queue sweep
+      ansible.builtin.cron:
+        name: "Jimmy Trac queue sweep"
+        minute: "{{ jimmy_sweep_minute }}"
+        hour: "{{ jimmy_sweep_hour }}"
+        job: "{{ script_path }} >/dev/null 2>&1"
+        state: "{{ jimmy_sweep_state }}"
+
+    - name: Report the kill switch
+      ansible.builtin.debug:
+        msg: >-
+          Sweep scheduled {{ jimmy_sweep_minute }} {{ jimmy_sweep_hour }} * * *.
+          To stop it immediately without re-running Ansible:
+          touch /home/will/.jimmy-queue-disabled
