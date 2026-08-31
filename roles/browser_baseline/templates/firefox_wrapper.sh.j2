@@ -1,0 +1,3 @@
+#!/bin/bash
+# Wrapper script for Firefox profile {{ profile.name }}
+exec /usr/bin/firefox-esr -P "{{ profile.name }}" --no-remote "$@"

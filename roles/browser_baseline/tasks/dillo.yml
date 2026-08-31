@@ -16,25 +16,47 @@
     mode: '0700'
 
 - name: Deploy Dillo search configuration (dillorc)
-  ansible.builtin.copy:
-    src: dillo/dillorc
+  ansible.builtin.template:
+    src: dillorc.j2
     dest: "/home/{{ browser_baseline_user }}/.dillo/dillorc"
     owner: "{{ browser_baseline_user }}"
     group: "{{ browser_baseline_user }}"
     mode: '0600'
 
 - name: Deploy Dillo cookie policy (cookiesrc)
-  ansible.builtin.copy:
-    src: dillo/cookiesrc
+  ansible.builtin.template:
+    src: cookiesrc.j2
     dest: "/home/{{ browser_baseline_user }}/.dillo/cookiesrc"
     owner: "{{ browser_baseline_user }}"
     group: "{{ browser_baseline_user }}"
     mode: '0600'
 
 - name: Deploy Dillo bookmarks (bm.txt)
-  ansible.builtin.copy:
-    src: dillo/bm.txt
+  ansible.builtin.template:
+    src: bm.txt.j2
     dest: "/home/{{ browser_baseline_user }}/.dillo/bm.txt"
     owner: "{{ browser_baseline_user }}"
     group: "{{ browser_baseline_user }}"
     mode: '0600'
+
+- name: Deploy Dillo authentication wrapper
+  ansible.builtin.copy:
+    src: ../../../playbooks/files/dillo/dillo-wrapper.py
+    dest: /usr/local/bin/dillo
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure Trac credentials in ~/.netrc
+  ansible.builtin.blockinfile:
+    path: "/home/{{ browser_baseline_user }}/.netrc"
+    create: true
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0600'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - TRAC CREDENTIALS"
+    block: |
+      machine trac.gafla.us.com login {{ browser_baseline_user }} password {{ vault_trac_user_password_will }}
+      machine trac.home.arpa login {{ browser_baseline_user }} password {{ vault_trac_user_password_will }}
+      machine trac-lxc.home.arpa login {{ browser_baseline_user }} password {{ vault_trac_user_password_will }}
+

@@ -1,0 +1,17 @@
+# ==============================================================================
+# Firefox Profiles Configuration (managed by Ansible roles/browser_baseline)
+# ==============================================================================
+[General]
+StartWithLastProfile=1
+Version=2
+
+{% for profile in firefox_named_profiles %}
+[Profile{{ loop.index0 }}]
+Name={{ profile.name }}
+IsRelative=1
+Path={{ profile.path }}
+{% if profile.is_default | default(false) %}
+Default=1
+{% endif %}
+
+{% endfor %}

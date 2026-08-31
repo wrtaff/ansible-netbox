@@ -1,0 +1,7 @@
+# ==============================================================================
+# Dillo bookmarks (managed by Ansible roles/browser_baseline)
+# ==============================================================================
+:s0: Pops Common Bookmarks
+{% for bm in browser_baseline_common_bookmarks %}
+s0 {{ bm.url }} {{ bm.name }}
+{% endfor %}

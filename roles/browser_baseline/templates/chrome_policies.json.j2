@@ -2,5 +2,26 @@
   "ExtensionInstallForcelist": {{ chrome_extension_install_forcelist | to_nice_json }},
   "SyncDisabled": false,
   "BookmarkBarEnabled": true,
-  "PasswordManagerEnabled": false
+  "PasswordManagerEnabled": false,
+  "ManagedBookmarks": [
+    {
+      "toplevel_name": "Pops Bookmarks"
+    },
+{% for bm in browser_baseline_common_bookmarks %}
+    {
+      "name": "{{ bm.name }}",
+      "url": "{{ bm.url }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  ],
+  "ManagedSearchEngines": [
+{% for s in browser_baseline_search_shortcuts %}
+    {
+      "name": "{{ s.name }}",
+      "keyword": "{{ s.keyword }}",
+      "search_url": "{{ s.url_template }}",
+      "favicon_url": "{{ s.icon_url | default('') }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  ]
 }

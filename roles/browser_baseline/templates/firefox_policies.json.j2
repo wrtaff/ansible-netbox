@@ -7,6 +7,31 @@
       "Install": {{ firefox_extensions_install | to_nice_json }}
     },
     "OfferToSaveLogins": false,
-    "PasswordManagerEnabled": false
+    "PasswordManagerEnabled": false,
+    "ManagedBookmarks": [
+      {
+        "toplevel_name": "Pops Bookmarks"
+      },
+{% for bm in browser_baseline_common_bookmarks %}
+      {
+        "name": "{{ bm.name }}",
+        "url": "{{ bm.url }}"
+      }{% if not loop.last %},{% endif %}
+{% endfor %}
+    ],
+    "SearchEngines": {
+      "Add": [
+{% for s in browser_baseline_search_shortcuts %}
+        {
+          "Name": "{{ s.name }}",
+          "URLTemplate": "{{ s.url_template }}",
+          "Method": "GET",
+          "Alias": "{{ s.keyword }}",
+          "Description": "{{ s.name }} Search",
+          "IconURL": "{{ s.icon_url | default('') }}"
+        }{% if not loop.last %},{% endif %}
+{% endfor %}
+      ]
+    }
   }
 }

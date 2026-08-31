@@ -1,5 +1,5 @@
 ---
-# tasks/firefox.yml - Declarative Firefox installation and managed policies
+# tasks/firefox.yml - Declarative Firefox installation, managed policies, and multi-profile baseline
 
 - name: Install Firefox package
   ansible.builtin.apt:
@@ -22,3 +22,50 @@
     owner: root
     group: root
     mode: '0644'
+
+- name: Ensure Firefox base user configuration directory exists
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/.mozilla/firefox"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0700'
+
+- name: Ensure named Firefox profile directories exist
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/.mozilla/firefox/{{ item.path }}"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0700'
+  loop: "{{ firefox_named_profiles }}"
+
+- name: Deploy Firefox profiles.ini configuration
+  ansible.builtin.template:
+    src: profiles.ini.j2
+    dest: "/home/{{ browser_baseline_user }}/.mozilla/firefox/profiles.ini"
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0644'
+
+- name: Deploy Firefox named profile wrapper scripts
+  ansible.builtin.template:
+    src: firefox_wrapper.sh.j2
+    dest: "/usr/local/bin/{{ item.cmd_name }}"
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ firefox_named_profiles }}"
+  vars:
+    profile: "{{ item }}"
+
+- name: Deploy Firefox named profile desktop launchers
+  ansible.builtin.template:
+    src: firefox_profile.desktop.j2
+    dest: "/usr/share/applications/{{ item.cmd_name }}.desktop"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ firefox_named_profiles }}"
+  vars:
+    profile: "{{ item }}"

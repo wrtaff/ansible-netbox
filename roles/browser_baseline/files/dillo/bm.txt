@@ -1,3 +1,0 @@
-:s0: Unclassified
-s0 http://wwos.home.arpa wwos
-s0 http://trac.gafla.us.com trac

@@ -18,34 +18,34 @@ This architecture ensures that new workstations converge automatically without m
 
 ---
 
-## 2. The Three-Tier Architecture
+## 2. Shared Cross-Browser Assets (Unified SSOT)
 
-```
-+-------------------------------------------------------------------------------+
-| Tier 1: Declarative System Baseline (Ansible)                                 |
-| - Packages: google-chrome-stable, firefox-esr, dillo                         |
-| - Enterprise Managed Policies: /etc/opt/chrome/policies/, /etc/firefox/policies|
-| - Staged / Force-Installed Extensions: Bitwarden, Wallabag                     |
-| - Security Defaults: Disable built-in password store (delegate to Bitwarden)   |
-+-------------------------------------------------------------------------------+
-                                      |
-                                      v
-+-------------------------------------------------------------------------------+
-| Tier 2: Browser-Native Cloud Sync (User Interactive)                          |
-| - Firefox Sync: Bookmarks, history, tabs, add-on state, synced preferences    |
-| - Google Chrome Sync: Bookmarks, history, open tabs, synced extensions        |
-| - Bitwarden: Interactive master vault login (zero secrets in Ansible/git)      |
-+-------------------------------------------------------------------------------+
-                                      |
-                                      v
-+-------------------------------------------------------------------------------+
-| Tier 3: Git-Backed Config & Dotfile Synchronization                           |
-| - Dillo: ~/.dillo/ (dillorc, cookiesrc, bm.txt) baselined from limbo-f0       |
-| - Firefox Advanced Tweaks: user.js, chrome/userChrome.css from zeus/opti-cc76 |
-| - Chrome Flags & SOE Desktop shortcuts                                        |
-| - Capture & Distribute Playbooks: automated drift detection & git sync        |
-+-------------------------------------------------------------------------------+
-```
+All browsers (Google Chrome, Mozilla Firefox, and Dillo) share a single declarative source of truth defined in `roles/browser_baseline/defaults/main.yml`:
+
+### 2.1 Common Bookmarks (`browser_baseline_common_bookmarks`)
+A single managed bookmarks list is rendered across all three browsers:
+* **Chrome**: Managed via `ManagedBookmarks` enterprise policy in `/etc/opt/chrome/policies/managed/default_policies.json`.
+* **Firefox**: Managed via `ManagedBookmarks` enterprise policy in `/etc/firefox/policies/policies.json`.
+* **Dillo**: Managed via `~/.dillo/bm.txt` generated from the same template.
+
+### 2.2 Common Search Shortcut Keywords (`browser_baseline_search_shortcuts`)
+A unified set of search engine shortcuts is bound across all three browsers:
+* `ww <query>`: Search WWOS (`http://wwos.home.arpa/index.php?search=...`)
+* `trac <query>`: Search Trac (`http://trac.gafla.us.com/search?q=...`)
+* `wik <query>`: Search Wikipedia (`https://en.wikipedia.org/...`)
+
+### 2.3 Concurrent Named Firefox Profiles
+Firefox is configured out of the box with multiple concurrent, isolated named profiles:
+* `firefox-esr`: Default daily driver profile.
+* `ff-remote-0`: Isolated profile for remote session / workstation 0.
+* `ff-remote-1`: Isolated profile for remote session / workstation 1.
+* `ff-remote-2`: Isolated profile for remote session / workstation 2.
+
+Each profile is provisioned with:
+* Registration in `~/.mozilla/firefox/profiles.ini`.
+* Dedicated profile directory in `~/.mozilla/firefox/<profile_name>/`.
+* CLI wrapper script in `/usr/local/bin/<profile_name>` running `firefox -P <profile_name> --no-remote`.
+* Dedicated desktop entry in `/usr/share/applications/<profile_name>.desktop`.
 
 ---
 
@@ -63,11 +63,11 @@ To keep configurations current as Will tweaks settings over time without clobber
 
 ### Step 1: Capture Tweaks from Reference Workstations
 When customizations are refined on `zeus` (e.g. `user.js` options) or `limbo-f0` (e.g. `~/.dillo/dillorc` updates):
-1. An Ansible capture playbook (`playbooks/capture_browser_configs.yml`) extracts sanitized non-binary text configuration files.
+1. An Ansible capture playbook extracts sanitized non-binary text configuration files.
 2. Binary database files (`places.sqlite`, `cookies.sqlite`, LevelDB directories) are strictly excluded to avoid profile corruption, lock contention, and credential leaks.
 
 ### Step 2: Review and Version Control
-1. Extracted config templates are staged in `ansible-netbox` (`roles/browser_baseline/files/` or `templates/`).
+1. Extracted config templates are staged in `ansible-netbox` (`roles/browser_baseline/templates/`).
 2. Changes are committed to a topic branch `agent/<host>/browser-profile-update` and reviewed before merging to `origin/master`.
 
 ### Step 3: Declarative Convergence

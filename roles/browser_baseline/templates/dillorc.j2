@@ -1,0 +1,6 @@
+# ==============================================================================
+# Dillo search configuration (managed by Ansible roles/browser_baseline)
+# ==============================================================================
+{% for s in browser_baseline_search_shortcuts %}
+search_url="{{ s.keyword }} {{ s.name }} {{ s.dillo_url }}"
+{% endfor %}

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Name={{ profile.display_name }}
+Comment=Launch Firefox with {{ profile.name }} profile
+Exec=/usr/local/bin/{{ profile.cmd_name }} %u
+Icon=firefox-esr
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/vnd.mozilla.xul+xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=Firefox-esr
