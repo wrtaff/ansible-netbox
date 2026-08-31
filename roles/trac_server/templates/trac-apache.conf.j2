@@ -3,7 +3,6 @@
     ServerName trac.home.arpa
     ServerAlias 192.168.0.144 trac.gafla.us.com trac-lxc.home.arpa
 
-
     WSGIScriptAlias / /var/trac/trac.wsgi
 
     <Directory /var/trac>
@@ -11,10 +10,22 @@
         Require all granted
     </Directory>
 
-    # Protect the WSGI application so REMOTE_USER reaches Trac on every route.
+    # Split Auth: Allow unauthenticated access from LAN/VPN subnets; require Basic Auth for public/external.
     <Location "/">
         AuthType Basic
         AuthName "Trac"
+        AuthUserFile /etc/apache2/.htpasswd
+        <RequireAny>
+            Require ip 192.168.0.0/16
+            Require ip 10.0.0.0/8
+            Require ip 127.0.0.1
+            Require valid-user
+        </RequireAny>
+    </Location>
+
+    <Location "/login">
+        AuthType Basic
+        AuthName "Trac Login"
         AuthUserFile /etc/apache2/.htpasswd
         Require valid-user
     </Location>
