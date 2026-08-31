@@ -1,0 +1,53 @@
+# ==============================================================================
+# Filename:       roles/browser_baseline/defaults/main.yml
+# Version:        1.0
+# Author:         Pops AI / Gemini
+# Last Modified:  2026-08-31
+# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
+#
+# Purpose:
+#     Default variables for the browser_baseline Ansible role.
+# ==============================================================================
+---
+# Feature toggles
+browser_baseline_manage_chrome: true
+browser_baseline_manage_firefox: true
+browser_baseline_manage_dillo: true
+
+# Target user for user-level dotfile/config placement (e.g. Dillo)
+browser_baseline_user: "will"
+
+# Chrome package settings
+chrome_deb_url: "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+chrome_policy_dir: "/etc/opt/chrome/policies/managed"
+chrome_policy_file: "{{ chrome_policy_dir }}/default_policies.json"
+
+# Chrome Extension IDs to force install / recommend:
+# - Bitwarden: nngceckbapebfimnlniiiahkandclblb
+# - Wallabag: pelehflaaofaepelocifahojgipgndoc
+chrome_extension_install_forcelist:
+  - "nngceckbapebfimnlniiiahkandclblb;https://clients2.google.com/service/update2/crx"
+  - "pelehflaaofaepelocifahojgipgndoc;https://clients2.google.com/service/update2/crx"
+
+# Firefox policy settings
+firefox_package_name: "firefox-esr"
+firefox_policy_dir: "/etc/firefox/policies"
+firefox_policy_file: "{{ firefox_policy_dir }}/policies.json"
+
+# Firefox Extension IDs and URLs:
+# - Bitwarden: {446900e4-71c2-419f-a6a7-df9c091e268b}
+# - Wallabag: {6026a0c5-5b4a-49ae-8692-a1f94c4eed83}
+firefox_extensions_install:
+  - "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi"
+  - "https://addons.mozilla.org/firefox/downloads/latest/wallabag-v2/latest.xpi"
+
+firefox_extension_settings:
+  "{446900e4-71c2-419f-a6a7-df9c091e268b}":
+    installation_mode: "normal_installed"
+    install_url: "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi"
+  "{6026a0c5-5b4a-49ae-8692-a1f94c4eed83}":
+    installation_mode: "normal_installed"
+    install_url: "https://addons.mozilla.org/firefox/downloads/latest/wallabag-v2/latest.xpi"
+
+# Dillo settings
+dillo_package_name: "dillo"

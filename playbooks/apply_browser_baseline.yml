@@ -1,0 +1,22 @@
+---
+# ==============================================================================
+# Filename:       playbooks/apply_browser_baseline.yml
+# Version:        1.0
+# Author:         Pops AI / Gemini
+# Last Modified:  2026-08-31
+# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
+#
+# Purpose:
+#     Deploy the declarative browser baseline (Chrome, Firefox, Dillo)
+#     with enterprise managed policies for extension staging (Bitwarden, Wallabag)
+#     across managed desktop workstations.
+#
+# Usage:
+#     ansible-playbook -i inventory.ini playbooks/apply_browser_baseline.yml --limit <host> --check --diff
+# ==============================================================================
+
+- name: Apply Browser Baseline to Workstations
+  hosts: desktops
+  become: true
+  roles:
+    - role: browser_baseline

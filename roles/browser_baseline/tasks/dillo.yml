@@ -1,0 +1,40 @@
+---
+# tasks/dillo.yml - Declarative Dillo lightweight browser baseline
+
+- name: Install Dillo package
+  ansible.builtin.apt:
+    name: "{{ dillo_package_name }}"
+    state: present
+    update_cache: yes
+
+- name: Ensure Dillo user configuration directory exists
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/.dillo"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0700'
+
+- name: Deploy Dillo search configuration (dillorc)
+  ansible.builtin.copy:
+    src: dillo/dillorc
+    dest: "/home/{{ browser_baseline_user }}/.dillo/dillorc"
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0600'
+
+- name: Deploy Dillo cookie policy (cookiesrc)
+  ansible.builtin.copy:
+    src: dillo/cookiesrc
+    dest: "/home/{{ browser_baseline_user }}/.dillo/cookiesrc"
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0600'
+
+- name: Deploy Dillo bookmarks (bm.txt)
+  ansible.builtin.copy:
+    src: dillo/bm.txt
+    dest: "/home/{{ browser_baseline_user }}/.dillo/bm.txt"
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0600'

@@ -1,0 +1,43 @@
+---
+# tasks/chrome.yml - Declarative Google Chrome installation and managed policies
+
+- name: Check whether Google Chrome Stable is installed
+  ansible.builtin.command: dpkg-query -W -f='${Status}' google-chrome-stable
+  register: chrome_status
+  changed_when: false
+  failed_when: false
+
+- name: Download Google Chrome Stable deb package
+  ansible.builtin.get_url:
+    url: "{{ chrome_deb_url }}"
+    dest: /tmp/google-chrome-stable_current_amd64.deb
+    mode: '0644'
+  when: chrome_status.rc != 0
+
+- name: Install Google Chrome Stable
+  ansible.builtin.apt:
+    deb: /tmp/google-chrome-stable_current_amd64.deb
+    state: present
+  when: chrome_status.rc != 0
+
+- name: Clean up downloaded Chrome deb package
+  ansible.builtin.file:
+    path: /tmp/google-chrome-stable_current_amd64.deb
+    state: absent
+  when: chrome_status.rc != 0
+
+- name: Ensure Chrome managed policies directory exists
+  ansible.builtin.file:
+    path: "{{ chrome_policy_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy Chrome enterprise managed policies
+  ansible.builtin.template:
+    src: chrome_policies.json.j2
+    dest: "{{ chrome_policy_file }}"
+    owner: root
+    group: root
+    mode: '0644'

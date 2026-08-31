@@ -1,0 +1,25 @@
+# ==============================================================================
+# Filename:       roles/browser_baseline/meta/main.yml
+# Version:        1.0
+# Author:         Pops AI / Gemini
+# Last Modified:  2026-08-31
+# Trac Tickets:   #2783, #4407, #4408, #4411
+#
+# Purpose:
+#     Meta definition for the browser_baseline Ansible role.
+# ==============================================================================
+---
+galaxy_info:
+  author: will
+  description: Manages Google Chrome, Firefox, Dillo, and declarative browser extension baselines
+  company: gafla.us.com
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+dependencies: []

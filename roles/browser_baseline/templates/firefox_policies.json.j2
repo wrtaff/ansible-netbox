@@ -1,0 +1,12 @@
+{
+  "policies": {
+    "DisableAppUpdate": false,
+    "DisablePocket": true,
+    "ExtensionSettings": {{ firefox_extension_settings | to_nice_json }},
+    "Extensions": {
+      "Install": {{ firefox_extensions_install | to_nice_json }}
+    },
+    "OfferToSaveLogins": false,
+    "PasswordManagerEnabled": false
+  }
+}
