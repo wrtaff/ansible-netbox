@@ -59,13 +59,19 @@
   vars:
     profile: "{{ item }}"
 
-- name: Deploy Firefox named profile desktop launchers
+- name: Deploy unified Firefox desktop launcher with profile selector
   ansible.builtin.template:
-    src: firefox_profile.desktop.j2
-    dest: "/usr/share/applications/{{ item.cmd_name }}.desktop"
+    src: firefox_esr.desktop.j2
+    dest: /usr/share/applications/firefox-esr.desktop
     owner: root
     group: root
     mode: '0644'
-  loop: "{{ firefox_named_profiles }}"
-  vars:
-    profile: "{{ item }}"
+
+- name: Remove redundant individual profile desktop launchers from menu
+  ansible.builtin.file:
+    path: "/usr/share/applications/{{ item }}.desktop"
+    state: absent
+  loop:
+    - ff-remote-0
+    - ff-remote-1
+    - ff-remote-2
