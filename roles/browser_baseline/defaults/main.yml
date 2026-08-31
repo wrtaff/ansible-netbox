@@ -1,6 +1,6 @@
 # ==============================================================================
 # Filename:       roles/browser_baseline/defaults/main.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Pops AI / Gemini
 # Last Modified:  2026-08-31
 # Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
@@ -16,6 +16,15 @@ browser_baseline_manage_dillo: true
 
 # Target user for user-level dotfile/config placement (e.g. Dillo, Firefox profiles)
 browser_baseline_user: "will"
+
+# ------------------------------------------------------------------------------
+# Default Search Engine (DuckDuckGo across Chrome and Firefox)
+# ------------------------------------------------------------------------------
+browser_baseline_default_search_engine_name: "DuckDuckGo"
+browser_baseline_default_search_engine_url: "https://duckduckgo.com/?q={searchTerms}"
+browser_baseline_default_search_engine_suggest_url: "https://duckduckgo.com/ac/?q={searchTerms}&type=list"
+browser_baseline_default_search_engine_icon_url: "https://duckduckgo.com/favicon.ico"
+browser_baseline_default_search_engine_keyword: "ddg"
 
 # ------------------------------------------------------------------------------
 # Common Bookmarks (shared across Chrome, Firefox, and Dillo)
