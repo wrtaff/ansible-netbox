@@ -1,33 +1,30 @@
 {
-  "ExtensionInstallForcelist": {{ chrome_extension_install_forcelist | to_nice_json }},
-  "SyncDisabled": false,
-  "BookmarkBarEnabled": true,
-  "PasswordManagerEnabled": false,
   "DefaultSearchProviderEnabled": true,
   "DefaultSearchProviderName": "{{ browser_baseline_default_search_engine_name }}",
   "DefaultSearchProviderSearchURL": "{{ browser_baseline_default_search_engine_url }}",
   "DefaultSearchProviderSuggestURL": "{{ browser_baseline_default_search_engine_suggest_url }}",
   "DefaultSearchProviderIconURL": "{{ browser_baseline_default_search_engine_icon_url }}",
   "DefaultSearchProviderKeyword": "{{ browser_baseline_default_search_engine_keyword }}",
+  "PasswordManagerEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "ExtensionInstallForcelist": {{ chrome_extension_install_forcelist | to_json }},
   "ManagedBookmarks": [
     {
-      "toplevel_name": "Pops Bookmarks"
-    },
-{% for bm in browser_baseline_common_bookmarks %}
+      "toplevel_name": "Managed Bookmarks"
+    }{% for bm in browser_baseline_common_bookmarks %},
     {
       "name": "{{ bm.name }}",
       "url": "{{ bm.url }}"
-    }{% if not loop.last %},{% endif %}
-{% endfor %}
+    }{% endfor %}
   ],
-  "ManagedSearchEngines": [
-{% for s in browser_baseline_search_shortcuts %}
-    {
-      "name": "{{ s.name }}",
-      "keyword": "{{ s.keyword }}",
-      "search_url": "{{ s.url_template }}",
-      "favicon_url": "{{ s.icon_url | default('') }}"
-    }{% if not loop.last %},{% endif %}
-{% endfor %}
-  ]
+  "3rdparty": {
+    "extensions": {
+      "nngceckbapebfimnlniiiahkandclblb": {
+        "environment": {
+          "base": "{{ vaultwarden_server_url }}"
+        }
+      }
+    }
+  }
 }

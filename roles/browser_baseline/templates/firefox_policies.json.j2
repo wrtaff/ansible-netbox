@@ -1,38 +1,58 @@
 {
   "policies": {
-    "DisableAppUpdate": false,
+    "DisableAppUpdate": true,
+    "DisableFirefoxStudies": true,
+    "DisableTelemetry": true,
     "DisablePocket": true,
-    "ExtensionSettings": {{ firefox_extension_settings | to_nice_json }},
-    "Extensions": {
-      "Install": {{ firefox_extensions_install | to_nice_json }}
-    },
-    "OfferToSaveLogins": false,
     "PasswordManagerEnabled": false,
+    "OfferToSaveLogins": false,
+    "SearchEngines": {
+      "Default": "{{ browser_baseline_default_search_engine_name }}",
+      "PreventInstalls": false,
+      "Add": [
+        {
+          "Name": "{{ browser_baseline_default_search_engine_name }}",
+          "URLTemplate": "{{ browser_baseline_default_search_engine_url }}",
+          "Method": "GET",
+          "IconURL": "{{ browser_baseline_default_search_engine_icon_url }}",
+          "Alias": "{{ browser_baseline_default_search_engine_keyword }}",
+          "Description": "{{ browser_baseline_default_search_engine_name }} Search"
+        }{% for shortcut in browser_baseline_search_shortcuts %},
+        {
+          "Name": "{{ shortcut.name }}",
+          "URLTemplate": "{{ shortcut.url_template }}",
+          "Method": "GET",
+          "IconURL": "{{ shortcut.icon_url }}",
+          "Alias": "{{ shortcut.keyword }}",
+          "Description": "{{ shortcut.name }} Search"
+        }{% endfor %}
+      ]
+    },
     "ManagedBookmarks": [
       {
-        "toplevel_name": "Pops Bookmarks"
-      },
-{% for bm in browser_baseline_common_bookmarks %}
+        "toplevel_name": "Managed Bookmarks"
+      }{% for bm in browser_baseline_common_bookmarks %},
       {
         "name": "{{ bm.name }}",
         "url": "{{ bm.url }}"
+      }{% endfor %}
+    ],
+    "ExtensionSettings": {
+{% for ext_id, ext_conf in firefox_extension_settings.items() %}
+      "{{ ext_id }}": {
+        "installation_mode": "{{ ext_conf.installation_mode }}",
+        "install_url": "{{ ext_conf.install_url }}"
       }{% if not loop.last %},{% endif %}
 {% endfor %}
-    ],
-    "SearchEngines": {
-      "Default": "{{ browser_baseline_default_search_engine_name }}",
-      "Add": [
-{% for s in browser_baseline_search_shortcuts %}
-        {
-          "Name": "{{ s.name }}",
-          "URLTemplate": "{{ s.url_template }}",
-          "Method": "GET",
-          "Alias": "{{ s.keyword }}",
-          "Description": "{{ s.name }} Search",
-          "IconURL": "{{ s.icon_url | default('') }}"
-        }{% if not loop.last %},{% endif %}
-{% endfor %}
-      ]
+    },
+    "3rdparty": {
+      "Extensions": {
+        "{446900e4-71c2-419f-a6a7-df9c091e268b}": {
+          "environment": {
+            "base": "{{ vaultwarden_server_url }}"
+          }
+        }
+      }
     }
   }
 }
