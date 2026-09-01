@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       scripts/configure_selection_search.py
-Version:        1.0
+Version:        1.1
 Author:         Pops AI / Gemini
 Last Modified:  2026-08-31
 Context:        http://trac.gafla.us.com/ticket/2783, #4467
@@ -11,13 +11,6 @@ Purpose:
     Automated configuration of the Selection Search extension for Google Chrome
     and Mozilla Firefox. Injects the preconfigured search engines (WWOS, Trac,
     Wikipedia, YouTube, Google) via Playwright UI automation.
-
-Usage:
-    # 1. Drive configuration into Google Chrome
-    python3 scripts/configure_selection_search.py --browser chrome --profile-dir ~/.config/google-chrome/Default
-
-    # 2. Drive configuration into Firefox
-    python3 scripts/configure_selection_search.py --browser firefox --profile-dir ~/.mozilla/firefox/firefox-esr
 ================================================================================
 """
 
@@ -43,8 +36,8 @@ from playwright.sync_api import sync_playwright
 
 CHROME_EXTENSION_ID = "gipnlpdeieaidmmeaichnddnmjmcakoe"
 
-# Base64 encoded payload matching v0.9.8.1 with WWOS, Trac, Wikipedia, YouTube, Google
-EXPORT_PAYLOAD = "1e:JTdCJTIyVkVSU0lPTiUyMiUzQSUyMCUyMjAuOS44LjElMjIlMkMlMjAlMjJzZWFyY2hFbmdpbmVzJTIyJTNBJTIwJTVCJTdCJTIybmFtZSUyMiUzQSUyMCUyMldXT1MlMjIlMkMlMjAlMjJ1cmwlMjIlM0ElMjAlMjJodHRwJTNBLy93d29zLmhvbWUuYXJwYS9pbmRleC5waHAlM0ZzZWFyY2glM0QlMjVzJTIyJTJDJTIwJTIyaWNvbiUyMiUzQSUyMCUyMmh0dHAlM0EvL3d3b3MuaG9tZS5hcnBhL2Zhdmljb24uaWNvJTIyJTdEJTJDJTdCJTIybmFtZSUyMiUzQSUyMCUyMlRyYWMlMjIlMkMlMjAlMjJ1cmwlMjIlM0ElMjAlMjJodHRwJTNBLy90cmFjLmdhZmxhLnVzLmNvbS9zZWFyY2glM0ZxJTNEJTI1cyUyNmNoYW5nZXNldCUzRG9uJTI2bWlsZXN0b25lJTNEb24lMjZ0aWNrZXQlM0RvbiUyNndpa2klM0RvbiUyMiUyQyUyMCUyMmljb24lMjIlM0ElMjAlMjJodHRwJTNBLy90cmFjLmdhZmxhLnVzLmNvbS9jaHJvbWUvY29tbW9uL3RyYWMuaWNvJTIyJTdEJTJDJTdCJTIybmFtZSUyMiUzQSUyMCUyMldpa2lwZWRpYSUyMiUyQyUyMCUyMnVybCUyMiUzQSUyMCUyMmh0dHBzJTNBLy9lbi53aWtpcGVkaWEub3JnL3cvaW5kZXgucGhwJTNGc2VhcmNoJTNEMTlzJTIyJTJDJTIwJTIyaWNvbiUyMiUzQSUyMCUyMmh0dHBzJTNBLy9lbi53aWtpcGVkaWEub3JnL2Zhdmljb24uaWNvJTIyJTdEJTJDJTdCJTIybmFtZSUyMiUzQSUyMCUyMllvdVR1YmUlMjIlMkMlMjAlMjJ1cmwlMjIlM0ElMjAlMjJodHRwcyUzQTopL3d3dy55b3V0dWJlLmNvbS9yZXN1bHRzJTNGc2VhcmNoX3F1ZXJ5JTNEMTlzJTIyJTJDJTIwJTIyaWNvbiUyMiUzQSUyMCUyMmh0dHBzJTNBLy93d3cueW91dHViZS5jb20vZmF2aWNvbi5pY28lMjIlN0QlMkMlN0IlMjJuYW1lJTIyJTNBJTIwJTIyR29vZ2xlJTIyJTJDJTIwJTIydXJsJTIyJTNBJTIwJTIyaHR0cHMlM0EvL3d3dy5nb29nbGUuY29tL3NlYXJjaCUzRnElM0QxOXMlMjIlMkMlMjAlMjJpY29uJTIyJTNBJTIwJTIyaHR0cHMlM0EvL3d3dy5nb29nbGUuY29tL2Zhdmljb24uaWNvJTIyJTdEJTVEJTdE"
+# Standard base64 payload matching Decoder '1'
+EXPORT_PAYLOAD = "eyJWRVJTSU9OIjogIjAuOS44LjEiLCAic2VhcmNoRW5naW5lcyI6IFt7Im5hbWUiOiAiV1dPUyIsICJ1cmwiOiAiaHR0cDovL3d3b3MuaG9tZS5hcnBhL2luZGV4LnBocD9zZWFyY2g9JXMiLCAiaWNvbiI6ICJodHRwOi8vd3dvcy5ob21lLmFycGEvZmF2aWNvbi5pY28ifSwgeyJuYW1lIjogIlRyYWMiLCAidXJsIjogImh0dHA6Ly90cmFjLmdhZmxhLnVzLmNvbS9zZWFyY2g/cT0lcyZjaGFuZ2VzZXQ9b24mbWlsZXN0b25lPW9uJnRpY2tldD1vbiZ3aWtpPW9uIiwgImljb24iOiAiaHR0cDovL3RyYWMuZ2FmbGEudXMuY29tL2Nocm9tZS9jb21tb24vdHJhYy5pY28ifSwgeyJuYW1lIjogIldpa2lwZWRpYSIsICJ1cmwiOiAiaHR0cHM6Ly9lbi53aWtpcGVkaWEub3JnL3cvaW5kZXgucGhwP3NlYXJjaD0lcyIsICJpY29uIjogImh0dHBzOi8vZW4ud2lraXBlZGlhLm9yZy9mYXZpY29uLmljbyJ9LCB7Im5hbWUiOiAiWW91VHViZSIsICJ1cmwiOiAiaHR0cHM6Ly93d3cueW91dHViZS5jb20vcmVzdWx0cz9zZWFyY2hfcXVlcnk9JXMiLCAiaWNvbiI6ICJodHRwczovL3d3dy55b3V0dWJlLmNvbS9mYXZpY29uLmljbyJ9LCB7Im5hbWUiOiAiR29vZ2xlIiwgInVybCI6ICJodHRwczovL3d3dy5nb29nbGUuY29tL3NlYXJjaD9xPSVzIiwgImljb24iOiAiaHR0cHM6Ly93d3cuZ29vZ2xlLmNvbS9mYXZpY29uLmljbyJ9XX0="
 
 def configure_chrome_selection_search(profile_dir, headless=True):
     print(f"Configuring Selection Search in Chrome profile: {profile_dir}")
