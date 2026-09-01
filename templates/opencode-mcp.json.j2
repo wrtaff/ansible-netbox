@@ -1,6 +1,7 @@
 {% set unmanaged = {} %}
+{% set purged_servers = ['ha-mcp'] %}
 {% for name, server in current_opencode_config.get('mcp', {}).items() %}
-{%   if name not in mcp_servers %}
+{%   if name not in mcp_servers and name not in purged_servers %}
 {%     set _ = unmanaged.update({name: server}) %}
 {%   endif %}
 {% endfor %}
