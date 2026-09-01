@@ -1,10 +1,10 @@
 ---
 # ==============================================================================
 # Filename:       roles/browser_baseline/tasks/main.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Pops AI / Gemini
 # Last Modified:  2026-08-31
-# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
+# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411, #4467
 #
 # Purpose:
 #     Main task list for the browser_baseline role. Deploys Google Chrome,
@@ -31,6 +31,14 @@
     group: "{{ browser_baseline_user }}"
     mode: '0700'
 
+- name: Ensure Selection Search user configuration directory exists
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/.config/selection-search"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0700'
+
 - name: Ensure user Downloads directory exists
   ansible.builtin.file:
     path: "/home/{{ browser_baseline_user }}/Downloads"
@@ -49,3 +57,18 @@
   loop:
     - "/home/{{ browser_baseline_user }}/.config/wallabag/wallabag-settings.json"
     - "/home/{{ browser_baseline_user }}/Downloads/wallabag-settings.json"
+
+- name: Deploy Selection Search extension settings JSON & paste string
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0644'
+  loop:
+    - src: selection-search-settings.json.j2
+      dest: "/home/{{ browser_baseline_user }}/.config/selection-search/selection-search-settings.json"
+    - src: selection-search-settings.json.j2
+      dest: "/home/{{ browser_baseline_user }}/Downloads/selection-search-settings.json"
+    - src: selection-search-export.txt.j2
+      dest: "/home/{{ browser_baseline_user }}/Downloads/selection-search-export.txt"
