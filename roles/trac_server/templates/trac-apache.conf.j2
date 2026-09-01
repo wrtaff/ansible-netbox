@@ -10,7 +10,7 @@
         Require all granted
     </Directory>
 
-    # Split Auth: Allow unauthenticated access on LAN/VPN subnets; require Basic Auth for public/external.
+    # Split Auth: Allow unauthenticated access from LAN/VPN subnets; require Basic Auth for public/external.
     <Location "/">
         AuthType Basic
         AuthName "Trac"
