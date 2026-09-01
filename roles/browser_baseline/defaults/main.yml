@@ -1,9 +1,9 @@
 # ==============================================================================
 # Filename:       roles/browser_baseline/defaults/main.yml
-# Version:        1.3
+# Version:        1.4
 # Author:         Pops AI / Gemini
 # Last Modified:  2026-08-31
-# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
+# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411, #4467
 #
 # Purpose:
 #     Default variables for the browser_baseline Ansible role.
@@ -88,9 +88,11 @@ chrome_policy_file: "{{ chrome_policy_dir }}/default_policies.json"
 # Chrome Extension IDs:
 # - Bitwarden: nngceckbapebfimnlniiiahkandclblb
 # - Wallabag (Wallabagger): pelehflaaofaepelocifahojgipgndoc
+# - Selection Search: gipnlpdeieaidmmeaichnddnmjmcakoe
 chrome_extension_install_forcelist:
   - "nngceckbapebfimnlniiiahkandclblb;https://clients2.google.com/service/update2/crx"
   - "pelehflaaofaepelocifahojgipgndoc;https://clients2.google.com/service/update2/crx"
+  - "gipnlpdeieaidmmeaichnddnmjmcakoe;https://clients2.google.com/service/update2/crx"
 
 # ------------------------------------------------------------------------------
 # Firefox Configuration & Policy
@@ -102,9 +104,11 @@ firefox_policy_file: "{{ firefox_policy_dir }}/policies.json"
 # Firefox Extension IDs and URLs:
 # - Bitwarden: {446900e4-71c2-419f-a6a7-df9c091e268b}
 # - Wallabag (Wallabagger): {7a7b1d36-d7a4-481b-92c6-9f5427cb9eb1}
+# - Selection Search: selection-search@myr1.net
 firefox_extensions_install:
   - "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi"
   - "https://addons.mozilla.org/firefox/downloads/latest/wallabagger/latest.xpi"
+  - "https://addons.mozilla.org/firefox/downloads/latest/selection-search-ff/latest.xpi"
 
 firefox_extension_settings:
   "{446900e4-71c2-419f-a6a7-df9c091e268b}":
@@ -113,6 +117,9 @@ firefox_extension_settings:
   "{7a7b1d36-d7a4-481b-92c6-9f5427cb9eb1}":
     installation_mode: "normal_installed"
     install_url: "https://addons.mozilla.org/firefox/downloads/latest/wallabagger/latest.xpi"
+  "selection-search@myr1.net":
+    installation_mode: "normal_installed"
+    install_url: "https://addons.mozilla.org/firefox/downloads/latest/selection-search-ff/latest.xpi"
 
 # Firefox Named Profiles (concurrent isolation)
 firefox_named_profiles:
