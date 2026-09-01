@@ -11,7 +11,7 @@
 # ==============================================================================
 
 - name: Disable Lock Screen and Blanking
-  hosts: athena
+  hosts: athena, limbo-f0
   become: no  # Run as the user 'will' to modify their XFCE settings
   tasks:
     - name: Disable XFCE Screensaver

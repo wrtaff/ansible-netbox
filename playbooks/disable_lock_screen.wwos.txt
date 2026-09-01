@@ -1,7 +1,7 @@
 '''Playbooks/disable_lock_screen.yml''' disables the lock screen and screen blanking on XFCE workstations, specifically for "always on" monitors.
 
 == Use Case ==
-This playbook is used to configure host 'athena' (and others if needed) for a status monitor display where the screen must not blank or lock, matching the known good configuration of 'venus' and 'zeus'.
+This playbook is used to configure host 'athena', 'limbo-f0' (and others if needed) for a display where the screen must not blank or lock, matching the known good configuration of 'venus' and 'zeus'.
 
 == Installation Method ==
 Applied via Ansible targeting the specific host. It uses <code>community.general.xfconf</code> to modify XFCE configuration channels directly in the user's session.
@@ -36,7 +36,7 @@ To re-enable locking:
 
 == Usage ==
 Run the playbook from the <code>ansible-netbox</code> directory:
-<code>ansible-playbook -i inventory.ini playbooks/disable_lock_screen.yml --limit athena</code>
+<code>ansible-playbook -i inventory.ini playbooks/disable_lock_screen.yml --limit limbo-f0</code>
 
 == Links ==
 * Trac Ticket: [http://trac.home.arpa/ticket/3218 #3218]
