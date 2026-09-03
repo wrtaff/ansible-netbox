@@ -1,0 +1,80 @@
+---
+# ==============================================================================
+# Filename:       roles/disk_alerts/defaults/main.yml
+# Version:        2.0
+# Author:         jimmy (claude@agent-runner-pve5-01)
+# Last Modified:  2026-09-03
+# Context:        http://trac.gafla.us.com/ticket/4494 (WP-2), supersedes #4078
+#
+# Purpose:
+#     Defaults for the host disk capacity monitor. Every value that was
+#     hard-coded into the old inline check_disk.sh heredoc is a variable here
+#     so thresholds and recipients can be overridden per host or per group.
+# ==============================================================================
+
+# --- Thresholds -------------------------------------------------------------
+# Alert at or above this block-usage percentage.
+disk_alerts_threshold: 85
+
+# Clear alert state only once usage falls BELOW this percentage. Must be
+# strictly lower than disk_alerts_threshold: this is the hysteresis band that
+# stops a volume oscillating around the boundary from re-alerting on every
+# crossing (Trac #4494 F8 -- two hosts produced 344 emails in ~34 days).
+disk_alerts_clear_threshold: 80
+
+# Inode exhaustion is invisible to a block-usage check. Alert separately.
+disk_alerts_inode_threshold: 90
+
+# --- Re-notification --------------------------------------------------------
+# Re-alert every N hours while a breach PERSISTS. The pre-WP-2 script had no
+# expiry at all, so a filesystem that stayed full alerted exactly once and then
+# went silent forever (Trac #4494 F2 -- pve5 sat at 92% for 20 days).
+disk_alerts_renotify_hours: 24
+
+# --- Notification routing ---------------------------------------------------
+# WP-0 decision, Will, 2026-09-03: BOTH destinations.
+#   root@home.arpa   -- durable record, lands in the Dovecot catchall
+#   wrtaff@gmail.com -- the channel that is actually read
+# This supersedes the #4078 (2026-08-13) policy of local-mailbox-only. Do not
+# remove the Gmail recipient on the basis of that superseded comment.
+disk_alerts_recipients: "root@home.arpa,wrtaff@gmail.com"
+
+# --- Graylog ----------------------------------------------------------------
+disk_alerts_graylog_host: "192.168.0.104"
+disk_alerts_graylog_port: 1514
+
+# Emit one heartbeat line per run regardless of alert state, so that "no
+# alerts" can be distinguished from "no monitor" (Trac #4494 F9/WP-5).
+disk_alerts_heartbeat: true
+
+# --- Filesystem selection ---------------------------------------------------
+# Local filesystems only. Network mounts are excluded because a hung NFS mount
+# blocks df indefinitely, and because every host mounting a share would
+# otherwise alert on the same remote filer (Trac #4494 F10).
+disk_alerts_exclude_types:
+  - tmpfs
+  - devtmpfs
+  - squashfs
+  - overlay
+  - fuse.lxcfs
+  - iso9660
+
+# Mount points never worth alerting on.
+disk_alerts_exclude_mounts:
+  - /boot/efi
+  - /dev
+  - /run
+
+# --- Scheduling -------------------------------------------------------------
+disk_alerts_oncalendar: "hourly"
+# Spread the fleet so it does not all mail the single relay at :00. The relay
+# has run out of storage under load before (#4078, 2026-07-31).
+disk_alerts_randomized_delay: "20m"
+
+# --- Paths ------------------------------------------------------------------
+disk_alerts_script_path: /usr/local/bin/check_disk.sh
+disk_alerts_state_dir: /var/lib/disk_alert
+
+# The old cron entry and /tmp lock files this role replaces.
+disk_alerts_legacy_cron_name: "disk_alerts_check"
+disk_alerts_remove_legacy_cron: true

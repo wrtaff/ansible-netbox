@@ -1,62 +1,39 @@
 ---
 # ==============================================================================
 # Filename:       deploy_disk_alerts.yml
-# Version:        1.3
-# Author:         Gemini CLI
-# Last Modified:  2026-08-13
-# Context:        http://trac.gafla.us.com/ticket/4078
+# Version:        2.0
+# Author:         jimmy (claude@agent-runner-pve5-01)
+# Last Modified:  2026-09-03
+# Context:        http://trac.gafla.us.com/ticket/4494 (WP-2)
+#                 Supersedes the v1.3 inline script and the #4078 recipient
+#                 policy. See the disk_alerts role for the rationale on each
+#                 threshold and on the recipient list.
 #
 # Purpose:
-#     Deploys a local disk alert monitor script and cron job, and ensures
-#     system mail client (postfix/aliases) is configured to send email alerts.
+#     Deploys the host disk capacity monitor and ensures the system mail
+#     client is configured to deliver its alerts.
+#
+# CHANGES FROM v1.3 (all from the Trac #4494 review):
+#     * The inline `copy: content:` heredoc is replaced by the disk_alerts
+#       role, so thresholds and recipients are variables rather than
+#       copy-pasted literals. Three divergent script versions were live.
+#     * Recipients restored to root@home.arpa AND wrtaff@gmail.com per the
+#       WP-0 decision (Will, 2026-09-03), superseding #4078 2026-08-13.
+#     * Lock-file latch replaced by a state machine with a re-notify interval
+#       and a clear threshold below the alert threshold.
+#     * The state write is gated on delivery success.
+#     * cron replaced by a randomized systemd timer that logs to the journal.
+#
+# NOT YET DONE -- tracked as #4494 WP-4, gated on Will's approval:
+#     The `hosts:` list below is UNCHANGED from v1.3 and still omits
+#     wazuh-siem (CT 112), vik-01, ot-recorder and the gmailctl-ansible relay,
+#     and pve4 has never received a successful run. Do not widen this list
+#     without running --list-hosts past Will first.
 # ==============================================================================
 - name: Deploy Disk Alerts and Configure System Mail
   hosts: agent_runners, proxmox, ktn_lxc, containers
   become: yes
   roles:
-    - { role: system_mail_client, when: "inventory_hostname != 'gmailctl-ansible' and (ansible_host | default('') != '192.168.0.25')" }
-
-  tasks:
-    - name: Deploy disk checking script
-      copy:
-        dest: /usr/local/bin/check_disk.sh
-        mode: '0755'
-        content: |
-          #!/bin/bash
-          # Managed by Ansible - deploy_disk_alerts.yml
-          THRESHOLD=85
-          EMAILS="root@home.arpa"
-          HOSTNAME=$(hostname)
-
-          df -Ph | grep -vE '^Filesystem|tmpfs|cdrom|udev|none|/boot/efi' | while read line; do
-            usep=$(echo $line | awk '{print $5}' | cut -d"%" -f1)
-            partition=$(echo $line | awk '{print $6}')
-            
-            sanitized_partition=$(echo "$partition" | tr '/' '_')
-            lock_file="/tmp/disk_alert_${HOSTNAME}_${sanitized_partition}.lock"
-            trac_query_url="http://trac.gafla.us.com/query?status=!closed&keywords=~disk-alert+~${HOSTNAME}"
-
-            if [ $usep -ge $THRESHOLD ]; then
-              if [ ! -f "$lock_file" ]; then
-                # Send administrative alerts through the local Roundcube mail path with Trac ticket link
-                echo -e "Warning: Disk space on $HOSTNAME for partition $partition is at $usep%.\n\nAn automated Trac ticket has been created/tracked for this alert:\n${trac_query_url}\n\nPlease clean up or extend the volume to prevent service disruption." | mail -s "CRITICAL: Disk Space Alert on $HOSTNAME ($usep% full)" "$EMAILS"
-                # Log alert directly to Graylog syslog input via UDP
-                logger -d -n 192.168.0.104 -P 1514 "CRITICAL: Disk Space Alert: partition $partition is at $usep%"
-                # Create lock file to prevent repeat alerts until resolved
-                touch "$lock_file"
-              fi
-            else
-              # Reset lock file if utilization falls below threshold
-              if [ -f "$lock_file" ]; then
-                rm -f "$lock_file"
-              fi
-            fi
-          done
-
-    - name: Create cron job for disk alerts (hourly)
-      cron:
-        name: "disk_alerts_check"
-        hour: "*"
-        minute: "0"
-        job: "/usr/local/bin/check_disk.sh >/dev/null 2>&1"
-        state: present
+    - role: system_mail_client
+      when: "inventory_hostname != 'gmailctl-ansible' and (ansible_host | default('') != '192.168.0.25')"
+    - role: disk_alerts

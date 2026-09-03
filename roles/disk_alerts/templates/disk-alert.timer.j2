@@ -1,0 +1,12 @@
+[Unit]
+Description=Run host disk capacity check on a schedule (Trac #4494)
+
+[Timer]
+OnCalendar={{ disk_alerts_oncalendar }}
+# Spread the fleet: every host previously ran at :00 and mailed one relay
+# simultaneously. That relay has exhausted its storage under load before.
+RandomizedDelaySec={{ disk_alerts_randomized_delay }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

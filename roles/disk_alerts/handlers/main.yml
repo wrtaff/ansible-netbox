@@ -1,0 +1,6 @@
+---
+- name: Restart disk alert timer
+  systemd:
+    name: disk-alert.timer
+    state: restarted
+    daemon_reload: yes

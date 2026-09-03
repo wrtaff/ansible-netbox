@@ -1,0 +1,169 @@
+#!/bin/bash
+# ==============================================================================
+# check_disk.sh -- host disk capacity monitor
+# MANAGED BY ANSIBLE -- roles/disk_alerts. Do not edit on the host; edit the
+# template and re-run the playbook. Local edits caused the three-way version
+# drift documented in Trac #4494 F3.
+#
+# Context: http://trac.gafla.us.com/ticket/4494 (WP-2)
+# ==============================================================================
+set -o pipefail
+
+THRESHOLD={{ disk_alerts_threshold }}
+CLEAR_THRESHOLD={{ disk_alerts_clear_threshold }}
+INODE_THRESHOLD={{ disk_alerts_inode_threshold }}
+RENOTIFY_SECONDS=$(( {{ disk_alerts_renotify_hours }} * 3600 ))
+EMAILS="{{ disk_alerts_recipients }}"
+GRAYLOG_HOST="{{ disk_alerts_graylog_host }}"
+GRAYLOG_PORT={{ disk_alerts_graylog_port }}
+STATE_DIR="${DISK_ALERT_STATE_DIR:-{{ disk_alerts_state_dir }}}"
+HOSTNAME=$(hostname)
+TRAC_QUERY_URL="http://trac.gafla.us.com/query?status=!closed&keywords=~disk-alert+~${HOSTNAME}"
+
+# Repeated -x flags, rendered at template time. Word splitting on this is
+# intentional, so it is deliberately left unquoted at the call site.
+DF_EXCLUDES="{% for t in disk_alerts_exclude_types %}-x {{ t }} {% endfor %}"
+EXCLUDE_MOUNTS="{{ disk_alerts_exclude_mounts | join(' ') }}"
+
+# Test seam: the harness overrides these to exercise the state machine without
+# a real filesystem or a real MTA. Unset in production.
+DF_CMD="${DISK_ALERT_DF_CMD:-df}"
+MAIL_CMD="${DISK_ALERT_MAIL_CMD:-mail}"
+LOGGER_CMD="${DISK_ALERT_LOGGER_CMD:-logger}"
+NOW="${DISK_ALERT_NOW:-$(date +%s)}"
+
+mkdir -p "$STATE_DIR" || exit 1
+chmod 0700 "$STATE_DIR" 2>/dev/null || true
+
+exit_code=0
+checked=0
+breached=0
+
+is_excluded_mount() {
+    local mount="$1" ex
+    for ex in $EXCLUDE_MOUNTS; do
+        [ "$mount" = "$ex" ] && return 0
+    done
+    return 1
+}
+
+# Emit a notification and record state ONLY if delivery succeeded.
+#
+# The pre-WP-2 script ran `touch "$lock_file"` unconditionally, so a bounced or
+# undeliverable alert was recorded as sent and then suppressed forever
+# (Trac #4494 F9). Here the state write is chained to the mailer's exit status:
+# a failed send leaves no state, so the next run retries.
+notify() {
+    local kind="$1" mount="$2" usage="$3" state_file="$4" repeat="$5"
+    local subject body prefix
+
+    prefix="CRITICAL"
+    [ "$kind" = "inode" ] && prefix="CRITICAL (inodes)"
+    subject="${prefix}: Disk Space Alert on ${HOSTNAME} (${usage}% full)"
+    [ "$repeat" = "repeat" ] && subject="${subject} [still breached]"
+
+    body=$(printf '%s\n' \
+        "Warning: ${kind} usage on ${HOSTNAME} for partition ${mount} is at ${usage}%." \
+        "" \
+        "Threshold: ${THRESHOLD}%  Clear below: ${CLEAR_THRESHOLD}%" \
+        "This alert repeats every {{ disk_alerts_renotify_hours }}h while the breach persists." \
+        "" \
+        "Open disk-alert tickets for this host:" \
+        "${TRAC_QUERY_URL}" \
+        "" \
+        "Please clean up or extend the volume to prevent service disruption.")
+
+    if printf '%s\n' "$body" | "$MAIL_CMD" -s "$subject" "$EMAILS"; then
+        printf '%s\n' "$NOW" > "$state_file"
+        "$LOGGER_CMD" -d -n "$GRAYLOG_HOST" -P "$GRAYLOG_PORT" \
+            "CRITICAL: Disk Space Alert: partition ${mount} is at ${usage}% (${kind}, threshold ${THRESHOLD}%)" || true
+        return 0
+    fi
+
+    # Delivery failed. Deliberately leave no state file so the next run retries,
+    # and make the failure visible in the journal rather than swallowing it.
+    echo "check_disk: ALERT DELIVERY FAILED for ${mount} at ${usage}% (${kind})" >&2
+    "$LOGGER_CMD" -d -n "$GRAYLOG_HOST" -P "$GRAYLOG_PORT" \
+        "ERROR: Disk Space Alert delivery FAILED on ${HOSTNAME} for partition ${mount} at ${usage}%" || true
+    return 1
+}
+
+# $1 = kind (block|inode), $2 = mount, $3 = usage percent
+evaluate() {
+    local kind="$1" mount="$2" usage="$3"
+    local sanitized state_file last age
+
+    sanitized=$(printf '%s' "$mount" | tr '/ ' '__')
+    state_file="${STATE_DIR}/${kind}_${HOSTNAME}_${sanitized}.state"
+
+    if [ "$usage" -ge "$THRESHOLD" ] || { [ "$kind" = "inode" ] && [ "$usage" -ge "$INODE_THRESHOLD" ]; }; then
+        breached=$((breached + 1))
+
+        if [ ! -f "$state_file" ]; then
+            notify "$kind" "$mount" "$usage" "$state_file" "first" || exit_code=1
+            return
+        fi
+
+        # State exists. Re-alert only once the re-notify interval has elapsed.
+        # This is the fix for the once-forever defect: previously the presence
+        # of the file suppressed every subsequent alert indefinitely.
+        last=$(cat "$state_file" 2>/dev/null)
+        case "$last" in
+            ''|*[!0-9]*) last=0 ;;
+        esac
+        age=$(( NOW - last ))
+        if [ "$age" -ge "$RENOTIFY_SECONDS" ]; then
+            notify "$kind" "$mount" "$usage" "$state_file" "repeat" || exit_code=1
+        fi
+        return
+    fi
+
+    # Below the alert threshold. Clear state only once usage drops below the
+    # CLEAR threshold, not merely below the alert threshold -- without this
+    # hysteresis band a volume hovering at the boundary re-alerts on every
+    # crossing (Trac #4494 F8).
+    if [ "$usage" -lt "$CLEAR_THRESHOLD" ] && [ -f "$state_file" ]; then
+        rm -f "$state_file"
+    fi
+}
+
+# Columns are pinned with --output rather than read positionally out of
+# df -Ph, which is what left the "alerts firing at 64%" report in #4078
+# unexplained. -l restricts to local filesystems so a hung NFS mount cannot
+# block the run. Note: -P and --output are mutually exclusive in GNU
+# coreutils, and --output already gives stable one-line-per-fs output.
+scan() {
+    local kind="$1" pcent_field="$2" line usage mount
+    while IFS= read -r line; do
+        usage=$(printf '%s' "$line" | awk '{print $1}' | tr -d ' %')
+        mount=$(printf '%s' "$line" | sed 's/^ *[0-9]*% *//')
+        case "$usage" in
+            ''|*[!0-9]*) continue ;;
+        esac
+        [ -z "$mount" ] && continue
+        is_excluded_mount "$mount" && continue
+        [ "$kind" = "block" ] && checked=$((checked + 1))
+        evaluate "$kind" "$mount" "$usage"
+    done <<EOF
+$($DF_CMD -l $DF_EXCLUDES "$pcent_field" 2>/dev/null | tail -n +2)
+EOF
+}
+
+scan block "--output=pcent,target"
+scan inode "--output=ipcent,target"
+
+if [ "$checked" -eq 0 ]; then
+    echo "check_disk: no filesystems evaluated -- check exclusions" >&2
+    exit 1
+fi
+
+{% if disk_alerts_heartbeat %}
+# Heartbeat: one line every run, breach or not. Absence of alerts previously
+# looked identical to absence of a monitor, which is why pve4 and CT 112 went
+# unnoticed for weeks (Trac #4494 F5/F9).
+"$LOGGER_CMD" -d -n "$GRAYLOG_HOST" -P "$GRAYLOG_PORT" \
+    "INFO: disk_alert heartbeat on ${HOSTNAME}: ${checked} filesystems checked, ${breached} breached, threshold ${THRESHOLD}%" || true
+{% endif %}
+echo "check_disk: ${checked} filesystems checked, ${breached} breached"
+
+exit "$exit_code"

@@ -1,0 +1,108 @@
+---
+# ==============================================================================
+# Filename:       roles/disk_alerts/tasks/main.yml
+# Version:        2.0
+# Author:         jimmy (claude@agent-runner-pve5-01)
+# Last Modified:  2026-09-03
+# Context:        http://trac.gafla.us.com/ticket/4494 (WP-2)
+#
+# Purpose:
+#     Deploy the templated disk capacity monitor and its systemd timer, and
+#     retire the cron entry and /tmp lock files it replaces.
+# ==============================================================================
+
+- name: Assert clear threshold is below alert threshold
+  # Without this, the hysteresis band is inverted or empty and the script
+  # re-alerts on every boundary crossing -- the defect this role exists to fix.
+  ansible.builtin.assert:
+    that:
+      - disk_alerts_clear_threshold | int < disk_alerts_threshold | int
+      - disk_alerts_threshold | int > 0
+      - disk_alerts_threshold | int <= 100
+      - disk_alerts_renotify_hours | int > 0
+    fail_msg: >-
+      disk_alerts_clear_threshold ({{ disk_alerts_clear_threshold }}) must be
+      strictly below disk_alerts_threshold ({{ disk_alerts_threshold }}), and
+      disk_alerts_renotify_hours must be positive.
+
+- name: Ensure mail client is present for alert delivery
+  ansible.builtin.command: which mail
+  register: disk_alerts_mail_bin
+  changed_when: false
+  failed_when: false
+
+- name: Fail early if no mailer is installed
+  # Previously a missing mailer produced a silently lost alert that was then
+  # suppressed. Catch it at deploy time instead of at incident time.
+  ansible.builtin.fail:
+    msg: >-
+      No 'mail' binary on {{ inventory_hostname }}. Run the system_mail_client
+      role first -- disk alerts cannot be delivered without it.
+  when: disk_alerts_mail_bin.rc != 0
+
+- name: Create alert state directory
+  ansible.builtin.file:
+    path: "{{ disk_alerts_state_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Deploy disk checking script
+  ansible.builtin.template:
+    src: check_disk.sh.j2
+    dest: "{{ disk_alerts_script_path }}"
+    owner: root
+    group: root
+    mode: '0755'
+    validate: 'bash -n %s'
+  notify: Restart disk alert timer
+
+- name: Deploy systemd service unit
+  ansible.builtin.template:
+    src: disk-alert.service.j2
+    dest: /etc/systemd/system/disk-alert.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart disk alert timer
+
+- name: Deploy systemd timer unit
+  ansible.builtin.template:
+    src: disk-alert.timer.j2
+    dest: /etc/systemd/system/disk-alert.timer
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart disk alert timer
+
+- name: Enable and start disk alert timer
+  ansible.builtin.systemd:
+    name: disk-alert.timer
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Remove superseded cron entry
+  ansible.builtin.cron:
+    name: "{{ disk_alerts_legacy_cron_name }}"
+    state: absent
+  when: disk_alerts_remove_legacy_cron | bool
+
+- name: Find legacy /tmp lock files
+  # Migration only. State now lives under disk_alerts_state_dir; leaving the
+  # old locks behind is harmless but confusing to the next person triaging.
+  ansible.builtin.find:
+    paths: /tmp
+    patterns: 'disk_alert_*.lock'
+  register: disk_alerts_legacy_locks
+  when: disk_alerts_remove_legacy_cron | bool
+
+- name: Remove legacy /tmp lock files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ disk_alerts_legacy_locks.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: disk_alerts_remove_legacy_cron | bool
