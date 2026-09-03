@@ -58,6 +58,7 @@ disk_alerts_exclude_types:
   - overlay
   - fuse.lxcfs
   - iso9660
+  - efivarfs
 
 # Mount points never worth alerting on.
 disk_alerts_exclude_mounts:
