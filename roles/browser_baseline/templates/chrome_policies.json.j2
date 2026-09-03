@@ -5,6 +5,15 @@
   "DefaultSearchProviderSuggestURL": "{{ browser_baseline_default_search_engine_suggest_url }}",
   "DefaultSearchProviderIconURL": "{{ browser_baseline_default_search_engine_icon_url }}",
   "DefaultSearchProviderKeyword": "{{ browser_baseline_default_search_engine_keyword }}",
+  "SiteSearchSettings": [
+{% for shortcut in browser_baseline_search_shortcuts %}
+    {
+      "name": "{{ shortcut.name }}",
+      "shortcut": "{{ shortcut.keyword }}",
+      "url": "{{ shortcut.url_template }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  ],
   "PasswordManagerEnabled": false,
   "AutofillAddressEnabled": false,
   "AutofillCreditCardEnabled": false,
