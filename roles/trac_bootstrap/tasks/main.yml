@@ -1,0 +1,40 @@
+# roles/trac_bootstrap/tasks/main.yml
+# One-shot initial migration and database restore role.
+# CAUTION: Executing these tasks will overwrite the target Trac environment with the backup archive.
+---
+- name: 1. Copy backup tarball to remote host
+  ansible.builtin.copy:
+    src: ../../backups/final_trac_backup.tar.gz
+    dest: /tmp/trac_backup.tar.gz
+    mode: '0600'
+
+- name: 2. Unarchive the backup to create Trac environment
+  ansible.builtin.unarchive:
+    src: /tmp/trac_backup.tar.gz
+    dest: /var/trac/
+    remote_src: yes
+
+- name: 3. Copy htpasswd file from restored environment
+  ansible.builtin.copy:
+    src: /var/trac/trac_bak_TEMP/.htpasswd
+    dest: /etc/apache2/.htpasswd
+    remote_src: yes
+    mode: '0640'
+    owner: root
+    group: www-data
+
+- name: 4. Update trac.ini database connection string
+  community.general.ini_file:
+    path: /var/trac/trac_bak_TEMP/conf/trac.ini
+    section: trac
+    option: database
+    value: sqlite:db/trac.db
+    backup: yes
+
+- name: 5. Run Trac Environment Upgrade
+  ansible.builtin.command: trac-admin /var/trac/trac_bak_TEMP upgrade --no-backup
+  changed_when: true
+
+- name: 6. Run Trac Wiki Upgrade
+  ansible.builtin.command: trac-admin /var/trac/trac_bak_TEMP wiki upgrade
+  changed_when: true

@@ -1,8 +1,8 @@
 # trac.wsgi.j2
 import os
 
-os.environ['TRAC_ENV'] = '/var/trac/my_project'
-os.environ['PYTHON_EGG_CACHE'] = '/var/trac/my_project/eggs'
+os.environ['TRAC_ENV'] = '/var/trac/trac_prod'
+os.environ['PYTHON_EGG_CACHE'] = '/var/trac/trac_prod/eggs'
 
 import trac.web.main
 application = trac.web.main.dispatch_request

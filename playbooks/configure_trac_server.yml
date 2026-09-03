@@ -1,0 +1,9 @@
+---
+# Playbook: configure_trac_server.yml
+# Purpose: Idempotent configuration and service management for Trac on trac-lxc.
+# Ticket: http://trac.gafla.us.com/ticket/4309
+- name: Configure Trac Service and VirtualHost
+  hosts: trac-lxc
+  become: true
+  roles:
+    - role: trac_server
