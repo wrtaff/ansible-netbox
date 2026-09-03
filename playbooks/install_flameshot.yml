@@ -1,10 +1,10 @@
 ---
 # ==============================================================================
 # Filename:       playbooks/install_flameshot.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini
-# Last Modified:  2026-07-16
-# Trac Ticket:    None
+# Last Modified:  2026-09-02
+# Trac Ticket:    4486
 #
 # Purpose:
 #     Installs Flameshot screenshot software
@@ -37,7 +37,8 @@
 #     apt purge flameshot
 #
 # Revision History:
-#     1.0 - Initial playbook.
+#     1.1 (2026-09-02) - Associated with Trac #4486 for fleet-wide desktop deployment.
+#     1.0 (2026-07-16) - Initial playbook.
 #
 # NOTES:
 #     Always bump versions when making changes and annotate them here.
