@@ -23,3 +23,6 @@ recipient_delimiter = +
 # Only listen on the loopback interface
 inet_interfaces = loopback-only
 inet_protocols = all
+
+# Relay restrictions required by Postfix 3.x when smtpd is invoked on loopback
+smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination
