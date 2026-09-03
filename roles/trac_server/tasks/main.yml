@@ -29,16 +29,16 @@
 - name: 4. Deploy Apache VirtualHost Configuration
   ansible.builtin.template:
     src: trac-apache.conf.j2
-    dest: /etc/apache2/sites-available/trac-apache.conf
+    dest: /etc/apache2/sites-available/trac.conf
     owner: root
     group: root
     mode: '0644'
   notify: Reload Apache
 
-- name: 5. Enable Apache VirtualHost and mod_wsgi
-  ansible.builtin.command: a2ensite trac-apache.conf
+- name: 5. Enable Apache VirtualHost
+  ansible.builtin.command: a2ensite trac.conf
   args:
-    creates: /etc/apache2/sites-enabled/trac-apache.conf
+    creates: /etc/apache2/sites-enabled/trac.conf
   notify: Reload Apache
 
 - name: 6. Enable mod_wsgi
