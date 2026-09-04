@@ -1,0 +1,16 @@
+#!/bin/bash
+# Stub df. Emits the fixture named by DISK_ALERT_FIXTURE for the requested
+# --output field, so the state machine can be exercised without a real volume.
+for a in "$@"; do
+  case "$a" in
+    --output=pcent,target) mode=block ;;
+    --output=ipcent,target) mode=inode ;;
+  esac
+done
+if [ "$mode" = "block" ]; then
+  echo "Use% Mounted on"
+  printf '%s\n' "$FIX_BLOCK"
+else
+  echo "IUse% Mounted on"
+  printf '%s\n' "$FIX_INODE"
+fi

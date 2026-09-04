@@ -1,0 +1,6 @@
+#!/bin/bash
+# Stub mailer. Records the delivery; exits non-zero when FAIL_MAIL=1 so the
+# delivery-gating behaviour can be tested.
+cat > /dev/null
+if [ "$FAIL_MAIL" = "1" ]; then exit 1; fi
+echo "MAILSENT|$*" >> "$MAILLOG"

@@ -1,0 +1,12 @@
+[Unit]
+Description=Host disk capacity check (Trac #4494)
+After=network-online.target postfix.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ disk_alerts_script_path }}
+# Output goes to the journal, not /dev/null. The old cron entry discarded both
+# stdout and stderr, which is why delivery failures were invisible (#4494 F9).
+StandardOutput=journal
+StandardError=journal
