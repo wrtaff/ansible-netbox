@@ -1,0 +1,34 @@
+---
+# Filename:     playbooks/tune_workstation_memory.yml
+# Version:      1.0
+# Author:       Will Taff / POPS Assistant
+# Last Modified: 2026-09-07
+# Trac Ticket:  http://trac.gafla.us.com/ticket/4518
+# Purpose:      Tune kernel memory management & swappiness to eliminate I/O wait thrashing
+# Use Case:     Prevent desktop freezing caused by premature swap paging to SATA SSDs
+# Method:       Deploy persistent sysctl config to /etc/sysctl.d/99-workstation-memory.conf
+# Prerequisites: Debian / Ubuntu managed desktop workstation
+# Configuration: vm.swappiness = 10, vm.vfs_cache_pressure = 50
+# Secrets:      None — no vault variables required
+# Usage:        ansible-playbook -i inventory.ini playbooks/tune_workstation_memory.yml -l <target>
+# WWOS:         http://wwos.home.arpa/index.php/Playbooks/tune_workstation_memory.yml
+# GitHub:       https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/tune_workstation_memory.yml
+
+- name: Tune virtual memory subsystem and swappiness on desktop workstations
+  hosts: desktops
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Configure kernel virtual memory sysctl parameters
+      ansible.posix.sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        sysctl_file: /etc/sysctl.d/99-workstation-memory.conf
+        reload: true
+      loop:
+        - { name: "vm.swappiness", value: "10" }
+        - { name: "vm.vfs_cache_pressure", value: "50" }
+        - { name: "vm.dirty_background_ratio", value: "5" }
+        - { name: "vm.dirty_ratio", value: "10" }
