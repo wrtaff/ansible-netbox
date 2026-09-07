@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
+killall -9 polybar 2>/dev/null
+while pgrep -u $UID -x polybar >/dev/null; do sleep 1; done
 
-# Terminate already running bar instances
-killall -q polybar
+PRIMARY_MON=$(xrandr --query | grep " connected" | grep "primary" | cut -d" " -f1)
 
-# Wait until the processes have been shut down
-while pgrep -u $UID -x polybar >/dev/null; do sleep 0.5; done
-
-# Launch Polybar on all connected monitors
-if type "xrandr" >/dev/null 2>&1; then
-  for m in $(xrandr --query | grep " connected" | cut -d" " -f1); do
-    MONITOR=$m polybar --reload main 2>&1 | logger -t polybar &
-  done
-else
-  polybar --reload main 2>&1 | logger -t polybar &
-fi
+for m in $(xrandr --query | grep " connected" | cut -d" " -f1); do
+  if [ "$m" = "$PRIMARY_MON" ]; then
+    MONITOR=$m polybar --reload primary 2>&1 | tee -a /tmp/polybar-$m.log & disown
+  else
+    MONITOR=$m polybar --reload main 2>&1 | tee -a /tmp/polybar-$m.log & disown
+  fi
+done
