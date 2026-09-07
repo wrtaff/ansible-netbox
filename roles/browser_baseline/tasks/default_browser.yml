@@ -1,0 +1,100 @@
+---
+# tasks/default_browser.yml - Configure Firefox as default web browser fleet-wide
+
+- name: Set Firefox as default x-www-browser alternative
+  community.general.alternatives:
+    name: x-www-browser
+    path: /usr/bin/firefox-esr
+  failed_when: false
+
+- name: Set Firefox as default gnome-www-browser alternative
+  community.general.alternatives:
+    name: gnome-www-browser
+    path: /usr/bin/firefox-esr
+  failed_when: false
+
+- name: Ensure /etc/xdg directory exists
+  ansible.builtin.file:
+    path: /etc/xdg
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure system-wide XDG default web browser to Firefox
+  community.general.ini_file:
+    path: /etc/xdg/mimeapps.list
+    section: Default Applications
+    option: "{{ item }}"
+    value: firefox-esr.desktop;firefox.desktop;
+    mode: '0644'
+    owner: root
+    group: root
+  loop:
+    - x-scheme-handler/http
+    - x-scheme-handler/https
+    - x-scheme-handler/chrome
+    - text/html
+    - application/x-extension-htm
+    - application/x-extension-html
+    - application/x-extension-shtml
+    - application/xhtml+xml
+    - application/x-extension-xhtml
+    - application/x-extension-xht
+
+- name: Ensure user .config directory exists
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/.config"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0700'
+
+- name: Configure user XDG default web browser to Firefox
+  community.general.ini_file:
+    path: "/home/{{ browser_baseline_user }}/.config/mimeapps.list"
+    section: Default Applications
+    option: "{{ item }}"
+    value: firefox-esr.desktop;firefox.desktop;
+    mode: '0644'
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+  loop:
+    - x-scheme-handler/http
+    - x-scheme-handler/https
+    - x-scheme-handler/chrome
+    - text/html
+    - application/x-extension-htm
+    - application/x-extension-html
+    - application/x-extension-shtml
+    - application/xhtml+xml
+    - application/x-extension-xhtml
+    - application/x-extension-xht
+
+- name: Ensure user XFCE config directory exists
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/.config/xfce4"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0700'
+
+- name: Configure XFCE preferred web browser to Firefox
+  ansible.builtin.lineinfile:
+    path: "/home/{{ browser_baseline_user }}/.config/xfce4/helpers.rc"
+    regexp: '^WebBrowser='
+    line: 'WebBrowser=firefox-esr'
+    create: yes
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0644'
+
+- name: Configure BROWSER environment variable in user .profile
+  ansible.builtin.lineinfile:
+    path: "/home/{{ browser_baseline_user }}/.profile"
+    regexp: '^export BROWSER='
+    line: 'export BROWSER=firefox-esr'
+    create: yes
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0644'
