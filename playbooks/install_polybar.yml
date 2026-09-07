@@ -1,99 +1,49 @@
-# ==============================================================================
-# Filename:       playbooks/install_polybar.yml
-# Version:        1.0
-# Author:         Gemini CLI
-# Last Modified:  2026-09-07
-# Trac Ticket:    #4514
-#
-# Purpose:
-#     Installs and configures Polybar status bar for i3 tiling window manager.
-#
-# Use Case:
-#     Provides a modern, modular, customizable status bar replacement for default
-#     i3bar, supporting multi-monitor display output, system tray, and clean hardware monitors.
-#
-# Installation Method:
-#     Debian apt package manager
-#
-# Prerequisites:
-#     - Debian-based OS with GUI and i3 installed (desktops group)
-#
-# Configuration:
-#     - User config: ~/.config/polybar/config.ini
-#     - Launch script: ~/.config/polybar/launch.sh
-#     - i3 integration: ~/.config/i3/config
-#
-# Secrets:
-#     ansible_become_pass  (vault.yml) — sudo on target desktop hosts
-#
-# Usage:
-#     # Dry run first
-#     ansible-playbook -i inventory.ini playbooks/install_polybar.yml \
-#         --limit limbo-f0 --check --diff
-#
-#     # Live run
-#     ansible-playbook -i inventory.ini playbooks/install_polybar.yml \
-#         --limit limbo-f0
-#
-# Removal Instructions:
-#     apt purge polybar
-#
-# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_polybar.yml
-# GitHub: https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_polybar.yml
-# ==============================================================================
 ---
 - name: Install and configure Polybar on desktops
   hosts: desktops
-  become: true
-  vars_files:
-    - ../vault.yml
-  vars:
-    target_user: "{{ ansible_user | default('will') }}"
+  gather_facts: true
+  become: false
+
   tasks:
-    - name: Ensure Polybar and font dependencies are installed
-      ansible.builtin.apt:
+    - name: Ensure Polybar, xclip, and font dependencies are installed
+      become: true
+      ansible.builtin.package:
         name:
           - polybar
+          - xclip
           - fonts-font-awesome
           - fonts-noto-color-emoji
-          - pulseaudio-utils
         state: present
-        update_cache: true
 
     - name: Ensure user polybar configuration directory exists
       ansible.builtin.file:
-        path: "/home/{{ target_user }}/.config/polybar"
+        path: "{{ ansible_facts['user_dir'] }}/.config/polybar"
         state: directory
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: '0755'
+        mode: "0755"
 
     - name: Deploy Polybar configuration
       ansible.builtin.copy:
         src: ../files/polybar/config.ini
-        dest: "/home/{{ target_user }}/.config/polybar/config.ini"
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: '0644'
+        dest: "{{ ansible_facts['user_dir'] }}/.config/polybar/config.ini"
+        mode: "0644"
 
-    - name: Deploy Polybar multi-monitor launcher script
+    - name: Deploy Polybar helper scripts
       ansible.builtin.copy:
-        src: ../files/polybar/launch.sh
-        dest: "/home/{{ target_user }}/.config/polybar/launch.sh"
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: '0755'
+        src: "../files/polybar/{{ item }}"
+        dest: "{{ ansible_facts['user_dir'] }}/.config/polybar/{{ item }}"
+        mode: "0755"
+      loop:
+        - launch.sh
+        - copy_timestamp.sh
 
     - name: Ensure Polybar autostart is configured in i3 config
       ansible.builtin.lineinfile:
-        path: "/home/{{ target_user }}/.config/i3/config"
-        line: "exec_always --no-startup-id /home/{{ target_user }}/.config/polybar/launch.sh"
+        path: "{{ ansible_facts['user_dir'] }}/.config/i3/config"
+        line: "exec_always --no-startup-id ~/.config/polybar/launch.sh"
         state: present
-      ignore_errors: true
 
     - name: Comment out default i3 bar block in i3 config
       ansible.builtin.replace:
-        path: "/home/{{ target_user }}/.config/i3/config"
-        regexp: '(?ms)^bar\s*\{.*?^\}'
-        replace: "# bar {\n#   status_command i3status\n# }"
-      ignore_errors: true
+        path: "{{ ansible_facts['user_dir'] }}/.config/i3/config"
+        regexp: '^(\s*bar\s*\{[\s\S]*?\n\})'
+        replace: '# \1'
