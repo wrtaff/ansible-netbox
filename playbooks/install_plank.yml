@@ -5,11 +5,12 @@
   become: false
 
   tasks:
-    - name: Ensure Plank dock is installed
+    - name: Ensure Plank dock and Gnome Sound Recorder are installed
       become: true
       ansible.builtin.package:
         name:
           - plank
+          - gnome-sound-recorder
         state: present
 
     - name: Ensure dconf/GSettings directory exists for user
@@ -19,11 +20,26 @@
         mode: "0755"
         recurse: true
 
-    - name: Configure Plank settings via dconf if available
+    - name: Ensure Plank launchers directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_facts['user_dir'] }}/.config/plank/dock1/launchers"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy Sound Recorder dock item to Plank
+      ansible.builtin.copy:
+        src: ../files/plank/org.gnome.SoundRecorder.dockitem
+        dest: "{{ ansible_facts['user_dir'] }}/.config/plank/dock1/launchers/org.gnome.SoundRecorder.dockitem"
+        mode: "0644"
+
+    - name: Configure Plank settings via gsettings
       ansible.builtin.shell: |
-        dconf write /net/launchpad/plank/docks/dock1/position "'bottom'" || true
-        dconf write /net/launchpad/plank/docks/dock1/alignment "'center'" || true
-        dconf write /net/launchpad/plank/docks/dock1/hide-mode "'auto'" || true
+        gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ monitor 'DP-0'
+        gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ position 'bottom'
+        gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ alignment 'center'
+        gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ items-alignment 'center'
+        gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ offset 0
+        gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ hide-mode 'intelligent'
       environment:
         DISPLAY: ":0"
         XDG_SESSION_TYPE: "x11"
