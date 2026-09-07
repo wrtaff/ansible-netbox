@@ -1,0 +1,8 @@
+---
+- name: Apply Will's standardized i3 desktop environment
+  hosts: desktops
+  gather_facts: true
+  become: false
+
+  roles:
+    - role: i3_desktop

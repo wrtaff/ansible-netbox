@@ -1,0 +1,98 @@
+---
+# Tasks for i3_desktop role
+
+- name: Install i3 window manager, tools, and dependencies
+  become: true
+  ansible.builtin.package:
+    name:
+      - i3
+      - i3status
+      - dmenu
+      - rofi
+      - pcmanfm
+      - polybar
+      - plank
+      - xclip
+      - xsel
+      - xdotool
+      - fonts-font-awesome
+      - fonts-noto-color-emoji
+      - gnome-sound-recorder
+      - dex
+    state: present
+
+- name: Ensure user configuration directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ ansible_facts['user_dir'] }}/.config/i3"
+    - "{{ ansible_facts['user_dir'] }}/.config/i3status"
+    - "{{ ansible_facts['user_dir'] }}/.config/polybar"
+    - "{{ ansible_facts['user_dir'] }}/.config/plank/dock1/settings"
+    - "{{ ansible_facts['user_dir'] }}/.config/plank/dock1/launchers"
+
+- name: Deploy i3 window manager configuration
+  ansible.builtin.template:
+    src: i3_config.j2
+    dest: "{{ ansible_facts['user_dir'] }}/.config/i3/config"
+    mode: "0644"
+
+- name: Deploy Polybar configuration
+  ansible.builtin.copy:
+    src: polybar_config.ini
+    dest: "{{ ansible_facts['user_dir'] }}/.config/polybar/config.ini"
+    mode: "0644"
+
+- name: Deploy Polybar helper scripts
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ ansible_facts['user_dir'] }}/.config/polybar/{{ item.dest }}"
+    mode: "0755"
+  loop:
+    - { src: "polybar_launch.sh", dest: "launch.sh" }
+    - { src: "polybar_copy_timestamp.sh", dest: "copy_timestamp.sh" }
+
+- name: Deploy Plank Sound Recorder launcher
+  ansible.builtin.copy:
+    src: plank_SoundRecorder.dockitem
+    dest: "{{ ansible_facts['user_dir'] }}/.config/plank/dock1/launchers/org.gnome.SoundRecorder.dockitem"
+    mode: "0644"
+
+- name: Configure Plank settings via gsettings
+  ansible.builtin.shell: |
+    gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ position 'bottom'
+    gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ alignment 'center'
+    gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ items-alignment 'center'
+    gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ offset 0
+    gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ hide-mode 'intelligent'
+  environment:
+    DISPLAY: ":0"
+    XDG_SESSION_TYPE: "x11"
+  failed_when: false
+  changed_when: false
+
+- name: Configure custom i3status config (clean no-wireless fallback)
+  ansible.builtin.copy:
+    content: |
+      general {
+              colors = true
+              interval = 5
+      }
+      order += "load"
+      order += "memory"
+      order += "tztime local"
+      load {
+              format = "%1min"
+      }
+      memory {
+              format = "%used"
+              threshold_degraded = "10%"
+              format_degraded = "MEMORY: %free"
+      }
+      tztime local {
+              format = "%Y-%m-%d %H:%M:%S"
+      }
+    dest: "{{ ansible_facts['user_dir'] }}/.config/i3status/config"
+    mode: "0644"
