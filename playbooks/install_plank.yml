@@ -1,0 +1,30 @@
+---
+- name: Install and configure Plank dock on desktops
+  hosts: desktops
+  gather_facts: true
+  become: false
+
+  tasks:
+    - name: Ensure Plank dock is installed
+      become: true
+      ansible.builtin.package:
+        name:
+          - plank
+        state: present
+
+    - name: Ensure dconf/GSettings directory exists for user
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.config/plank/dock1/settings"
+        state: directory
+        mode: "0755"
+        recurse: true
+
+    - name: Configure Plank settings via dconf if available
+      ansible.builtin.shell: |
+        dconf write /net/launchpad/plank/docks/dock1/position "'bottom'" || true
+        dconf write /net/launchpad/plank/docks/dock1/alignment "'center'" || true
+        dconf write /net/launchpad/plank/docks/dock1/hide-mode "'auto'" || true
+      environment:
+        DISPLAY: ":0"
+      failed_when: false
+      changed_when: false
