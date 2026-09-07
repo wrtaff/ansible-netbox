@@ -1,0 +1,96 @@
+# ==============================================================================
+# Filename:       playbooks/install_splashtop.yml
+# Version:        1.0
+# Author:         Will / Pops agents
+# Last Modified:  2026-09-07
+# Trac Ticket:    #4519 - Install Splashtop Business Linux on host limbo-f0
+#
+# Purpose:
+#     Install Splashtop Business app for Linux on managed Debian desktops.
+#
+# Use Case:
+#     Provide Splashtop Business remote client capabilities on managed
+#     workstations, beginning with limbo-f0 as the desktop runner host.
+#
+# Installation Method:
+#     Downloads the official vendor release tarball from Splashtop, verifies its
+#     SHA-256 digest, extracts the deb package into /var/tmp/splashtop, and installs
+#     it via apt.
+#
+# Prerequisites:
+#     - Debian/Ubuntu desktop host in the desktops inventory group
+#     - x86_64 (amd64) architecture
+#     - Internet access to download.splashtop.com
+#
+# Configuration:
+#     - Desktop integration: /usr/share/applications/splashtop-business.desktop
+#     - Requires Xorg / standard desktop session for GUI display.
+#
+# Secrets:
+#     ansible_become_pass (vault.yml) - sudo on desktop hosts
+#
+# Usage:
+#     # Dry run
+#     ansible-playbook -i inventory.ini playbooks/install_splashtop.yml \
+#         --limit limbo-f0 --check --diff
+#
+#     # Live run
+#     ansible-playbook -i inventory.ini playbooks/install_splashtop.yml \
+#         --limit limbo-f0
+#
+# Removal Instructions:
+#     apt purge splashtop-business
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_splashtop.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_splashtop.yml
+# ==============================================================================
+---
+- name: Install Splashtop Business on managed Debian desktops
+  hosts: desktops
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../vault.yml
+  vars:
+    splashtop_version: "3.8.2.0"
+    splashtop_archive_url: "https://download.splashtop.com/linuxclient/splashtop-business_Ubuntu_v{{ splashtop_version }}_amd64.tar.gz"
+    splashtop_archive_checksum: "sha256:c668bf487e026e488a6e6b8147226c4a67f7de4c3137ef9d639b87711704cd2f"
+    splashtop_work_dir: "/var/tmp/splashtop"
+    splashtop_deb_name: "splashtop-business_Ubuntu_amd64.deb"
+
+  tasks:
+    - name: Verify supported architecture and distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['architecture'] == 'x86_64'
+          - ansible_facts['os_family'] == 'Debian'
+        fail_msg: >-
+          Splashtop Business Linux package requires x86_64 architecture on Debian/Ubuntu.
+          Host reports {{ ansible_facts['architecture'] }} on {{ ansible_facts['os_family'] }}.
+
+    - name: Create Splashtop work directory
+      ansible.builtin.file:
+        path: "{{ splashtop_work_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download verified Splashtop Business tarball
+      ansible.builtin.get_url:
+        url: "{{ splashtop_archive_url }}"
+        dest: "{{ splashtop_work_dir }}/splashtop-business_v{{ splashtop_version }}.tar.gz"
+        checksum: "{{ splashtop_archive_checksum }}"
+        mode: '0644'
+      when: not ansible_check_mode
+
+    - name: Extract Splashtop Business tarball
+      ansible.builtin.unarchive:
+        src: "{{ splashtop_work_dir }}/splashtop-business_v{{ splashtop_version }}.tar.gz"
+        dest: "{{ splashtop_work_dir }}"
+        remote_src: true
+      when: not ansible_check_mode
+
+    - name: Install Splashtop Business deb package
+      ansible.builtin.apt:
+        deb: "{{ splashtop_work_dir }}/{{ splashtop_deb_name }}"
+        state: present
+      when: not ansible_check_mode
