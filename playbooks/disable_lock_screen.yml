@@ -37,3 +37,17 @@
         - { prop: "/xfce4-power-manager/blank-on-ac", type: "int", val: 0 }
         - { prop: "/xfce4-power-manager/dpms-enabled", type: "bool", val: false }
         - { prop: "/xfce4-power-manager/lock-screen-suspend-hibernate", type: "bool", val: false }
+
+    - name: Disable i3 lockscreen and enable always-on DPMS settings
+      ansible.builtin.lineinfile:
+        path: "/home/{{ ansible_user | default('will') }}/.config/i3/config"
+        line: 'exec_always --no-startup-id xset s off -dpms s noblank s 0 0'
+        state: present
+      ignore_errors: yes
+
+    - name: Disable xss-lock in i3 config
+      ansible.builtin.replace:
+        path: "/home/{{ ansible_user | default('will') }}/.config/i3/config"
+        regexp: '^(\s*exec\s+--no-startup-id\s+xss-lock.*)$'
+        replace: '# '
+      ignore_errors: yes
