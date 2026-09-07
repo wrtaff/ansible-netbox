@@ -10,14 +10,7 @@
       "Default": "{{ browser_baseline_default_search_engine_name }}",
       "PreventInstalls": false,
       "Add": [
-        {
-          "Name": "{{ browser_baseline_default_search_engine_name }}",
-          "URLTemplate": "{{ browser_baseline_default_search_engine_url }}",
-          "Method": "GET",
-          "IconURL": "{{ browser_baseline_default_search_engine_icon_url }}",
-          "Alias": "{{ browser_baseline_default_search_engine_keyword }}",
-          "Description": "{{ browser_baseline_default_search_engine_name }} Search"
-        }{% for shortcut in browser_baseline_search_shortcuts %},
+{% for shortcut in browser_baseline_search_shortcuts %}
         {
           "Name": "{{ shortcut.name }}",
           "URLTemplate": "{{ shortcut.url_template }}",
@@ -25,7 +18,8 @@
           "IconURL": "{{ shortcut.icon_url }}",
           "Alias": "{{ shortcut.keyword }}",
           "Description": "{{ shortcut.name }} Search"
-        }{% endfor %}
+        }{% if not loop.last %},{% endif %}
+{% endfor %}
       ]
     },
     "ManagedBookmarks": [

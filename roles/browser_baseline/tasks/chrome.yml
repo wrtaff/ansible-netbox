@@ -26,18 +26,24 @@
     state: absent
   when: chrome_status.rc != 0
 
-- name: Ensure Chrome managed policies directory exists
+- name: Ensure Chrome & Chromium managed policies directories exist
   ansible.builtin.file:
-    path: "{{ chrome_policy_dir }}"
+    path: "{{ item }}"
     state: directory
     owner: root
     group: root
     mode: '0755'
+  loop:
+    - "{{ chrome_policy_dir }}"
+    - "/etc/chromium/policies/managed"
 
-- name: Deploy Chrome enterprise managed policies
+- name: Deploy Chrome & Chromium enterprise managed policies
   ansible.builtin.template:
     src: chrome_policies.json.j2
-    dest: "{{ chrome_policy_file }}"
+    dest: "{{ item }}"
     owner: root
     group: root
     mode: '0644'
+  loop:
+    - "{{ chrome_policy_file }}"
+    - "/etc/chromium/policies/managed/default_policies.json"
