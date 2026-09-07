@@ -1,9 +1,9 @@
 # ==============================================================================
 # Filename:       roles/system_common/tasks/main.yml
-# Version:        1.9
+# Version:        2.0
 # Author:         Gemini CLI
-# Last Modified:  2026-03-14
-# Context:        http://trac.home.arpa/ticket/3214
+# Last Modified:  2026-09-07
+# Context:        http://trac.home.arpa/ticket/4419
 #
 # Revision History:
 #     1.0 - Initial version.
@@ -19,6 +19,7 @@
 #           hosts requiring NetworkManager (e.g. desktops).
 #     1.9 - Added task to ensure NetworkManager is enabled when disable toggle 
 #           is false (fixes #3214).
+#     2.0 - Added fleet-wide Ghostty terminfo deployment and compilation (fixes #4419).
 #
 # Purpose:
 #     Baseline configuration tasks for all Debian/Ubuntu servers.
@@ -37,7 +38,38 @@
       - htop
       - git
       - vim
+      - ncurses-bin
     state: present
+
+# --- FLEET TERMINFO BASELINE (REF: #4419) ---
+- name: Ensure system-local terminfo directory exists
+  ansible.builtin.file:
+    path: /etc/terminfo
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy Ghostty terminfo source definition
+  ansible.builtin.copy:
+    src: xterm-ghostty.terminfo
+    dest: /etc/terminfo/xterm-ghostty.terminfo
+    owner: root
+    group: root
+    mode: '0644'
+  register: ghostty_terminfo_source
+
+- name: Check if compiled xterm-ghostty terminfo exists
+  ansible.builtin.stat:
+    path: /etc/terminfo/x/xterm-ghostty
+  register: ghostty_compiled_terminfo
+
+- name: Compile Ghostty terminfo database entry
+  ansible.builtin.command:
+    cmd: tic -x /etc/terminfo/xterm-ghostty.terminfo
+  when: >
+    (ghostty_terminfo_source.changed or not ghostty_compiled_terminfo.stat.exists) and
+    not ansible_check_mode
 
 - name: Install QEMU Guest Agent for Proxmox VMs
   ansible.builtin.apt:

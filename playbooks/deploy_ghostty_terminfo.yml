@@ -1,0 +1,88 @@
+# ==============================================================================
+# Filename:       playbooks/deploy_ghostty_terminfo.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-09-07
+# Trac Ticket:    #4419 - Install Ghostty terminal emulator on limbo-f0
+#
+# Purpose:
+#     Deploy and compile xterm-ghostty terminfo entries across all fleet hosts
+#     so tmux, ncurses, and interactive tools function properly during Ghostty
+#     SSH sessions.
+#
+# Use Case:
+#     When SSHing from Ghostty terminal emulators (TERM=xterm-ghostty) into fleet
+#     hosts, remote tmux and ncurses applications fail if xterm-ghostty is missing
+#     from the host terminfo database.
+#
+# Installation Method:
+#     Deploys the xterm-ghostty terminfo source file to /etc/terminfo/ and compiles
+#     it via tic -x into the system-local terminfo database.
+#
+# Prerequisites:
+#     - Debian/Ubuntu host with ncurses-bin (tic) installed
+#     - Root/become privileges
+#
+# Configuration:
+#     - Installs to /etc/terminfo/x/xterm-ghostty (and symlink /etc/terminfo/g/ghostty)
+#
+# Secrets:
+#     None - no vault variables required
+#
+# Usage:
+#     # Dry run
+#     ansible-playbook -i inventory.ini playbooks/deploy_ghostty_terminfo.yml --check --diff
+#
+#     # Live run across all hosts
+#     ansible-playbook -i inventory.ini playbooks/deploy_ghostty_terminfo.yml
+#
+#     # Target specific host/group
+#     ansible-playbook -i inventory.ini playbooks/deploy_ghostty_terminfo.yml --limit agent_runners
+#
+# Removal Instructions:
+#     rm -f /etc/terminfo/xterm-ghostty.terminfo /etc/terminfo/x/xterm-ghostty /etc/terminfo/g/ghostty
+#
+# Revision History:
+#     1.0 - Initial version for fleet-wide Ghostty terminfo deployment (Trac #4419 WP-6).
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/deploy_ghostty_terminfo.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/deploy_ghostty_terminfo.yml
+# ==============================================================================
+---
+- name: Deploy Ghostty terminfo across fleet
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure ncurses utility package is installed
+      ansible.builtin.apt:
+        name: ncurses-bin
+        state: present
+
+    - name: Ensure system-local terminfo directory exists
+      ansible.builtin.file:
+        path: /etc/terminfo
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy Ghostty terminfo source definition
+      ansible.builtin.copy:
+        src: ../roles/system_common/files/xterm-ghostty.terminfo
+        dest: /etc/terminfo/xterm-ghostty.terminfo
+        owner: root
+        group: root
+        mode: '0644'
+      register: ghostty_terminfo_source
+
+    - name: Check if compiled xterm-ghostty terminfo exists
+      ansible.builtin.stat:
+        path: /etc/terminfo/x/xterm-ghostty
+      register: ghostty_compiled_terminfo
+
+    - name: Compile Ghostty terminfo database entry
+      ansible.builtin.command:
+        cmd: tic -x /etc/terminfo/xterm-ghostty.terminfo
+      when: >
+        (ghostty_terminfo_source.changed or not ghostty_compiled_terminfo.stat.exists) and
+        not ansible_check_mode
