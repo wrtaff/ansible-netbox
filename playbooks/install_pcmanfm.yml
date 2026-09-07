@@ -1,0 +1,59 @@
+# ==============================================================================
+# Filename:       playbooks/install_pcmanfm.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-09-07
+# Trac Ticket:    #4509
+#
+# Purpose:
+#     Installs PCManFM lightweight file manager and companion tools on desktops.
+#
+# Use Case:
+#     Provides a fast, lightweight graphical file manager for desktop workstations
+#     (especially under i3 tiling and XFCE desktop environments).
+#
+# Installation Method:
+#     Debian apt package manager
+#
+# Prerequisites:
+#     - Debian/Ubuntu-based OS with GUI (desktops group)
+#
+# Configuration:
+#     - Default user configuration managed under ~/.config/pcmanfm/
+#
+# Secrets:
+#     ansible_become_pass  (vault.yml) — sudo on target desktop hosts
+#
+# Usage:
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/install_pcmanfm.yml \
+#         --limit limbo-f0 --check --diff
+#
+#     # Live run
+#     ansible-playbook -i inventory.ini playbooks/install_pcmanfm.yml \
+#         --limit limbo-f0
+#
+# Removal Instructions:
+#     apt purge pcmanfm libfm-tools
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/install_pcmanfm.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_pcmanfm.yml
+# ==============================================================================
+---
+- name: Install PCManFM file manager on desktop workstations
+  hosts: desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  tasks:
+    - name: Ensure PCManFM and companion packages are installed
+      ansible.builtin.apt:
+        name:
+          - pcmanfm
+          - libfm-tools
+          - gvfs
+          - gvfs-backends
+          - tumbler
+          - xarchiver
+        state: present
+        update_cache: true
