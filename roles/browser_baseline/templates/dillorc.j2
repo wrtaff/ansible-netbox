@@ -1,6 +1,11 @@
 # ==============================================================================
-# Dillo search configuration (managed by Ansible roles/browser_baseline)
+# Dillo configuration (managed by Ansible roles/browser_baseline)
 # ==============================================================================
+
+# Search shortcuts
 {% for s in browser_baseline_search_shortcuts %}
 search_url="{{ s.keyword }} {{ s.name }} {{ s.dillo_url }}"
 {% endfor %}
+
+# Font scaling baseline
+font_factor={{ browser_baseline_dillo_font_factor | default(1.25) }}
