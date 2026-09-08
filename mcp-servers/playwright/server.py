@@ -73,12 +73,25 @@ class PlaywrightProxy:
         self.running = True
 
     def get_child_command(self):
-        browser = os.environ.get("PLAYWRIGHT_BROWSER", "firefox")
+        remote_host = os.environ.get("PLAYWRIGHT_HOST", "192.168.0.137")
+        browser = os.environ.get("PLAYWRIGHT_BROWSER", "chromium")
         headless = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower() in (
             "true",
             "1",
             "yes",
         )
+        ssh_key = os.path.expanduser(os.environ.get("PLAYWRIGHT_SSH_KEY", "~/.ssh/id_rsa_lab"))
+
+        if remote_host and remote_host != "localhost" and remote_host != "127.0.0.1":
+            remote_cmd = f"playwright-mcp --browser {browser}"
+            if headless:
+                remote_cmd += " --headless"
+            cmd = ["ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10"]
+            if os.path.exists(ssh_key):
+                cmd.extend(["-i", ssh_key])
+            cmd.extend([f"root@{remote_host}", remote_cmd])
+            return cmd
+
         exec_path = os.environ.get("PLAYWRIGHT_EXECUTABLE_PATH", "")
         if not exec_path and browser == "firefox" and os.path.exists("/usr/bin/firefox"):
             exec_path = "/usr/bin/firefox"
