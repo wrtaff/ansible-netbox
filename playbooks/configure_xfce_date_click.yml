@@ -1,0 +1,39 @@
+---
+- name: Configure XFCE panel date click action to copy ISO 8601 timestamp
+  hosts: desktops
+  gather_facts: true
+  become: false
+
+  tasks:
+    - name: Ensure xfce4-genmon-plugin and xclip are installed
+      become: true
+      ansible.builtin.package:
+        name:
+          - xfce4-genmon-plugin
+          - xclip
+          - xsel
+        state: present
+
+    - name: Ensure XFCE config directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_facts['user_dir'] }}/.config/xfce4"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy xfce_date_click.sh script
+      ansible.builtin.copy:
+        src: ../files/xfce/xfce_date_click.sh
+        dest: "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh"
+        mode: "0755"
+
+    - name: Configure xfce4-genmon-plugin for clock on XFCE panel if genmon plugin exists
+      ansible.builtin.shell: |
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8 -s "genmon" || true
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8/cmd -n -t string -s "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh" || xfconf-query -c xfce4-panel -p /plugins/plugin-8/cmd -s "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh" || true
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8/use-label -n -t bool -s false || xfconf-query -c xfce4-panel -p /plugins/plugin-8/use-label -s false || true
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8/update-period -n -t int -s 1000 || xfconf-query -c xfce4-panel -p /plugins/plugin-8/update-period -s 1000 || true
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8/enable-single-row -n -t bool -s true || xfconf-query -c xfce4-panel -p /plugins/plugin-8/enable-single-row -s true || true
+      environment:
+        DISPLAY: ":0"
+      failed_when: false
+      changed_when: false
