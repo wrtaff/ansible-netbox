@@ -1,0 +1,49 @@
+---
+- name: Install and configure Polybar on desktops
+  hosts: desktops
+  gather_facts: true
+  become: false
+
+  tasks:
+    - name: Ensure Polybar, xclip, and font dependencies are installed
+      become: true
+      ansible.builtin.package:
+        name:
+          - polybar
+          - xclip
+          - fonts-font-awesome
+          - fonts-noto-color-emoji
+        state: present
+
+    - name: Ensure user polybar configuration directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_facts['user_dir'] }}/.config/polybar"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy Polybar configuration
+      ansible.builtin.copy:
+        src: ../files/polybar/config.ini
+        dest: "{{ ansible_facts['user_dir'] }}/.config/polybar/config.ini"
+        mode: "0644"
+
+    - name: Deploy Polybar helper scripts
+      ansible.builtin.copy:
+        src: "../files/polybar/{{ item }}"
+        dest: "{{ ansible_facts['user_dir'] }}/.config/polybar/{{ item }}"
+        mode: "0755"
+      loop:
+        - launch.sh
+        - copy_timestamp.sh
+
+    - name: Ensure Polybar autostart is configured in i3 config
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_facts['user_dir'] }}/.config/i3/config"
+        line: "exec_always --no-startup-id ~/.config/polybar/launch.sh"
+        state: present
+
+    - name: Comment out default i3 bar block in i3 config
+      ansible.builtin.replace:
+        path: "{{ ansible_facts['user_dir'] }}/.config/i3/config"
+        regexp: '^(\s*bar\s*\{[\s\S]*?\n\})'
+        replace: '# \1'
