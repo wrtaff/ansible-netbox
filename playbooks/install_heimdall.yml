@@ -1,0 +1,212 @@
+# ==============================================================================
+# Filename:       playbooks/install_heimdall.yml
+# Version:        1.0
+# Author:         Gemini CLI
+# Last Modified:  2026-09-07
+# Trac Ticket:    #4513
+# Wiki Page:      http://wwos.home.arpa/index.php/Playbooks/install_heimdall.yml
+#
+# Purpose:
+#   Installs and configures the Heimdall Application Dashboard natively on Debian
+#   using Nginx, PHP 8.2 FPM, and SQLite. Provides a fast, lightweight family
+#   dashboard for internal network navigation.
+#
+# Use Case:
+#   Family dashboard and internal services navigation hub for all household devices.
+#
+# Installation Method:
+#   Apt packages (nginx, php-fpm, php-sqlite3, etc.) + GitHub release artifact.
+#
+# Prerequisites:
+#   - bootstrap.yml and site.yml already run on target
+#   - DNS resolution for heimdall.home.arpa configured in Pi-hole
+#
+# Configuration:
+#   - App Root: /var/www/heimdall
+#   - Nginx Site: /etc/nginx/sites-available/heimdall
+#   - PHP-FPM Pool: /etc/php/8.2/fpm/pool.d/www.conf
+#
+# Secrets:
+#   None -- no vault variables required
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/install_heimdall.yml --limit heimdall-lxc
+# ==============================================================================
+---
+- name: Install and configure Heimdall Dashboard on heimdall-lxc
+  hosts: heimdall-lxc
+  become: yes
+  gather_facts: yes
+
+  vars:
+    heimdall_version: 2.6.3
+    heimdall_release_url: https://github.com/linuxserver/Heimdall/archive/refs/tags/v2.6.3.tar.gz
+    heimdall_root: /var/www/heimdall
+    heimdall_user: www-data
+    heimdall_group: www-data
+
+  tasks:
+    - name: Install required packages for Heimdall
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - php8.2-fpm
+          - php8.2-cli
+          - php8.2-sqlite3
+          - php8.2-mbstring
+          - php8.2-xml
+          - php8.2-curl
+          - php8.2-zip
+          - git
+          - curl
+          - unzip
+          - tar
+          - sqlite3
+          - composer
+        state: present
+        update_cache: yes
+
+    - name: Ensure /var/www directory exists
+      ansible.builtin.file:
+        path: /var/www
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: 0755
+
+    - name: Download and extract Heimdall source release
+      ansible.builtin.unarchive:
+        src: https://github.com/linuxserver/Heimdall/archive/refs/tags/v2.6.3.tar.gz
+        dest: /var/www
+        remote_src: yes
+        owner: www-data
+        group: www-data
+        creates: /var/www/heimdall/artisan
+
+    - name: Rename extracted directory to standard heimdall root if needed
+      ansible.builtin.shell: |
+        if [ -d /var/www/Heimdall-2.6.3 ] && [ ! -d /var/www/heimdall ]; then
+          mv /var/www/Heimdall-2.6.3 /var/www/heimdall
+        fi
+      args:
+        creates: /var/www/heimdall
+
+    - name: Set ownership and permissions on Heimdall directory
+      ansible.builtin.file:
+        path: /var/www/heimdall
+        state: directory
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: Copy .env.example to .env if .env does not exist
+      ansible.builtin.copy:
+        src: /var/www/heimdall/.env.example
+        dest: /var/www/heimdall/.env
+        remote_src: yes
+        owner: www-data
+        group: www-data
+        force: no
+
+    - name: Configure SQLite database connection in .env
+      ansible.builtin.lineinfile:
+        path: /var/www/heimdall/.env
+        regexp: ^DB_CONNECTION=
+        line: DB_CONNECTION=sqlite
+
+    - name: Set database filename in .env
+      ansible.builtin.lineinfile:
+        path: /var/www/heimdall/.env
+        regexp: ^DB_DATABASE=
+        line: DB_DATABASE=app.sqlite
+
+    - name: Ensure SQLite database directory and file exist
+      ansible.builtin.file:
+        path: /var/www/heimdall/database
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: 0775
+
+    - name: Touch SQLite database file
+      ansible.builtin.file:
+        path: /var/www/heimdall/database/app.sqlite
+        state: touch
+        owner: www-data
+        group: www-data
+        mode: 0664
+
+    - name: Run composer install for dependencies
+      ansible.builtin.shell: |
+        COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction
+      args:
+        chdir: /var/www/heimdall
+        creates: /var/www/heimdall/vendor/autoload.php
+      become_user: www-data
+
+    - name: Generate Laravel application key if not set
+      ansible.builtin.shell: |
+        php artisan key:generate --force
+      args:
+        chdir: /var/www/heimdall
+      become_user: www-data
+      register: key_gen
+      changed_when: "'Application key set successfully' in key_gen.stdout"
+
+    - name: Run database migrations
+      ansible.builtin.shell: |
+        php artisan migrate --force
+      args:
+        chdir: /var/www/heimdall
+      become_user: www-data
+      register: migration_out
+      changed_when: "'Migrating:' in migration_out.stdout or 'Migrated:' in migration_out.stdout"
+
+    - name: Deploy Nginx virtual host configuration for Heimdall
+      ansible.builtin.template:
+        src: templates/heimdall_nginx.conf.j2
+        dest: /etc/nginx/sites-available/heimdall
+        owner: root
+        group: root
+        mode: 0644
+      notify: Reload nginx
+
+    - name: Enable Heimdall site in Nginx
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/heimdall
+        dest: /etc/nginx/sites-enabled/heimdall
+        state: link
+      notify: Reload nginx
+
+    - name: Remove default Nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload nginx
+
+    - name: Ensure correct permissions on storage and bootstrap/cache
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: 0775
+        recurse: yes
+      loop:
+        - /var/www/heimdall/storage
+        - /var/www/heimdall/bootstrap/cache
+
+    - name: Ensure PHP-FPM and Nginx services are running and enabled
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - php8.2-fpm
+        - nginx
+
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded

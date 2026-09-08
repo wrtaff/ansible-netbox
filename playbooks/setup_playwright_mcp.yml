@@ -1,0 +1,64 @@
+---
+- name: Configure Playwright MCP Service Container
+  hosts: mcp_playwright
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Ensure base utilities and dependencies are installed
+      apt:
+        name:
+          - curl
+          - wget
+          - gnupg
+          - ca-certificates
+          - git
+          - build-essential
+          - xvfb
+          - libnss3
+          - libatk1.0-0
+          - libatk-bridge2.0-0
+          - libcups2
+          - libdrm2
+          - libxkbcommon0
+          - libxcomposite1
+          - libxdamage1
+          - libxfixes3
+          - libxrandr2
+          - libgbm1
+          - libpango-1.0-0
+          - libcairo2
+          - libasound2
+          - fonts-liberation
+          - fonts-dejavu
+        state: present
+        update_cache: yes
+
+    - name: Set up NodeSource repo for Node.js LTS (v20 or v22)
+      shell: |
+        if ! command -v node >/dev/null 2>&1; then
+          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          apt-get install -y nodejs
+        fi
+      args:
+        creates: /usr/bin/node
+
+    - name: Create service user for Playwright MCP
+      user:
+        name: playwright
+        system: yes
+        home: /opt/playwright-mcp
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Install @modelcontextprotocol/server-playwright / @playwright/test globally
+      npm:
+        name: "@modelcontextprotocol/server-playwright"
+        global: yes
+        state: present
+
+    - name: Install Chromium browser via Playwright
+      shell: npx playwright install chromium
+      become_user: playwright
+      environment:
+        HOME: /opt/playwright-mcp
