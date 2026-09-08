@@ -1,0 +1,5 @@
+---
+# Defaults for i3_desktop role
+i3_desktop_user: "{{ ansible_user | default('will') }}"
+i3_desktop_monitors_custom: false
+i3_desktop_mod_key: "Mod4"

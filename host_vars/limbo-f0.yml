@@ -1,0 +1,3 @@
+---
+# Host variables for limbo-f0
+i3_xrandr_command: "xrandr --output DP-0 --primary --mode 3840x2160 --pos 0x0 --rotate normal --output HDMI-0 --mode 1920x1080 --pos 3840x0 --rotate left"
