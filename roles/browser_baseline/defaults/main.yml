@@ -10,6 +10,11 @@
 # ==============================================================================
 ---
 # Feature toggles
+# ------------------------------------------------------------------------------
+# Homepage Configuration (Heimdall Family Dashboard)
+# ------------------------------------------------------------------------------
+browser_baseline_homepage_url: "http://heimdall.home.arpa"
+
 browser_baseline_manage_chrome: true
 browser_baseline_manage_firefox: true
 browser_baseline_manage_dillo: true
