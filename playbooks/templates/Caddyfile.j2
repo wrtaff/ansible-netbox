@@ -1,0 +1,34 @@
+{
+    email wrtaff@gmail.com
+}
+
+# Tailscale block (requires binding to local for Funnel)
+caddy01.van-bee.ts.net {
+    bind 127.0.0.1
+    reverse_proxy 192.168.0.189:5678
+}
+
+# LAN Webmail block
+webmail.home.arpa {
+    bind 192.168.0.20
+    reverse_proxy 192.168.0.21:80
+    
+    tls internal
+    
+    redir / /roundcube/
+}
+
+# ntopng network flow analytics reverse proxy (Trac #4522)
+ntop.home.arpa:80 {
+    bind 192.168.0.20
+    reverse_proxy 192.168.0.43:3000
+}
+
+# Legacy .99/mediawiki redirect (apollo decom - Trac #3394)
+# handle_path strips /mediawiki prefix before redirecting, preserving the rest of the path
+:80 {
+    bind 192.168.0.99
+    handle_path /mediawiki/* {
+        redir * http://wwos.home.arpa{uri} permanent
+    }
+}
