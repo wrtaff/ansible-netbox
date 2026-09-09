@@ -110,3 +110,18 @@
     - ff-remote-0
     - ff-remote-1
     - ff-remote-2
+
+- name: Deploy Firefox search alias synchronization script
+  ansible.builtin.copy:
+    src: sync_firefox_search_aliases.py
+    dest: /usr/local/bin/sync_firefox_search_aliases.py
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Synchronize search keywords in Firefox profile search databases
+  ansible.builtin.command:
+    cmd: "python3 /usr/local/bin/sync_firefox_search_aliases.py /home/{{ browser_baseline_user }}/.mozilla/firefox"
+  become: true
+  become_user: "{{ browser_baseline_user }}"
+  changed_when: false
