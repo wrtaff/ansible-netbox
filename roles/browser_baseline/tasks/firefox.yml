@@ -7,13 +7,18 @@
     state: present
     update_cache: yes
 
-- name: Ensure Firefox enterprise policies directory exists
+- name: Ensure Firefox enterprise policies directories exist
   ansible.builtin.file:
-    path: "{{ firefox_policy_dir }}"
+    path: "{{ item }}"
     state: directory
     owner: root
     group: root
     mode: '0755'
+  loop:
+    - "{{ firefox_policy_dir }}"
+    - "/etc/firefox-esr/policies"
+    - "/usr/lib/firefox-esr/distribution/policies"
+    - "/usr/lib/firefox/distribution/policies"
 
 - name: Deploy Firefox enterprise managed policies
   ansible.builtin.template:
@@ -22,6 +27,36 @@
     owner: root
     group: root
     mode: '0644'
+  register: firefox_policy_deploy
+
+- name: Symlink Firefox enterprise managed policies to distribution and ESR policy paths
+  ansible.builtin.file:
+    src: "{{ firefox_policy_file }}"
+    dest: "{{ item }}"
+    state: link
+    force: yes
+    owner: root
+    group: root
+  loop:
+    - "/etc/firefox-esr/policies/policies.json"
+    - "/usr/lib/firefox-esr/distribution/policies/policies.json"
+    - "/usr/lib/firefox/distribution/policies/policies.json"
+  register: firefox_policy_symlinks
+
+- name: Find cached search.json.mozlz4 files across Firefox profiles
+  ansible.builtin.find:
+    paths: "/home/{{ browser_baseline_user }}/.mozilla/firefox"
+    patterns: "search.json.mozlz4"
+    recurse: yes
+  register: firefox_search_cache_files
+  when: (firefox_policy_deploy.changed | default(false)) or (firefox_policy_symlinks.changed | default(false))
+
+- name: Clear cached search.json.mozlz4 so Firefox rebuilds search engines from enterprise policies
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ firefox_search_cache_files.files | default([]) }}"
+  when: (firefox_policy_deploy.changed | default(false)) or (firefox_policy_symlinks.changed | default(false))
 
 - name: Ensure Firefox base user configuration directory exists
   ansible.builtin.file:
