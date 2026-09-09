@@ -1,19 +1,57 @@
 ---
 # ==============================================================================
 # Filename:       playbooks/apply_browser_baseline.yml
-# Version:        1.1
+# Version:        1.2
 # Author:         Pops AI / Gemini
-# Last Modified:  2026-08-31
-# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411
+# Last Modified:  2026-09-09
+# Trac Ticket:    #4557 (lifetime), #2783 (origin epic), #4407, #4408, #4409, #4410, #4411, #4467, #4485, #4512, #4523
 #
 # Purpose:
 #     Deploy the declarative browser baseline (Chrome, Firefox, Dillo)
-#     with enterprise managed policies for extension staging (Bitwarden, Wallabag),
-#     unified bookmarks, search shortcut keywords, and Firefox multi-profiles
+#     with enterprise managed policies for extension staging (Bitwarden, Wallabag, Selection Search),
+#     unified bookmarks, search shortcut keywords, Firefox multi-profiles, and Dillo font scaling
 #     across managed desktop workstations.
 #
+# Use Case:
+#     Standardize browser configurations, policies, extensions, and search shortcuts
+#     across homelab desktop workstations (zeus, athena, limbo-f0, titan2).
+#
+# Installation Method:
+#     Executes roles/browser_baseline (Debian apt packages, templated policies, profile wrappers).
+#
+# Prerequisites:
+#     - Debian-based host in the desktops inventory group
+#     - User account with sudo privileges
+#     - Graphical desktop environment (X11 / XFCE / i3)
+#     - Ansible Vault access for privilege escalation
+#
+# Configuration:
+#     - /etc/opt/chrome/policies/managed/default_policies.json
+#     - /etc/firefox/policies/policies.json
+#     - /etc/firefox-esr/policies/policies.json
+#     - ~/.mozilla/firefox/profiles.ini
+#     - ~/.dillo/dillorc, ~/.dillo/cookiesrc, ~/.dillo/bm.txt
+#     - ~/.config/wallabag/, ~/.config/selection-search/
+#
+# Secrets:
+#     ansible_become_pass (vault.yml) -- sudo on desktop hosts
+#     wallabag_client_secret (vault.yml) -- Wallabag OAuth client credentials
+#
 # Usage:
-#     ansible-playbook -i inventory.ini playbooks/apply_browser_baseline.yml --limit <host> --check --diff
+#     # Dry run first
+#     ansible-playbook -i inventory.ini playbooks/apply_browser_baseline.yml \
+#         --limit <host> --check --diff
+#
+#     # Live run across desktop fleet
+#     ansible-playbook -i inventory.ini playbooks/apply_browser_baseline.yml \
+#         --limit desktops
+#
+# Removal Instructions:
+#     Set component flags (browser_baseline_manage_chrome: false, etc.) or remove
+#     managed policy files from /etc/opt/chrome/policies/managed/ and /etc/firefox/policies/.
+#
+# WWOS:   http://wwos.home.arpa/index.php/Playbooks/apply_browser_baseline.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/apply_browser_baseline.yml
 # ==============================================================================
 
 - name: Apply Browser Baseline to Workstations
