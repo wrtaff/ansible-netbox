@@ -1,9 +1,20 @@
 ---
 # Filename:       playbooks/provision_agent_runner.yml
-# Version:        2.1
+# Version:        2.2
 # Author:         Antigravity
-# Last Modified:  2026-08-27
-# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029, #4186, #4308, #4426
+# Last Modified:  2026-09-09
+# Trac Ticket:    #3829, #3774, #3838, #3949, #4042, #4033, #4029, #4186, #4308, #4426, #4563
+#
+# Update 2.2:
+#     - Reconcile pops, ansible-netbox, pops/wiki, and pops/raw remotes to
+#       the sanctioned matrix approved on Trac #4563: remove any remote not
+#       in the approved set (peer-checkout aliases ar0/ar1/titan2/self-athena,
+#       and `github` on every host except athena-controller, whose role there
+#       is still an open decision). Gated the old unconditional github URL
+#       normalisation to athena only, since it is now superseded elsewhere by
+#       the reconciliation task. Read-only audit evidence and rationale in the
+#       ticket; this only reconciles fleet-runner hosts, not athena's own
+#       controller checkouts.
 #
 # Update 2.1:
 #     - Add cdpod, cdpgd, and cdpcd aliases to agent runner .bashrc settings (Trac #4426).
@@ -264,6 +275,55 @@
       become: yes
       become_user: "{{ target_user }}"
 
+    # Trac #4563 WP-2.2: peer-checkout remotes (ar0, ar1, titan2, and pops's
+    # own self-referencing `athena` alias) point at other hosts' live working
+    # checkouts instead of the athena bare hubs -- a push to one succeeds
+    # silently and is invisible to fleet-merge.py and ready-to-work.sh (#3964).
+    # Reconcile dynamically against the approved set rather than a hardcoded
+    # blocklist, so any future stray alias is also caught. `origin` is always
+    # approved; `github` is approved only on athena-controller pending the
+    # open WP-1 decision on its role there (see ticket for the open item) --
+    # every other host has it removed outright, superseding the old
+    # unconditional "normalise" task below.
+    - name: Reconcile pops remotes to the approved set
+      ansible.builtin.shell: |
+        set -e
+        cd "{{ target_home }}/pops"
+        allowed="origin"
+        if [ "{{ inventory_hostname }}" = "athena" ]; then
+          allowed="origin github"
+        fi
+        removed=""
+        for remote in $(git remote); do
+          case " $allowed " in
+            *" $remote "*) ;;
+            *) git remote remove "$remote"; removed="$removed $remote" ;;
+          esac
+        done
+        echo "REMOVED:$removed"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: pops_remote_cleanup
+      changed_when: "pops_remote_cleanup.stdout_lines[-1] != 'REMOVED:'"
+
+    - name: Reconcile ansible-netbox remotes to the approved set
+      ansible.builtin.shell: |
+        set -e
+        cd "{{ target_home }}/ansible-netbox"
+        allowed="origin"
+        removed=""
+        for remote in $(git remote); do
+          case " $allowed " in
+            *" $remote "*) ;;
+            *) git remote remove "$remote"; removed="$removed $remote" ;;
+          esac
+        done
+        echo "REMOVED:$removed"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: anb_remote_cleanup
+      changed_when: "anb_remote_cleanup.stdout_lines[-1] != 'REMOVED:'"
+
     # Trac #4031: setting remote.origin.url above is not enough. The trunk's
     # tracking ref is what agent-sync-check.sh actually follows, and on every
     # host it still pointed at github/main, so the fleet pulled through the
@@ -368,6 +428,14 @@
     # have no reason to reach GitHub at all -- only athena mirrors outward
     # (#3968, #4030) -- so normalise every node to the SSH form for consistency
     # with the other four hosts.
+    #
+    # Trac #4563 WP-1/WP-2.2: superseded for every host except athena. The
+    # approved policy prohibits a client-side `github` remote on fleet
+    # runners entirely (removed above by the pops remote reconciliation
+    # task), so there is nothing left here to normalise on those hosts.
+    # athena-controller's `github` role is still an open WP-1 decision, so
+    # this task is left in place, unchanged, for athena only until that is
+    # resolved.
     - name: Normalise github remote URL on pops (SSH form)
       community.general.git_config:
         name: remote.github.url
@@ -376,6 +444,7 @@
         repo: "{{ target_home }}/pops"
       become: yes
       become_user: "{{ target_user }}"
+      when: inventory_hostname == 'athena'
 
     - name: Check if pops/wiki git repository exists on target
       ansible.builtin.stat:
@@ -390,6 +459,28 @@
         repo: "{{ target_home }}/pops/wiki"
       become: yes
       become_user: "{{ target_user }}"
+      when: wiki_git_stat.stat.exists
+
+    # Trac #4563 WP-2.2: wiki/'s only observed contamination fleet-wide is a
+    # peer `ar0` alias (e.g. on athena and limbo-f0) sitting next to the
+    # correct `athena` hub remote. Reconcile dynamically, same pattern as
+    # pops/ansible-netbox above.
+    - name: Reconcile pops/wiki remotes to the approved set
+      ansible.builtin.shell: |
+        set -e
+        cd "{{ target_home }}/pops/wiki"
+        removed=""
+        for remote in $(git remote); do
+          case " athena " in
+            *" $remote "*) ;;
+            *) git remote remove "$remote"; removed="$removed $remote" ;;
+          esac
+        done
+        echo "REMOVED:$removed"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: wiki_remote_cleanup
+      changed_when: "wiki_remote_cleanup.stdout_lines[-1] != 'REMOVED:'"
       when: wiki_git_stat.stat.exists
 
     # Trac #4033 Phase 3: raw/ now has its own hub (pops-raw.git), mirroring
@@ -410,6 +501,27 @@
         repo: "{{ target_home }}/pops/raw"
       become: yes
       become_user: "{{ target_user }}"
+      when: raw_git_stat.stat.exists
+
+    # Trac #4563 WP-2.2: no peer contamination observed on raw/ during the
+    # WP-2.1 audit, but reconcile it defensively too so provisioning stays
+    # correct against the approved matrix if that ever changes.
+    - name: Reconcile pops/raw remotes to the approved set
+      ansible.builtin.shell: |
+        set -e
+        cd "{{ target_home }}/pops/raw"
+        removed=""
+        for remote in $(git remote); do
+          case " athena " in
+            *" $remote "*) ;;
+            *) git remote remove "$remote"; removed="$removed $remote" ;;
+          esac
+        done
+        echo "REMOVED:$removed"
+      become: yes
+      become_user: "{{ target_user }}"
+      register: raw_remote_cleanup
+      changed_when: "raw_remote_cleanup.stdout_lines[-1] != 'REMOVED:'"
       when: raw_git_stat.stat.exists
 
     - name: Ensure athena's SSH host key is trusted for non-interactive git operations
