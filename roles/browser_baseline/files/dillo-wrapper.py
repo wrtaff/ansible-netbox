@@ -72,9 +72,27 @@ def transform_arg(arg):
         pass
     return arg
 
+def process_args(sys_args):
+    """Process arguments, combining multi-word non-flag CLI search queries into single argument."""
+    opts = []
+    non_opts = []
+    for arg in sys_args:
+        if arg.startswith("-"):
+            opts.append(arg)
+        else:
+            non_opts.append(arg)
+    if non_opts:
+        first = non_opts[0]
+        if not (first.startswith("http://") or first.startswith("https://") or first.startswith("file://") or first.startswith("/")):
+            joined_query = " ".join(non_opts)
+            return opts + [transform_arg(joined_query)]
+        else:
+            return opts + [transform_arg(a) for a in non_opts]
+    return opts
+
 def main():
     real_bin = REAL_DILLO if os.path.exists(REAL_DILLO) else "/usr/bin/dillo"
-    args = [real_bin] + [transform_arg(a) for a in sys.argv[1:]]
+    args = [real_bin] + process_args(sys.argv[1:])
     try:
         os.execv(real_bin, args)
     except FileNotFoundError:
