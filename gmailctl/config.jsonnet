@@ -497,6 +497,18 @@
     {
       name: "ktn/5vi1vhbgfwjanqtzeuyf"
     },
+    {
+      name: "ktn/t81fpnyjwtwxh28v01fp"
+    },
+    {
+      name: "ktn/bf3e99bq8ucihuy3v65i"
+    },
+    {
+      name: "ktn/gciukjn9y0tvrdrc0wr5"
+    },
+    {
+      name: "ktn/6a3mjam8l9de7fn2mank"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2422,6 +2434,72 @@
         archive: true,
         labels: [
           "ktn/5vi1vhbgfwjanqtzeuyf"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "unsupervised-learning@mail.beehiiv.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/t81fpnyjwtwxh28v01fp"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "toolsforpossibilities@substack.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/bf3e99bq8ucihuy3v65i"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "fountaincitysource@mail.beehiiv.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/gciukjn9y0tvrdrc0wr5"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "magazine-georgiaemc.com@shared1.ccsend.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/6a3mjam8l9de7fn2mank"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "tcs@tcsdcc.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/zcp49r0tpzzn5mqbt49l"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "specials@e.uline.com OR DeltaAirLines@o.delta.com OR wakullasprings@adventuresunbound.com OR hello@wikimedia.org OR noreply@email.openai.com OR workspace@google.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/0zmlok6n7yaw2vmpc6ky"
         ]
       }
     }
