@@ -280,19 +280,17 @@
     # checkouts instead of the athena bare hubs -- a push to one succeeds
     # silently and is invisible to fleet-merge.py and ready-to-work.sh (#3964).
     # Reconcile dynamically against the approved set rather than a hardcoded
-    # blocklist, so any future stray alias is also caught. `origin` is always
-    # approved; `github` is approved only on athena-controller pending the
-    # open WP-1 decision on its role there (see ticket for the open item) --
-    # every other host has it removed outright, superseding the old
-    # unconditional "normalise" task below.
+    # blocklist, so any future stray alias is also caught. `origin` is the
+    # only approved remote on every host, including athena: `pops.git`'s
+    # bare repo has its own `post-receive` hook mirroring `main` to GitHub
+    # automatically, so no client-side `github` remote is ever needed
+    # (confirmed 2026-09-09, closing the WP-1 open item -- superseding the
+    # old unconditional "normalise" task below).
     - name: Reconcile pops remotes to the approved set
       ansible.builtin.shell: |
         set -e
         cd "{{ target_home }}/pops"
         allowed="origin"
-        if [ "{{ inventory_hostname }}" = "athena" ]; then
-          allowed="origin github"
-        fi
         removed=""
         for remote in $(git remote); do
           case " $allowed " in
@@ -424,27 +422,13 @@
       changed_when: "'Fast-forward' in anb_sync.stdout"
       failed_when: false
 
-    # ynh2 carries an HTTPS github URL it cannot authenticate to. Agent nodes
-    # have no reason to reach GitHub at all -- only athena mirrors outward
-    # (#3968, #4030) -- so normalise every node to the SSH form for consistency
-    # with the other four hosts.
-    #
-    # Trac #4563 WP-1/WP-2.2: superseded for every host except athena. The
-    # approved policy prohibits a client-side `github` remote on fleet
-    # runners entirely (removed above by the pops remote reconciliation
-    # task), so there is nothing left here to normalise on those hosts.
-    # athena-controller's `github` role is still an open WP-1 decision, so
-    # this task is left in place, unchanged, for athena only until that is
-    # resolved.
-    - name: Normalise github remote URL on pops (SSH form)
-      community.general.git_config:
-        name: remote.github.url
-        value: "git@github.com:wrtaff/pops-infra.git"
-        scope: local
-        repo: "{{ target_home }}/pops"
-      become: yes
-      become_user: "{{ target_user }}"
-      when: inventory_hostname == 'athena'
+    # Removed 2026-09-09 (Trac #4563): this task used to normalise a
+    # client-side `github` remote's URL on pops (originally to fix ynh2's
+    # unauthenticated HTTPS form, #3968/#4030). Confirmed pops.git's bare
+    # repo on athena has its own post-receive hook mirroring `main` to
+    # GitHub automatically -- no client-side `github` remote is needed on
+    # any host, including athena. The pops remote reconciliation task above
+    # now removes it everywhere.
 
     - name: Check if pops/wiki git repository exists on target
       ansible.builtin.stat:
