@@ -2432,7 +2432,7 @@
     },
     {
       filter: {
-        from: "veteransaffairs@messages.va.gov OR TRICARE@news.dha.mil"
+        from: "veteransaffairs@messages.va.gov OR TRICARE@news.dha.mil OR express-scripts@mail.express-scripts.com"
       },
       actions: {
         archive: true,
