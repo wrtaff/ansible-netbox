@@ -12,6 +12,7 @@
 #     TRAC_PASSWORD (Environment Variable) — Password for Trac XML-RPC
 #
 # Revision History:
+#     2026-09-11 (antigravity): Documented venv execution requirements and linked skill center-pharmacy-playwright (Trac #4575).
 #     2026-07-08 (gemini): Added Trac ticket update functionality.
 #     2026-07-08 (gemini): Initial creation to automate NALTREXONE refill.
 # ==============================================================================
