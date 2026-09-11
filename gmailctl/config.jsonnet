@@ -530,6 +530,9 @@
       name: "ktn/ikmj6tfom45xjn50iutg"   // Group 1 Toyota Rivertown
     },
     {
+      name: "ktn/mvhl6c3un15w3vclatc1"   // City of Tallahassee Retirement Newsletter
+    },
+    {
       name: "ktn/mbhm77a29ljir4wo150l"   // Mnemosyne Project Users
     },
     {
@@ -2562,6 +2565,28 @@
         archive: true,
         labels: [
           "ktn/0zmlok6n7yaw2vmpc6ky"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "cityoftallahassee@my.talgov.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/mvhl6c3un15w3vclatc1"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "Group1ToyotaRivertown@send.southeasttoyotadealer.com OR mail@promotions.group1auto.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/ikmj6tfom45xjn50iutg"
         ]
       }
     }
