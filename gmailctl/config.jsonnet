@@ -533,7 +533,7 @@
       name: "ktn/mvhl6c3un15w3vclatc1"   // City of Tallahassee Retirement Newsletter
     },
     {
-      name: "ktn/rqnpbxza5ytrnpvvs2yx"   // City of Tallahassee Retirement Newsletter (historical duplicate label)
+      name: "ktn/rqnpbxza5ytrnpvvs2yx"   // Finance (KTN feed id 48, empty; migration target for legacy ynh2 je2ebya97ijsmy966ed0 -- NOT a Tallahassee duplicate, see Trac #4573)
     },
     {
       name: "ktn/mbhm77a29ljir4wo150l"   // Mnemosyne Project Users
