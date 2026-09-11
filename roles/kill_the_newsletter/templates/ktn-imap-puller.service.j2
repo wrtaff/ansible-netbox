@@ -9,6 +9,10 @@ User={{ ktn_user }}
 Group={{ ktn_group }}
 EnvironmentFile=/etc/ktn-imap-puller.env
 ExecStart=/usr/local/sbin/ktn-imap-puller
+# Trac #4567: a hung Gmail IMAP socket must never pin this unit in
+# "activating" (that also freezes ktn-imap-puller.timer). The script keeps
+# itself under KTN_PULLER_RUN_BUDGET; this is the hard backstop.
+TimeoutStartSec={{ ktn_puller_timeout_start }}
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

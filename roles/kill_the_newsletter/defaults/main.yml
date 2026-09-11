@@ -19,3 +19,16 @@ ktn_imap_user: "wrtaff@gmail.com"
 ktn_imap_host: "imap.gmail.com"
 ktn_imap_port: 993
 ktn_imap_interval: "5min"
+# Trac #4567: bound every run so a throttled/stalled Gmail IMAP session can
+# never wedge the service (and with it the timer) again.
+ktn_imap_timeout: 60
+ktn_smtp_timeout: 30
+# Wall-clock budget for one puller run, in seconds. Must be < the service
+# TimeoutStartSec below. A run that hits the budget saves progress and exits 0.
+ktn_puller_run_budget: 1200
+# Hard cap systemd places on a single run before it SIGKILLs it. Keep it a
+# little above ktn_puller_run_budget so a healthy run ends itself first.
+ktn_puller_timeout_start: "1500s"
+# Messages larger than the KTN loopback SMTP DATA limit are skipped + logged
+# instead of raising SMTPDataError 552 on every run.
+ktn_max_message_bytes: 524288

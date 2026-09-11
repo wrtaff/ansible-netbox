@@ -1,18 +1,48 @@
 #!/usr/bin/env python3
-"""Relay Gmail messages bearing direct-ID KTN labels to the local SMTP ingress."""
+"""Relay Gmail messages bearing direct-ID KTN labels to the local SMTP ingress.
 
+Design notes (see Trac #4567):
+* Gmail IMAP throttles every command by several seconds once an account has
+  been hammered, so this puller issues the *minimum* number of commands:
+  one SELECT of All Mail and one X-GM-RAW search across every ktn/ label,
+  instead of SELECT+SEARCH per label (that was ~95 commands/run and wedged
+  the service for days).
+* Every network client has an explicit timeout; a stalled IMAP socket can
+  no longer hang the run forever.
+* The run has an overall wall-clock budget. When it expires the puller
+  saves progress and exits 0 so systemd's timer keeps scheduling.
+* Messages larger than the KTN loopback SMTP DATA limit are skipped with a
+  warning rather than raising SMTPDataError 552 every run.
+"""
+
+import email
+import email.policy
 import imaplib
 import json
 import logging
 import os
 import re
 import smtplib
-import ssl
+import socket
 import sys
-
+import time
 
 LABEL_PATTERN = re.compile(r'(?:^|")(?P<label>ktn/[a-z0-9]+)(?:"|$)')
+GM_LABEL_TOKEN = re.compile(r'ktn/[a-z0-9]+')
 LOG = logging.getLogger("ktn-imap-puller")
+
+
+def env_int(name, default):
+    try:
+        return int(os.environ.get(name, "").strip() or default)
+    except ValueError:
+        return default
+
+
+IMAP_TIMEOUT = env_int("KTN_IMAP_TIMEOUT", 60)
+SMTP_TIMEOUT = env_int("KTN_SMTP_TIMEOUT", 30)
+RUN_BUDGET_SECONDS = env_int("KTN_PULLER_RUN_BUDGET", 1200)
+MAX_MESSAGE_BYTES = env_int("KTN_MAX_MESSAGE_BYTES", 524288)
 
 
 def load_delivery_state(state_path):
@@ -42,7 +72,6 @@ def get_direct_id_labels(client):
     status, mailboxes = client.list()
     if status != "OK":
         raise RuntimeError("Unable to list Gmail labels")
-
     labels = []
     for mailbox in mailboxes or []:
         match = LABEL_PATTERN.search(mailbox.decode("utf-8", errors="replace"))
@@ -51,47 +80,123 @@ def get_direct_id_labels(client):
     return labels
 
 
-def relay_label(client, label, delivered_keys, state_path):
-    status, _ = client.select(f'"{label}"', readonly=False)
-    if status != "OK":
-        raise RuntimeError(f"Unable to select {label}")
+def parse_fetch_map(fetch_data):
+    """Map UID -> {"labels": set(), "size": int} from a FETCH response."""
+    result = {}
+    for item in fetch_data or []:
+        blob = item[0] if isinstance(item, tuple) else item
+        if not isinstance(blob, (bytes, bytearray)):
+            continue
+        text = blob.decode("utf-8", errors="replace")
+        uid_match = re.search(r"UID (\d+)", text)
+        if not uid_match:
+            continue
+        uid = uid_match.group(1)
+        size_match = re.search(r"RFC822\.SIZE (\d+)", text)
+        labels_match = re.search(r"X-GM-LABELS \(([^)]*)\)", text)
+        result[uid] = {
+            "labels": set(GM_LABEL_TOKEN.findall(labels_match.group(1))) if labels_match else set(),
+            "size": int(size_match.group(1)) if size_match else None,
+        }
+    return result
 
-    status, data = client.uid("search", None, "ALL")
-    if status != "OK":
-        raise RuntimeError(f"Unable to search {label}")
 
-    feed_id = label.removeprefix("ktn/")
-    recipient = f"{feed_id}@{os.environ['KTN_HOSTNAME']}"
+def deliver_message(raw_bytes, recipient):
+    with smtplib.SMTP(
+        os.environ["KTN_SMTP_HOST"],
+        int(os.environ["KTN_SMTP_PORT"]),
+        timeout=SMTP_TIMEOUT,
+    ) as smtp:
+        smtp.sendmail(os.environ["KTN_IMAP_USER"], [recipient], raw_bytes)
+
+
+def subject_of(raw_bytes):
+    try:
+        msg = email.message_from_bytes(raw_bytes, policy=email.policy.default)
+        return (msg.get("subject") or "").strip() or "(no subject)"
+    except Exception:  # noqa: BLE001 - best-effort logging only
+        return "(unparseable subject)"
+
+
+def run(client, labels, delivered_keys, state_path, deadline):
+    status, _ = client.select('"[Gmail]/All Mail"', readonly=False)
+    if status != "OK":
+        raise RuntimeError("Unable to select [Gmail]/All Mail")
+
+    query = " OR ".join(f"label:{label}" for label in labels)
+    status, search_data = client.uid("search", None, "X-GM-RAW", f'"{query}"')
+    if status != "OK":
+        raise RuntimeError("X-GM-RAW label search failed")
+    uids = search_data[0].split() if search_data and search_data[0] else []
+    if not uids:
+        LOG.info("No labelled messages pending")
+        return 0, 0, []
+
+    status, meta = client.uid("fetch", b",".join(uids), "(X-GM-LABELS RFC822.SIZE)")
+    if status != "OK":
+        raise RuntimeError("Unable to fetch label/size metadata")
+    uid_meta = parse_fetch_map(meta)
+
     delivered = 0
-    message_uids = data[0].split() if data and data[0] else []
+    skipped = 0
+    errors = []
+    hostname = os.environ["KTN_HOSTNAME"]
 
-    for message_uid in message_uids:
-        uid = message_uid.decode()
-        key = f"{label}:{uid}"
+    for raw_uid in uids:
+        if time.monotonic() > deadline:
+            LOG.warning("Run budget exhausted; %d message(s) left for next run", len(uids) - delivered - skipped)
+            break
+
+        uid = raw_uid.decode()
+        info = uid_meta.get(uid, {"labels": set(), "size": None})
+        feed_labels = sorted(info["labels"])
+        if not feed_labels:
+            continue
+
+        key = f"gmuid:{uid}"
         if key in delivered_keys:
             continue
-        status, message_data = client.uid("fetch", message_uid, "(RFC822)")
-        if status != "OK" or not message_data or not isinstance(message_data[0], tuple):
-            raise RuntimeError(f"Unable to fetch message UID {uid} from {label}")
 
-        # KTN accepts plaintext SMTP only on its loopback-only ingress port.
-        with smtplib.SMTP(
-            os.environ["KTN_SMTP_HOST"],
-            int(os.environ["KTN_SMTP_PORT"]),
-            timeout=30,
-        ) as smtp:
-            smtp.sendmail(os.environ["KTN_IMAP_USER"], [recipient], message_data[0][1])
+        try:
+            if info["size"] is not None and info["size"] > MAX_MESSAGE_BYTES:
+                status, hdr = client.uid("fetch", raw_uid, "(BODY.PEEK[HEADER.FIELDS (SUBJECT)])")
+                subj = ""
+                if status == "OK":
+                    for part in hdr:
+                        if isinstance(part, tuple):
+                            subj = subject_of(part[1])
+                LOG.warning(
+                    "Skipping oversized message (%d B > %d) for %s: %s",
+                    info["size"], MAX_MESSAGE_BYTES, ",".join(feed_labels), subj,
+                )
+                delivered_keys.add(key)
+                save_delivery_state(state_path, delivered_keys)
+                skipped += 1
+                continue
 
-        delivered_keys.add(key)
-        save_delivery_state(state_path, delivered_keys)
-        status, _ = client.uid("store", message_uid, "-X-GM-LABELS", f'("{label}")')
-        if status != "OK":
-            raise RuntimeError(f"Delivered message UID {uid} but could not remove {label}")
-        status, labels = client.uid("fetch", message_uid, "(X-GM-LABELS)")
-        if status != "OK" or label.encode() in b"".join(labels):
-            raise RuntimeError(f"Delivered message UID {uid} but {label} remains applied")
-        delivered += 1
-    return delivered
+            status, message_data = client.uid("fetch", raw_uid, "(RFC822)")
+            if status != "OK" or not message_data or not isinstance(message_data[0], tuple):
+                raise RuntimeError(f"Unable to fetch RFC822 for UID {uid}")
+            raw_bytes = message_data[0][1]
+
+            for label in feed_labels:
+                feed_id = label.removeprefix("ktn/")
+                deliver_message(raw_bytes, f"{feed_id}@{hostname}")
+
+            delivered_keys.add(key)
+            save_delivery_state(state_path, delivered_keys)
+
+            status, _ = client.uid("store", raw_uid, "-X-GM-LABELS", "(%s)" % " ".join(f'"{l}"' for l in feed_labels))
+            if status != "OK":
+                raise RuntimeError(f"Delivered UID {uid} but could not remove {feed_labels}")
+
+            LOG.info("Relayed UID %s to %s", uid, ",".join(feed_labels))
+            delivered += 1
+        except Exception as exc:  # noqa: BLE001 - isolate per-message failures
+            LOG.error("Failed processing UID %s (%s): %s", uid, ",".join(feed_labels), exc)
+            errors.append((uid, exc))
+
+    return delivered, skipped, errors
 
 
 def main():
@@ -99,32 +204,38 @@ def main():
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    socket.setdefaulttimeout(IMAP_TIMEOUT)
     state_path = os.environ.get("KTN_DELIVERY_STATE", "/var/lib/ktn-imap-puller/delivered-messages.json")
     delivered_keys = load_delivery_state(state_path)
+    deadline = time.monotonic() + RUN_BUDGET_SECONDS
 
-    with imaplib.IMAP4_SSL(
-        os.environ["KTN_IMAP_HOST"],
-        int(os.environ["KTN_IMAP_PORT"]),
-        ssl_context=ssl.create_default_context(),
-    ) as client:
-        client.login(os.environ["KTN_IMAP_USER"], os.environ["KTN_IMAP_PASSWORD"])
-        labels = get_direct_id_labels(client)
-        total_delivered = 0
-        errors = []
-        for label in labels:
+    started = time.monotonic()
+    try:
+        with imaplib.IMAP4_SSL(
+            os.environ["KTN_IMAP_HOST"],
+            int(os.environ["KTN_IMAP_PORT"]),
+            timeout=IMAP_TIMEOUT,
+        ) as client:
+            client.login(os.environ["KTN_IMAP_USER"], os.environ["KTN_IMAP_PASSWORD"])
+            labels = get_direct_id_labels(client)
+            if not labels:
+                LOG.info("No ktn/ labels defined; nothing to do")
+                return
+            delivered, skipped, errors = run(client, labels, delivered_keys, state_path, deadline)
             try:
-                delivered = relay_label(client, label, delivered_keys, state_path)
-                total_delivered += delivered
-                if delivered > 0:
-                    LOG.info("Relayed %d message(s) for %s", delivered, label)
-            except Exception as exc:
-                LOG.error("Failed processing label %s: %s", label, exc)
-                errors.append((label, exc))
-        client.logout()
-
-    LOG.info("KTN IMAP puller run finished: %d message(s) delivered across %d label(s)", total_delivered, len(labels))
-    if errors:
+                client.logout()
+            except Exception as exc:  # noqa: BLE001
+                LOG.warning("IMAP logout failed: %s", exc)
+    except (imaplib.IMAP4.error, OSError) as exc:
+        LOG.error("KTN IMAP puller run aborted after %.0fs: %s", time.monotonic() - started, exc)
         sys.exit(1)
+
+    LOG.info(
+        "KTN IMAP puller run finished in %.0fs: %d delivered, %d skipped, %d error(s), %d label(s)",
+        time.monotonic() - started, delivered, skipped, len(errors), len(labels),
+    )
+    # Per-message errors are logged but must not wedge the timer; only a hard
+    # connection/auth failure (handled above) exits non-zero.
 
 
 if __name__ == "__main__":

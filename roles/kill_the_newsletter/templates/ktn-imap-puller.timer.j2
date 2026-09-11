@@ -3,7 +3,10 @@ Description=Poll Gmail direct-ID KTN labels
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec={{ ktn_imap_interval }}
+# Trac #4567: schedule relative to when the last run *finished*, not when it
+# started. OnUnitActiveSec never re-armed while a hung run sat in
+# "activating", which is how delivery silently stopped for 8 days.
+OnUnitInactiveSec={{ ktn_imap_interval }}
 Persistent=true
 
 [Install]
