@@ -509,6 +509,62 @@
     {
       name: "ktn/6a3mjam8l9de7fn2mank"
     },
+    // Trac #4567 drift-check (2026-09-10): these labels/feeds are LIVE on
+    // ktn-lxc-01 -- confirmed against the KTN sqlite feeds table -- but had
+    // no gmailctl label declaration and (per Gmail filters.list) NO
+    // recurring filter either, just a one-off label application on a single
+    // past message. Declaring them here only stops `gmailctl apply` from
+    // deleting them; it does not restore auto-routing. Follow-up: recover
+    // each publication's sender and add a real filter rule, or fold it into
+    // an existing aggregated feed.
+    {
+      name: "ktn/8dh8fzn9i0auvvxsde1m"   // TRICARE Benefit News & Updates
+    },
+    {
+      name: "ktn/98x3l8gt9z3obggq2on3"   // Columbus Peoples Choice
+    },
+    {
+      name: "ktn/ik0ttyuxt63f74rt9h4e"   // American Forces Travel
+    },
+    {
+      name: "ktn/ikmj6tfom45xjn50iutg"   // Group 1 Toyota Rivertown
+    },
+    {
+      name: "ktn/mbhm77a29ljir4wo150l"   // Mnemosyne Project Users
+    },
+    {
+      name: "ktn/o7ck52w08w97b3zdok1j"   // Tools for Possibilities (pre-existing; see toolsforpossibilities@ rule)
+    },
+    {
+      name: "ktn/pgaueh8dqg8xlay9iu6h"   // Google Store Promos
+    },
+    {
+      name: "ktn/sca9iel8kgfmreezwg9w"   // Early Bird Brief (Defense News)
+    },
+    {
+      name: "ktn/skc5yprxf30n20tsaf2a"   // ChatGPT Updates
+    },
+    {
+      name: "ktn/tmsa774yv53n96k2m54z"   // ORPHAN: no matching row in the KTN feeds table -- feed likely deleted; label never cleaned up. Do not route new mail here.
+    },
+    {
+      name: "ktn/w2mjf0tshvlxnaqnjtz7"   // Google Cloud AI Blueprint
+    },
+    {
+      name: "ktn/wsgbeir1z63xqowyudgc"   // The New Pork Times (Porkbun)
+    },
+    {
+      name: "ktn/x2wv8b1o4h3k8xu9ftnx"   // One Useful Thing
+    },
+    {
+      name: "ktn/y8vul5lkgsjqohc0oli1"   // Spring Creek Model Trains
+    },
+    // Will's standing "KTN this + filter it" triage queue (skills/domain/
+    // kill-the-newsletter.md Core Principle). Not a KTN feed label -- just
+    // needs to survive `gmailctl apply` the same way.
+    {
+      name: "C/needsKTN"
+    },
 
     {
       name: "ZZZarchivedTags/#1041_relo_incentive"
@@ -2449,13 +2505,19 @@
       }
     },
     {
+      // Trac #4567: a feed for this publication already existed
+      // (ktn/o7ck52w08w97b3zdok1j, title "Tools for Possibilities") but was
+      // undocumented -- no filter, only a one-off label application -- so a
+      // duplicate feed (ktn/bf3e99bq8ucihuy3v65i) was created before the
+      // duplicate was discovered. Route here going forward; the duplicate
+      // feed keeps its one already-delivered entry but gets no more traffic.
       filter: {
         from: "toolsforpossibilities@substack.com"
       },
       actions: {
         archive: true,
         labels: [
-          "ktn/bf3e99bq8ucihuy3v65i"
+          "ktn/o7ck52w08w97b3zdok1j"
         ]
       }
     },
