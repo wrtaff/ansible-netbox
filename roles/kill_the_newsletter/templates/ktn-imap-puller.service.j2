@@ -13,6 +13,9 @@ ExecStart=/usr/local/sbin/ktn-imap-puller
 # "activating" (that also freezes ktn-imap-puller.timer). The script keeps
 # itself under KTN_PULLER_RUN_BUDGET; this is the hard backstop.
 TimeoutStartSec={{ ktn_puller_timeout_start }}
+# Fires only when the run is killed (timeout/OOM) -- the script handles its
+# own soft errors. See ktn-imap-puller-failure.service.
+OnFailure=ktn-imap-puller-failure.service
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

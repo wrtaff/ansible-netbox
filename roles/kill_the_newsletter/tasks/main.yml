@@ -296,6 +296,7 @@
   loop:
     - ktn-imap-puller.service
     - ktn-imap-puller.timer
+    - ktn-imap-puller-failure.service
   notify: Reload systemd
 
 - name: Enable KTN IMAP puller timer

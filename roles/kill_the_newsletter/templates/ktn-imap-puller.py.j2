@@ -13,6 +13,10 @@ Design notes (see Trac #4567):
   saves progress and exits 0 so systemd's timer keeps scheduling.
 * Messages larger than the KTN loopback SMTP DATA limit are skipped with a
   warning rather than raising SMTPDataError 552 every run.
+* Every run emits a Graylog heartbeat line (so "no alerts" is distinguishable
+  from "no monitor" -- Trac #4494 lesson), and a hard abort also sends mail.
+  A missing-heartbeat Graylog event definition is the backstop for the
+  service being dead entirely.
 """
 
 import email
@@ -24,6 +28,7 @@ import os
 import re
 import smtplib
 import socket
+import subprocess
 import sys
 import time
 
@@ -43,6 +48,38 @@ IMAP_TIMEOUT = env_int("KTN_IMAP_TIMEOUT", 60)
 SMTP_TIMEOUT = env_int("KTN_SMTP_TIMEOUT", 30)
 RUN_BUDGET_SECONDS = env_int("KTN_PULLER_RUN_BUDGET", 1200)
 MAX_MESSAGE_BYTES = env_int("KTN_MAX_MESSAGE_BYTES", 524288)
+GRAYLOG_HOST = os.environ.get("KTN_GRAYLOG_HOST", "").strip()
+GRAYLOG_PORT = os.environ.get("KTN_GRAYLOG_PORT", "1514").strip() or "1514"
+ALERT_EMAIL = os.environ.get("KTN_ALERT_EMAIL", "").strip()
+NODE = socket.gethostname()
+
+
+def graylog(level, message):
+    """Emit one syslog line to Graylog. Best-effort; never raises."""
+    if not GRAYLOG_HOST:
+        return
+    try:
+        subprocess.run(
+            ["logger", "-d", "-n", GRAYLOG_HOST, "-P", GRAYLOG_PORT,
+             f"{level}: ktn-imap-puller on {NODE}: {message}"],
+            timeout=10, check=False,
+        )
+    except Exception as exc:  # noqa: BLE001 - alerting must not break the run
+        LOG.warning("Graylog notify failed: %s", exc)
+
+
+def alert_email(subject, body):
+    """Send an alert mail. Best-effort; never raises. Reserved for hard failures
+    so a flaky IMAP session cannot mailbomb (Trac #4494 lesson)."""
+    if not ALERT_EMAIL:
+        return
+    try:
+        subprocess.run(
+            ["mail", "-s", subject] + ALERT_EMAIL.split(","),
+            input=body.encode("utf-8"), timeout=30, check=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        LOG.warning("Alert mail failed: %s", exc)
 
 
 def load_delivery_state(state_path):
@@ -128,9 +165,12 @@ def run(client, labels, delivered_keys, state_path, deadline):
     if status != "OK":
         raise RuntimeError("X-GM-RAW label search failed")
     uids = search_data[0].split() if search_data and search_data[0] else []
+    # Newest first: KTN keeps only the most recent entries per feed, and a
+    # large stale backlog would otherwise starve fresh mail of the run budget.
+    uids.sort(key=lambda u: int(u), reverse=True)
     if not uids:
         LOG.info("No labelled messages pending")
-        return 0, 0, []
+        return 0, 0, [], 0
 
     status, meta = client.uid("fetch", b",".join(uids), "(X-GM-LABELS RFC822.SIZE)")
     if status != "OK":
@@ -142,8 +182,10 @@ def run(client, labels, delivered_keys, state_path, deadline):
     errors = []
     hostname = os.environ["KTN_HOSTNAME"]
 
+    budget_hit = False
     for raw_uid in uids:
         if time.monotonic() > deadline:
+            budget_hit = True
             LOG.warning("Run budget exhausted; %d message(s) left for next run", len(uids) - delivered - skipped)
             break
 
@@ -196,7 +238,14 @@ def run(client, labels, delivered_keys, state_path, deadline):
             LOG.error("Failed processing UID %s (%s): %s", uid, ",".join(feed_labels), exc)
             errors.append((uid, exc))
 
-    return delivered, skipped, errors
+    pending = sum(
+        1 for u in uids
+        if uid_meta.get(u.decode(), {}).get("labels")
+        and f"gmuid:{u.decode()}" not in delivered_keys
+    )
+    if budget_hit:
+        LOG.info("Stopped on budget with %d message(s) still pending", pending)
+    return delivered, skipped, errors, pending
 
 
 def main():
@@ -210,6 +259,9 @@ def main():
     deadline = time.monotonic() + RUN_BUDGET_SECONDS
 
     started = time.monotonic()
+    labels = []
+    delivered = skipped = pending = 0
+    errors = []
     try:
         with imaplib.IMAP4_SSL(
             os.environ["KTN_IMAP_HOST"],
@@ -220,22 +272,46 @@ def main():
             labels = get_direct_id_labels(client)
             if not labels:
                 LOG.info("No ktn/ labels defined; nothing to do")
+                graylog("INFO", "heartbeat: no ktn/ labels defined")
                 return
-            delivered, skipped, errors = run(client, labels, delivered_keys, state_path, deadline)
+            delivered, skipped, errors, pending = run(client, labels, delivered_keys, state_path, deadline)
             try:
                 client.logout()
             except Exception as exc:  # noqa: BLE001
                 LOG.warning("IMAP logout failed: %s", exc)
     except (imaplib.IMAP4.error, OSError) as exc:
-        LOG.error("KTN IMAP puller run aborted after %.0fs: %s", time.monotonic() - started, exc)
+        elapsed = time.monotonic() - started
+        LOG.error("KTN IMAP puller run aborted after %.0fs: %s", elapsed, exc)
+        graylog("CRITICAL", f"run ABORTED after {elapsed:.0f}s: {exc}")
+        alert_email(
+            f"CRITICAL: KTN IMAP puller aborted on {NODE}",
+            f"The Kill the Newsletter IMAP puller aborted after {elapsed:.0f}s.\n\n"
+            f"Error: {exc}\n\n"
+            f"Newsletters are not being relayed to their feeds until this clears.\n"
+            f"Check: journalctl -u ktn-imap-puller.service on {NODE}\n"
+            f"Trac: http://trac.gafla.us.com/ticket/4567\n",
+        )
         sys.exit(1)
 
-    LOG.info(
-        "KTN IMAP puller run finished in %.0fs: %d delivered, %d skipped, %d error(s), %d label(s)",
-        time.monotonic() - started, delivered, skipped, len(errors), len(labels),
+    elapsed = time.monotonic() - started
+    summary = (
+        f"{delivered} delivered, {skipped} skipped, {len(errors)} error(s), "
+        f"{pending} pending, {len(labels)} label(s) in {elapsed:.0f}s"
     )
-    # Per-message errors are logged but must not wedge the timer; only a hard
-    # connection/auth failure (handled above) exits non-zero.
+    LOG.info("KTN IMAP puller run finished: %s", summary)
+    level = "ERROR" if errors else "INFO"
+    graylog(level, f"heartbeat: {summary}")
+
+    # Per-message errors don't wedge the timer or exit non-zero, but a run that
+    # delivered nothing while errors piled up is worth a mail (rare; the
+    # per-message except clause only trips on real IMAP/SMTP faults).
+    if errors and delivered == 0:
+        detail = "\n".join(f"  UID {uid}: {exc}" for uid, exc in errors[:20])
+        alert_email(
+            f"ERROR: KTN IMAP puller delivered 0 with {len(errors)} error(s) on {NODE}",
+            f"{summary}\n\nFirst errors:\n{detail}\n\n"
+            f"Trac: http://trac.gafla.us.com/ticket/4567\n",
+        )
 
 
 if __name__ == "__main__":

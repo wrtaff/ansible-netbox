@@ -32,3 +32,14 @@ ktn_puller_timeout_start: "1500s"
 # Messages larger than the KTN loopback SMTP DATA limit are skipped + logged
 # instead of raising SMTPDataError 552 on every run.
 ktn_max_message_bytes: 524288
+
+# --- Monitoring / alerting (Trac #4567) ------------------------------------
+# Graylog syslog sink -- same target roles/disk_alerts uses. Every puller run
+# emits one heartbeat line here; a hard abort emits CRITICAL. Set host empty
+# to disable Graylog output.
+ktn_puller_graylog_host: "192.168.0.104"
+ktn_puller_graylog_port: 1514
+# Mail recipient(s) for hard failures only (abort, or delivered=0 with errors),
+# and for the systemd OnFailure handler. Comma-separated. Empty disables mail.
+# Matches roles/disk_alerts routing.
+ktn_puller_alert_email: "root@home.arpa,wrtaff@gmail.com"
