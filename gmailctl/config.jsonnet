@@ -565,6 +565,9 @@
     {
       name: "ktn/y8vul5lkgsjqohc0oli1"   // Spring Creek Model Trains
     },
+    {
+      name: "ktn/ljvvi7unr7lq56c7kjft"   // American Red Cross
+    },
     // Will's standing "KTN this + filter it" triage queue (skills/domain/
     // kill-the-newsletter.md Core Principle). Not a KTN feed label -- just
     // needs to survive `gmailctl apply` the same way.
@@ -2590,6 +2593,17 @@
         archive: true,
         labels: [
           "ktn/ikmj6tfom45xjn50iutg"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "autoreply@volunteer.redcross.org OR ISDSAFnewsletter@volunteer.redcross.org"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/ljvvi7unr7lq56c7kjft"
         ]
       }
     }
