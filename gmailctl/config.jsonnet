@@ -2483,7 +2483,7 @@
     },
     {
       filter: {
-        from: "tcs@tcsdcc.com"
+        from: "tcs@tcsdcc.com OR jim@scenicexpress.ccsend.com"
       },
       actions: {
         archive: true,
