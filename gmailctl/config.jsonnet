@@ -533,6 +533,9 @@
       name: "ktn/mvhl6c3un15w3vclatc1"   // City of Tallahassee Retirement Newsletter
     },
     {
+      name: "ktn/rqnpbxza5ytrnpvvs2yx"   // City of Tallahassee Retirement Newsletter (historical duplicate label)
+    },
+    {
       name: "ktn/mbhm77a29ljir4wo150l"   // Mnemosyne Project Users
     },
     {

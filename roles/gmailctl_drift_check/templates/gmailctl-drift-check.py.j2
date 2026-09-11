@@ -207,10 +207,17 @@ def main():
     summary = f"+{f_add}/-{f_del} filters, +{l_add}/-{l_del} labels"
     print(f"DRIFT DETECTED: {summary}")
 
-    emit_graylog("WARNING", f"gmailctl-drift-check on {HOSTNAME}: drift detected ({summary})")
+    if f_del > 0 or l_del > 0:
+        severity = "CRITICAL"
+        severity_desc = "CRITICAL (Deletions Pending)"
+    else:
+        severity = "WARNING"
+        severity_desc = "WARNING (Additions Pending)"
+
+    emit_graylog(severity, f"gmailctl-drift-check on {HOSTNAME}: drift detected ({summary})")
 
     body_lines = [
-        f"WARNING: Gmailctl Configuration Drift Detected on {HOSTNAME}",
+        f"{severity_desc}: Gmailctl Configuration Drift Detected on {HOSTNAME}",
         f"Timestamp: {datetime.datetime.now().isoformat()}",
         f"Host: {HOSTNAME}",
         f"Canonical Config: {CONFIG_FILE}",
@@ -225,18 +232,20 @@ def main():
         diff_info["full_output"],
         "",
         "=" * 60,
-        "NEXT ACTIONS:",
+        "NEXT ACTIONS & SAFETY NOTICE:",
         "=" * 60,
-        "1. Inspect the diff above to determine if additions or deletions are pending.",
-        "2. If filters were edited in Git but not deployed, authorize and run deploy.",
-        "3. If live Gmail was modified directly, export and reconcile to Git SSOT.",
+        "1. Inspect the diff above. If deletions are shown, DO NOT apply without investigating.",
+        "2. Note: 'gmailctl apply' on gmailctl-ansible is blocked by the #4570 interlock (rc=90) to prevent accidental filter deletion from stale default configuration.",
+        "3. If new rules were committed to ansible-netbox/gmailctl/config.jsonnet but not applied, coordinate deployment via ticket #4570 / parent epic #4572.",
+        "4. If filters/labels were changed directly in live Gmail (e.g. via Gmail web UI or one-off label), reconcile by declaring in config.jsonnet.",
         "",
         f"Trac Ticket: {TRAC_TICKET_URL}",
         f"Parent Epic: {EPIC_URL}",
+        "Prerequisite Ticket: http://trac.gafla.us.com/ticket/4570",
     ]
 
     body = "\n".join(body_lines)
-    subject = f"WARNING: gmailctl drift detected on {HOSTNAME} ({summary})"
+    subject = f"{severity_desc}: gmailctl drift detected on {HOSTNAME} ({summary})"
 
     send_alert_email(subject, body)
     sys.exit(0)
