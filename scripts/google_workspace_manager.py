@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.31
+Version:        1.32
 Author:         Gemini CLI
 Last Modified:  2026-07-23
 Context:        http://trac.gafla.us.com/ticket/3571
@@ -22,6 +22,8 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.32 (2026-09-11): Include resolved Gmail labels in gmail-get JSON output so
+                        email-handler can verify queue membership before triage.
     v1.31 (2026-07-23): Added drive-delete subcommand to delete a file in Google Drive.
     v1.30 (2026-07-14): Automatically extract time from tasks due date and append to notes to bypass API limitation.
     v1.29 (2026-06-30): Added fallback to gmail_get_by_header to search via From/To/Subject if Message-ID is missing.
@@ -422,6 +424,11 @@ def gmail_get_message(message_id, output_format='text', cite=False):
             return attachments
 
         attachments = get_attachments(message['payload'])
+        label_map = {
+            label['id']: label['name']
+            for label in service.users().labels().list(userId='me').execute().get('labels', [])
+        }
+        labels = [label_map.get(label_id, label_id) for label_id in message.get('labelIds', [])]
 
         result = {
             'id': message['id'],
@@ -430,6 +437,7 @@ def gmail_get_message(message_id, output_format='text', cite=False):
             'snippet': message['snippet'],
             'body': body,
             'internalDate': message['internalDate'],
+            'labels': labels,
             'attachments': attachments
         }
         if cite:
