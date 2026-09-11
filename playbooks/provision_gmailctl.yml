@@ -32,10 +32,46 @@
         owner: root
         group: root
         mode: "0755"
-        creates: /usr/local/bin/gmailctl
 
     - name: Verify Gmailctl validator version
       ansible.builtin.command: /usr/local/bin/gmailctl version
       register: gmailctl_version_output
       changed_when: false
       failed_when: "gmailctl_version not in gmailctl_version_output.stdout"
+
+    # --- Trac #4570 WP-3: default config path must resolve to the canonical SSOT ---
+    # Historically /root/.gmailctl/config.jsonnet symlinked into /opt/config-repo,
+    # a separate GitHub-backed checkout that drifted ~512 lines behind live Gmail.
+    # A bare `gmailctl apply` against it would have deleted ~35 filters / ~36 labels.
+    # /etc/gmailctl/config.jsonnet is pushed from ansible-netbox/gmailctl/config.jsonnet
+    # by roles/gmailctl_drift_check. Credentials (credentials.json, token.json) stay
+    # in /root/.gmailctl, so only the config file is redirected.
+    - name: Ensure gmailctl config directory exists
+      ansible.builtin.file:
+        path: /root/.gmailctl
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Require the Ansible-managed canonical config to be present
+      ansible.builtin.stat:
+        path: /etc/gmailctl/config.jsonnet
+      register: gmailctl_canonical
+
+    - name: Fail fast if the canonical config has not been deployed
+      ansible.builtin.assert:
+        that: gmailctl_canonical.stat.exists
+        fail_msg: >-
+          /etc/gmailctl/config.jsonnet is missing. Run
+          playbooks/deploy_gmailctl_drift_check.yml first -- it pushes the
+          canonical config. Refusing to point gmailctl at a nonexistent file.
+
+    - name: Point default gmailctl config at the canonical managed copy
+      ansible.builtin.file:
+        src: /etc/gmailctl/config.jsonnet
+        dest: /root/.gmailctl/config.jsonnet
+        state: link
+        force: true
+        owner: root
+        group: root
