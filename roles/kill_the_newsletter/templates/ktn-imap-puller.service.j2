@@ -2,6 +2,9 @@
 Description=Relay direct-ID Gmail labels to Kill the Newsletter
 After=network-online.target kill-the-newsletter.service
 Wants=network-online.target
+# Trac #4567: fires only when a run is killed (hang past TimeoutStartSec, or
+# OOM) -- the Python puller reports its own soft errors.
+OnFailure=ktn-imap-puller-failure.service
 
 [Service]
 Type=oneshot
@@ -13,9 +16,6 @@ ExecStart=/usr/local/sbin/ktn-imap-puller
 # "activating" (that also freezes ktn-imap-puller.timer). The script keeps
 # itself under KTN_PULLER_RUN_BUDGET; this is the hard backstop.
 TimeoutStartSec={{ ktn_puller_timeout_start }}
-# Fires only when the run is killed (timeout/OOM) -- the script handles its
-# own soft errors. See ktn-imap-puller-failure.service.
-OnFailure=ktn-imap-puller-failure.service
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
