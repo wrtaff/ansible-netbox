@@ -1,0 +1,6 @@
+---
+# Handlers for gmailctl_drift_check role
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true

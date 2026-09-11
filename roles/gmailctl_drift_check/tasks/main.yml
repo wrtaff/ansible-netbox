@@ -1,0 +1,53 @@
+---
+# tasks/main.yml for gmailctl_drift_check role (Trac #4573 / Epic #4572)
+
+- name: Ensure gmailctl config directory exists
+  ansible.builtin.file:
+    path: "{{ gmailctl_drift_check_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Push canonical gmailctl config.jsonnet to managed path
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../gmailctl/config.jsonnet"
+    dest: "{{ gmailctl_drift_check_config_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Deploy gmailctl drift detection script
+  ansible.builtin.template:
+    src: gmailctl-drift-check.py.j2
+    dest: "{{ gmailctl_drift_check_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy systemd drift check service unit
+  ansible.builtin.template:
+    src: gmailctl-drift-check.service.j2
+    dest: /etc/systemd/system/gmailctl-drift-check.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Deploy systemd drift check timer unit
+  ansible.builtin.template:
+    src: gmailctl-drift-check.timer.j2
+    dest: /etc/systemd/system/gmailctl-drift-check.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Flush handlers to reload systemd before timer activation
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start gmailctl-drift-check.timer
+  ansible.builtin.systemd:
+    name: gmailctl-drift-check.timer
+    enabled: true
+    state: started

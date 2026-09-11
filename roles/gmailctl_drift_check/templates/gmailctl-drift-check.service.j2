@@ -1,0 +1,12 @@
+[Unit]
+Description=Gmailctl Config Drift Detection Check (Trac #4573 / #4572 WP-4)
+After=network-online.target postfix.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart={{ gmailctl_drift_check_script_path }}
+TimeoutStartSec={{ (gmailctl_drift_check_timeout | int) + 30 }}
+StandardOutput=journal
+StandardError=journal

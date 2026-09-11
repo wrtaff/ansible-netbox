@@ -1,0 +1,22 @@
+---
+# Filename: playbooks/deploy_gmailctl_drift_check.yml
+# Version: 1.0.0
+# Author: gemini
+# Last Modified: 2026-09-11
+# Trac Ticket: http://trac.gafla.us.com/ticket/4573
+# Purpose: Deploys scheduled gmailctl configuration drift detection check on gmailctl-ansible.
+# Use Case: Ensures differences between canonical config.jsonnet and live Gmail settings are caught and alerted automatically.
+# Installation Method: Ansible role (roles/gmailctl_drift_check)
+# Prerequisites: Python 3, gmailctl binary on target host, postfix/mail utility
+# Configuration: /etc/gmailctl/config.jsonnet, /usr/local/bin/gmailctl-drift-check.py, systemd timer
+# Secrets: None -- no vault variables required
+# Usage: ansible-playbook -i inventory.ini playbooks/deploy_gmailctl_drift_check.yml --check --diff
+# Removal Instructions: systemctl disable --now gmailctl-drift-check.timer; rm -f /etc/systemd/system/gmailctl-drift-check.* /usr/local/bin/gmailctl-drift-check.py
+# WWOS: http://wwos.home.arpa/index.php/Playbooks/deploy_gmailctl_drift_check.yml
+# GitHub: https://github.com/wrtaff/ansible-netbox/blob/master/playbooks/deploy_gmailctl_drift_check.yml
+
+- name: Deploy Gmailctl configuration drift detection
+  hosts: gmailctl-ansible
+  become: true
+  roles:
+    - gmailctl_drift_check

@@ -1,0 +1,10 @@
+[Unit]
+Description=Scheduled Gmailctl Config Drift Detection Check (Trac #4573 / #4572 WP-4)
+
+[Timer]
+OnCalendar={{ gmailctl_drift_check_oncalendar }}
+RandomizedDelaySec={{ gmailctl_drift_check_randomized_delay }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+---
+# Defaults for gmailctl_drift_check role (Trac #4573 / Epic #4572)
+
+gmailctl_drift_check_bin: "/usr/local/bin/gmailctl"
+gmailctl_drift_check_config_dir: "/etc/gmailctl"
+gmailctl_drift_check_config_file: "{{ gmailctl_drift_check_config_dir }}/config.jsonnet"
+gmailctl_drift_check_script_path: "/usr/local/bin/gmailctl-drift-check.py"
+gmailctl_drift_check_oncalendar: "*-*-* 04,10,16,22:00:00"
+gmailctl_drift_check_randomized_delay: "300"
+gmailctl_drift_check_timeout: 120
+gmailctl_drift_check_graylog_host: "graylog.home.arpa"
+gmailctl_drift_check_graylog_port: 1514
+gmailctl_drift_check_alert_emails: "root@home.arpa, wrtaff@gmail.com"

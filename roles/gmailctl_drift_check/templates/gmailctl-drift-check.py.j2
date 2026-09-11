@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+"""
+gmailctl-drift-check.py -- Scheduled drift detector for Gmailctl filters and labels.
+
+MANAGED BY ANSIBLE -- roles/gmailctl_drift_check (Trac #4573 / #4572 WP-4)
+
+Compares live Gmail filters and labels against the canonical config.jsonnet
+using read-only `gmailctl diff`.
+
+Drift criteria:
+- Clean: exit 0, no diff hunks (ExcludeChats warning ignored). Emits Graylog heartbeat.
+- Drift: exit 0, diff hunks detected. Sends alert email with additions/deletions counts and diff text; logs warning to Graylog.
+- Fault/Error: exit != 0 or timeout. Sends failure alert email and logs error to Graylog.
+"""
+
+import datetime
+import os
+import re
+import socket
+import subprocess
+import sys
+
+GMAILCTL_BIN = "{{ gmailctl_drift_check_bin }}"
+CONFIG_FILE = "{{ gmailctl_drift_check_config_file }}"
+TIMEOUT = int("{{ gmailctl_drift_check_timeout }}")
+GRAYLOG_HOST = "{{ gmailctl_drift_check_graylog_host }}"
+GRAYLOG_PORT = "{{ gmailctl_drift_check_graylog_port }}"
+ALERT_EMAILS = "{{ gmailctl_drift_check_alert_emails }}"
+HOSTNAME = socket.gethostname()
+TRAC_TICKET_URL = "http://trac.gafla.us.com/ticket/4573"
+EPIC_URL = "http://trac.gafla.us.com/ticket/4572"
+
+
+def emit_graylog(level: str, message: str) -> None:
+    """Emit one syslog message to Graylog. Best-effort; never raises."""
+    if not GRAYLOG_HOST:
+        return
+    try:
+        tag = f"{level}: gmailctl-drift-check on {HOSTNAME}: {message}"
+        subprocess.run(
+            ["logger", "-d", "-n", GRAYLOG_HOST, "-P", str(GRAYLOG_PORT), tag],
+            timeout=10,
+            check=False,
+        )
+    except Exception as exc:
+        print(f"Warning: Graylog emission failed: {exc}", file=sys.stderr)
+
+
+def send_alert_email(subject: str, body: str) -> bool:
+    """Send an alert email using /usr/bin/mail. Best-effort."""
+    if not ALERT_EMAILS:
+        return False
+    recipients = [e.strip() for e in ALERT_EMAILS.split(",") if e.strip()]
+    try:
+        res = subprocess.run(
+            ["mail", "-s", subject] + recipients,
+            input=body.encode("utf-8"),
+            timeout=30,
+            check=False,
+        )
+        return res.returncode == 0
+    except Exception as exc:
+        print(f"Warning: Alert email failed: {exc}", file=sys.stderr)
+        return False
+
+
+def parse_diff_output(stdout: str, stderr: str):
+    """Parses gmailctl diff output into structured diff statistics and hunks."""
+    full_text = stdout + "\n" + stderr
+    lines = full_text.splitlines()
+
+    filter_adds = []
+    filter_dels = []
+    label_adds = []
+    label_dels = []
+
+    current_section = None
+    in_hunk = False
+
+    for line in lines:
+        if line.startswith("Filters:"):
+            current_section = "filters"
+            in_hunk = False
+            continue
+        elif line.startswith("Labels:"):
+            current_section = "labels"
+            in_hunk = False
+            continue
+        elif line.startswith("Warning:") or line.startswith("Error getting"):
+            current_section = None
+            in_hunk = False
+            continue
+
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        elif line.startswith("---") or line.startswith("+++"):
+            continue
+
+        if in_hunk and current_section:
+            if line.startswith("+"):
+                item = line[1:].strip()
+                if item:
+                    if current_section == "filters":
+                        filter_adds.append(item)
+                    elif current_section == "labels":
+                        label_adds.append(item)
+            elif line.startswith("-"):
+                item = line[1:].strip()
+                if "Warning:" in item:
+                    item = item.split("Warning:")[0].strip()
+                if item:
+                    if current_section == "filters":
+                        filter_dels.append(item)
+                    elif current_section == "labels":
+                        label_dels.append(item)
+
+    has_drift = bool(filter_adds or filter_dels or label_adds or label_dels)
+    return {
+        "filter_adds": filter_adds,
+        "filter_dels": filter_dels,
+        "label_adds": label_adds,
+        "label_dels": label_dels,
+        "has_drift": has_drift,
+        "full_output": stdout.strip(),
+        "stderr": stderr.strip(),
+    }
+
+
+def main():
+    if not os.path.isfile(GMAILCTL_BIN):
+        err = f"gmailctl binary not found at {GMAILCTL_BIN}"
+        print(err, file=sys.stderr)
+        emit_graylog("ERROR", err)
+        send_alert_email(
+            f"ERROR: gmailctl drift check failed on {HOSTNAME}",
+            f"{err}\n\nHost: {HOSTNAME}\nTicket: {TRAC_TICKET_URL}",
+        )
+        sys.exit(2)
+
+    if not os.path.isfile(CONFIG_FILE):
+        err = f"config file not found at {CONFIG_FILE}"
+        print(err, file=sys.stderr)
+        emit_graylog("ERROR", err)
+        send_alert_email(
+            f"ERROR: gmailctl drift check failed on {HOSTNAME}",
+            f"{err}\n\nHost: {HOSTNAME}\nTicket: {TRAC_TICKET_URL}",
+        )
+        sys.exit(2)
+
+    cmd = [GMAILCTL_BIN, "diff", "--filename", CONFIG_FILE]
+    print(f"Running drift check: {' '.join(cmd)}")
+
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        err = f"gmailctl diff timed out after {TIMEOUT}s"
+        print(err, file=sys.stderr)
+        emit_graylog("ERROR", err)
+        send_alert_email(
+            f"ERROR: gmailctl drift check TIMEOUT on {HOSTNAME}",
+            f"{err}\n\nHost: {HOSTNAME}\nTicket: {TRAC_TICKET_URL}",
+        )
+        sys.exit(3)
+    except Exception as exc:
+        err = f"Failed to execute gmailctl diff: {exc}"
+        print(err, file=sys.stderr)
+        emit_graylog("ERROR", err)
+        send_alert_email(
+            f"ERROR: gmailctl drift check execution failure on {HOSTNAME}",
+            f"{err}\n\nHost: {HOSTNAME}\nTicket: {TRAC_TICKET_URL}",
+        )
+        sys.exit(3)
+
+    if proc.returncode != 0:
+        err = f"gmailctl diff exited with non-zero status rc={proc.returncode}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+        print(err, file=sys.stderr)
+        emit_graylog("ERROR", f"gmailctl diff failed (rc={proc.returncode}): {proc.stderr}")
+        send_alert_email(
+            f"ERROR: gmailctl drift check failed on {HOSTNAME} (rc={proc.returncode})",
+            f"gmailctl diff encountered an error.\n\n"
+            f"Return Code: {proc.returncode}\n"
+            f"Host: {HOSTNAME}\n"
+            f"Config: {CONFIG_FILE}\n\n"
+            f"STDERR:\n{proc.stderr}\n\n"
+            f"STDOUT:\n{proc.stdout}\n\n"
+            f"If token expired, re-auth via: python3 ~/ansible-netbox/scripts/gmailctl_reauth_helper.py\n"
+            f"Trac Ticket: {TRAC_TICKET_URL}\n"
+        )
+        sys.exit(proc.returncode)
+
+    diff_info = parse_diff_output(proc.stdout, proc.stderr)
+
+    if not diff_info["has_drift"]:
+        # Clean check: no drift!
+        msg = f"clean (live Gmail matches {os.path.basename(CONFIG_FILE)}; ExcludeChats ignored)"
+        print(f"Drift check result: {msg}")
+        emit_graylog("INFO", f"gmailctl-drift-check heartbeat on {HOSTNAME}: {msg}")
+        sys.exit(0)
+
+    # Drift detected!
+    f_add = len(diff_info["filter_adds"])
+    f_del = len(diff_info["filter_dels"])
+    l_add = len(diff_info["label_adds"])
+    l_del = len(diff_info["label_dels"])
+
+    summary = f"+{f_add}/-{f_del} filters, +{l_add}/-{l_del} labels"
+    print(f"DRIFT DETECTED: {summary}")
+
+    emit_graylog("WARNING", f"gmailctl-drift-check on {HOSTNAME}: drift detected ({summary})")
+
+    body_lines = [
+        f"WARNING: Gmailctl Configuration Drift Detected on {HOSTNAME}",
+        f"Timestamp: {datetime.datetime.now().isoformat()}",
+        f"Host: {HOSTNAME}",
+        f"Canonical Config: {CONFIG_FILE}",
+        "",
+        f"Summary: {summary}",
+        f"  Filters: +{f_add} to apply, -{f_del} to delete",
+        f"  Labels:  +{l_add} to apply, -{l_del} to delete",
+        "",
+        "=" * 60,
+        "RAW DIFF OUTPUT:",
+        "=" * 60,
+        diff_info["full_output"],
+        "",
+        "=" * 60,
+        "NEXT ACTIONS:",
+        "=" * 60,
+        "1. Inspect the diff above to determine if additions or deletions are pending.",
+        "2. If filters were edited in Git but not deployed, authorize and run deploy.",
+        "3. If live Gmail was modified directly, export and reconcile to Git SSOT.",
+        "",
+        f"Trac Ticket: {TRAC_TICKET_URL}",
+        f"Parent Epic: {EPIC_URL}",
+    ]
+
+    body = "\n".join(body_lines)
+    subject = f"WARNING: gmailctl drift detected on {HOSTNAME} ({summary})"
+
+    send_alert_email(subject, body)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
