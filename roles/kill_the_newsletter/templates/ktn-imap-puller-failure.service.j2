@@ -6,9 +6,4 @@ Description=Alert when ktn-imap-puller.service fails
 
 [Service]
 Type=oneshot
-{% if ktn_puller_graylog_host %}
-ExecStart=/usr/bin/logger -d -n {{ ktn_puller_graylog_host }} -P {{ ktn_puller_graylog_port }} "CRITICAL: ktn-imap-puller.service failed on %H (systemd OnFailure) -- likely hang past TimeoutStartSec or OOM"
-{% endif %}
-{% if ktn_puller_alert_email %}
-ExecStart=/bin/sh -c 'printf "%%s\\n" "ktn-imap-puller.service on %H entered a failed state at $(date -Is)." "" "The Python puller reports its own IMAP/SMTP errors; reaching this handler means the run was killed by systemd (hang past TimeoutStartSec) or the OOM killer." "" "Newsletters are not being relayed to their feeds until the next successful run." "" "journalctl -u ktn-imap-puller.service -n 50   on %H" "Trac: http://trac.gafla.us.com/ticket/4567" | mail -s "CRITICAL: ktn-imap-puller failed on %H" {{ ktn_puller_alert_email }}'
-{% endif %}
+ExecStart=/usr/local/sbin/ktn-imap-puller-alert

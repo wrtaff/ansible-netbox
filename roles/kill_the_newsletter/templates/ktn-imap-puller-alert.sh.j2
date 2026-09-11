@@ -1,0 +1,34 @@
+#!/bin/bash
+# ktn-imap-puller-alert -- last-resort notifier for ktn-imap-puller.service.
+# MANAGED BY ANSIBLE -- roles/kill_the_newsletter. Trac #4567.
+#
+# Invoked only from ktn-imap-puller.service's OnFailure=, i.e. when the run
+# was killed (hang past TimeoutStartSec, or OOM) and the Python puller had no
+# chance to report. The puller reports its own IMAP/SMTP errors directly.
+set -o pipefail
+
+HOSTNAME=$(hostname)
+GRAYLOG_HOST="{{ ktn_puller_graylog_host }}"
+GRAYLOG_PORT="{{ ktn_puller_graylog_port }}"
+EMAILS="{{ ktn_puller_alert_email }}"
+
+MSG="ktn-imap-puller.service on ${HOSTNAME} entered a failed state at $(date -Is)."
+
+if [ -n "$GRAYLOG_HOST" ]; then
+    logger -d -n "$GRAYLOG_HOST" -P "$GRAYLOG_PORT" \
+        "CRITICAL: ktn-imap-puller.service failed on ${HOSTNAME} (systemd OnFailure) -- hang past TimeoutStartSec or OOM" || true
+fi
+
+if [ -n "$EMAILS" ]; then
+    printf '%s\n' \
+        "$MSG" \
+        "" \
+        "The Python puller reports its own IMAP/SMTP errors; reaching this" \
+        "handler means the run was killed by systemd or the OOM killer." \
+        "" \
+        "Newsletters stop reaching their feeds until the next good run." \
+        "" \
+        "  journalctl -u ktn-imap-puller.service -n 80   on ${HOSTNAME}" \
+        "  Trac: http://trac.gafla.us.com/ticket/4567" \
+        | mail -s "CRITICAL: ktn-imap-puller failed on ${HOSTNAME}" "$EMAILS" || true
+fi

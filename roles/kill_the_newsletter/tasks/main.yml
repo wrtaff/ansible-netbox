@@ -277,6 +277,14 @@
     group: root
     mode: "0755"
 
+- name: Install KTN IMAP puller failure alert helper
+  ansible.builtin.template:
+    src: ktn-imap-puller-alert.sh.j2
+    dest: /usr/local/sbin/ktn-imap-puller-alert
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Write KTN IMAP puller credentials
   ansible.builtin.template:
     src: ktn-imap-puller.env.j2
