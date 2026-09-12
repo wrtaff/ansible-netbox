@@ -2,16 +2,15 @@
 """
 ================================================================================
 Filename:       create_wwos.py
-Version:        2.2
+Version:        2.3
 Author:         Will
-Last Modified:  2025-12-12
+Last Modified:  2026-09-12
 
 Purpose:
     Creates or updates pages on the WWOS MediaWiki instance. The script handles
     authentication, CSRF token management, and page content formatting
-    automatically. Pages are created with a standard structure including a
-    bold title, optional body content, the {{baseOfPage}} template, and a
-    category assignment.
+    automatically. Pages are created with a standard structure conforming to
+    WWOS Manual of Style and wwos_page_check rules.
 
 Usage:
     # First, set your MediaWiki password as an environment variable:
@@ -55,6 +54,12 @@ MediaWiki Formatting Guide:
     - Code Blocks:    <code>Your code here</code>
 
 Version History:
+    v2.3 (2026-09-12) - Fix Trac #4601:
+        - Do not prepend bold title when content already has a valid opener.
+        - Avoid duplicate {{bop}} / category blocks when already present in content.
+        - Replace legacy {{baseOfPage}} with canonical {{bop}}.
+        - Support list or string for categories, respect quotes, delimiters (;, |, \n), and prevent splitting category names containing commas (e.g. "Columbus, Georgia").
+        - Omit {{bop}} and bold title for Category: pages.
     v2.2 (2025-12-12) - Added MediaWiki Formatting Guide to header.
     v2.1 (2025-12-11) - Multiple category support:
         - Enhanced category argument to accept comma-separated list of categories
@@ -98,6 +103,8 @@ import requests
 import os
 import sys
 import re
+import csv
+from typing import Union, List, Optional
 
 # MediaWiki API endpoint and credentials
 API_URL = "http://wwos.home.arpa/api.php"
@@ -199,13 +206,162 @@ def get_page_content(page_name, session=None):
             return revisions[0].get("*", "")
     return None
 
-def create_wwos_page(page_name, categories, summary="Page created by script", content_body=None):
+US_GEO_SUFFIXES = {
+    "Georgia", "Alabama", "Florida", "GA", "FL", "AL", "D.C.",
+    "New Jersey", "NJ", "Washington", "WA", "Tennessee", "TN", "Texas", "TX"
+}
+
+
+def parse_categories(categories: Union[List[str], str, None]) -> list[str]:
+    """Parse categories parameter into a clean list of category names."""
+    if not categories:
+        return []
+    if isinstance(categories, (list, tuple, set)):
+        return [str(c).strip() for c in categories if str(c).strip()]
+    if isinstance(categories, str):
+        cat_str = categories.strip()
+        if not cat_str:
+            return []
+        if ";" in cat_str:
+            raw_tokens = [c.strip() for c in cat_str.split(";") if c.strip()]
+        elif "|" in cat_str:
+            raw_tokens = [c.strip() for c in cat_str.split("|") if c.strip()]
+        elif "\n" in cat_str:
+            raw_tokens = [c.strip() for c in cat_str.splitlines() if c.strip()]
+        else:
+            try:
+                reader = csv.reader([cat_str], skipinitialspace=True)
+                raw_tokens = [c.strip() for c in next(reader) if c.strip()]
+            except Exception:
+                raw_tokens = [c.strip() for c in cat_str.split(",") if c.strip()]
+
+        # Heal split geographic categories if comma split separated e.g. "Columbus", "Georgia"
+        healed: list[str] = []
+        i = 0
+        while i < len(raw_tokens):
+            tok = raw_tokens[i]
+            if i + 1 < len(raw_tokens) and raw_tokens[i + 1] in US_GEO_SUFFIXES:
+                healed.append(f"{tok}, {raw_tokens[i + 1]}")
+                i += 2
+            else:
+                healed.append(tok)
+                i += 1
+        return healed
+    return []
+
+
+def _has_valid_opener(content: str, title: str) -> bool:
+    """Check if content begins with a valid MediaWiki opener."""
+    stripped = content.strip()
+    if not stripped:
+        return False
+    if stripped.upper().startswith("#REDIRECT"):
+        return True
+    lines = stripped.splitlines()
+    first_nonempty = next((l.strip() for l in lines if l.strip()), "")
+    if first_nonempty.startswith("{{") or first_nonempty.startswith("''"):
+        return True
+    if first_nonempty.startswith("{|") or first_nonempty.startswith("==") or first_nonempty.startswith("<"):
+        return True
+    if first_nonempty.startswith("*") or first_nonempty.startswith("#"):
+        return True
+    if first_nonempty.startswith("'''"):
+        return True
+    return False
+
+
+def build_page_content(page_name: str, categories: Union[List[str], str, None] = None, content_body: Optional[str] = None) -> str:
+    """Construct complete, valid MediaWiki page content.
+
+    Rules:
+    - Never prepend a standalone bold title if content_body already has a valid opener.
+    - If content_body starts with unbolded page_name, bold it into the lead sentence.
+    - If content_body already contains {{bop}} or categories, preserve without duplication.
+    - Normalize legacy {{baseOfPage}} to {{bop}}.
+    - For Category: pages, omit {{bop}} and bold title opener.
+    - For redirects and Scribunto modules, pass content verbatim.
+    """
+    # 1. Redirect
+    if content_body and content_body.strip().upper().startswith("#REDIRECT"):
+        return content_body.strip()
+
+    # 2. Scribunto Module
+    if page_name.startswith("Module:"):
+        return content_body or ""
+
+    is_category_page = page_name.startswith("Category:")
+
+    # 3. Content body & Opener
+    if content_body and content_body.strip():
+        raw_content = content_body.strip()
+        if is_category_page or _has_valid_opener(raw_content, page_name):
+            content = raw_content
+        elif raw_content.lower().startswith(page_name.lower()):
+            match_len = len(page_name)
+            content = f"'''{page_name}'''" + raw_content[match_len:]
+        else:
+            content = f"'''{page_name}'''\n\n{raw_content}"
+    else:
+        content = "" if is_category_page else f"'''{page_name}'''"
+
+    # 4. Normalize legacy {{baseOfPage}} -> {{bop}}
+    content = re.sub(r"\{\{baseOfPage\}\}", "{{bop}}", content, flags=re.IGNORECASE)
+
+    # 5. Inspect existing {{bop}} and categories
+    has_bop = bool(re.search(r"\{\{bop\}\}", content, flags=re.IGNORECASE))
+    existing_cat_matches = re.findall(r"\[\[Category:\s*([^\]]+?)\s*\]\]", content, flags=re.IGNORECASE)
+    existing_cats_normalized = {c.strip().replace('_', ' ').lower() for c in existing_cat_matches}
+
+    # 6. Determine new categories to add
+    category_list = parse_categories(categories)
+    new_categories = [c for c in category_list if c.strip().replace('_', ' ').lower() not in existing_cats_normalized]
+
+    # 7. Assemble final content
+    if is_category_page:
+        if new_categories:
+            cat_block = "\n".join(f"[[Category:{c}]]" for c in new_categories)
+            content = (content.rstrip() + "\n\n" + cat_block if content else cat_block) + "\n"
+        elif content:
+            content = content.rstrip() + "\n"
+    else:
+        if existing_cat_matches:
+            if not has_bop:
+                # Insert {{bop}} immediately above the first [[Category:
+                m = re.search(r"\[\[Category:", content, flags=re.IGNORECASE)
+                if m is not None:
+                    idx = m.start()
+                    prefix = content[:idx].rstrip()
+                    suffix = content[idx:].strip()
+                    content = prefix + "\n\n{{bop}}\n" + suffix
+            if new_categories:
+                cat_block = "\n".join(f"[[Category:{c}]]" for c in new_categories)
+                content = content.rstrip() + "\n" + cat_block + "\n"
+            else:
+                content = content.rstrip() + "\n"
+        else:
+            if has_bop:
+                if new_categories:
+                    cat_block = "\n".join(f"[[Category:{c}]]" for c in new_categories)
+                    content = content.rstrip() + "\n" + cat_block + "\n"
+                else:
+                    content = content.rstrip() + "\n"
+            else:
+                bop_and_cats = "{{bop}}\n" + "\n".join(f"[[Category:{c}]]" for c in new_categories)
+                if content:
+                    content = content.rstrip() + "\n\n" + bop_and_cats + "\n"
+                else:
+                    content = bop_and_cats + "\n"
+
+    return content
+
+
+def create_wwos_page(page_name, categories="", summary="Page created by script", content_body=None):
     """
     Creates or updates a page on the WWOS MediaWiki instance.
     
     Args:
         page_name: The title of the page to create/update
-        categories: Comma-separated string of categories to assign
+        categories: Comma/semicolon/pipe-separated string or list of categories
         summary: Edit summary for the change
         content_body: Optional body content for the page
     """
@@ -221,25 +377,7 @@ def create_wwos_page(page_name, categories, summary="Page created by script", co
     csrf_token = csrf_token_response.json()["query"]["tokens"]["csrftoken"]
 
     # 4. Construct page content
-    if content_body and content_body.strip().upper().startswith("#REDIRECT"):
-        content = content_body.strip()
-    elif page_name.startswith("Module:"):
-        # Module: pages use the Scribunto content model — pass Lua source verbatim,
-        # no wikitext title/bop/categories.
-        content = content_body or ""
-    else:
-        content = f"'''{page_name}'''\n\n"
-        if content_body:
-            content += content_body + "\n\n"
-
-        # Only add {{baseOfPage}} if it's not a Category page
-        if not page_name.startswith("Category:"):
-            content += "{{baseOfPage}}\n\n"
-
-        # Parse and add multiple categories
-        category_list = [cat.strip() for cat in categories.split(",") if cat.strip()]
-        for cat in category_list:
-            content += f"[[Category:{cat}]]\n"
+    content = build_page_content(page_name, categories, content_body)
 
     # 5. Create or update the page
     edit_data = {
@@ -289,8 +427,8 @@ Examples:
         """
     )
     parser.add_argument("page_name", help="The name of the page to create/update")
-    parser.add_argument("category", 
-                        help="Category or comma-separated categories (e.g., 'General' or 'AI software, Tools')")
+    parser.add_argument("category", nargs="?", default="",
+                        help="Category or delimited categories (optional if categories are in content)")
     parser.add_argument("-s", "--summary", default="Page created by automated script",
                         help="Edit summary (default: 'Page created by automated script')")
     parser.add_argument("-c", "--content", help="Content string for the page body")

@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/wwos/server.py
-Version:        1.7
+Version:        1.8
 Author:         Gemini CLI
-Last Modified:  2026-04-28
+Last Modified:  2026-09-12
 Context:        WWOS (MediaWiki) Integration
 
 Purpose:
@@ -13,6 +13,10 @@ Purpose:
     tools for fetching, creating, and updating wiki pages.
 
 Revision History:
+    v1.8 (2026-09-12): Fix Trac #4601: In wwos_create_page, accept categories as
+                       Union[List[str], str] = "" and content: str = "". Avoid duplicate
+                       title/bop/category blocks and handle comma-containing category names.
+                       In wwos_import_from_wikipedia, pass combined categories list directly.
     v1.7 (2026-04-28): Update wwos_generate_citation: drop ref_only param, always
                        return ref-tag only — inline link before <ref> was a duplicate.
     v1.6 (2026-04-28): Fix wwos_move_page redirect: omit 'noredirect' key entirely
@@ -46,7 +50,7 @@ import logging
 import re
 import subprocess
 import requests as _requests
-from typing import Optional, List
+from typing import Optional, List, Union
 
 # Add project root to path to allow importing from scripts
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -157,7 +161,7 @@ from scripts import wikipedia_to_wwos as wtw
 # Initialize FastMCP server
 mcp = FastMCP("wwos-server")
 
-logger.info("Initializing WWOS MCP Server v1.7")
+logger.info("Initializing WWOS MCP Server v1.8")
 
 @mcp.tool(name="wwos_ping")
 def ping() -> str:
@@ -179,10 +183,23 @@ def get_page(page_name: str) -> str:
         return f"Error fetching page '{page_name}': {e}"
 
 @mcp.tool(name="wwos_create_page")
-def create_page(page_name: str, categories: str, content: str, summary: str = "Page created by AI assistant") -> str:
+def create_page(
+    page_name: str,
+    categories: Union[List[str], str] = "",
+    content: str = "",
+    summary: str = "Page created by AI assistant"
+) -> str:
     """
     Create a new page on WWOS.
-    categories: Comma-separated list (e.g., 'SysAdmin, Automation')
+
+    page_name: The title of the page to create.
+    categories: Categories to assign. Can be a list of category names (e.g. ['Physical therapy', 'Columbus, Georgia']),
+                a delimited string (semicolon, pipe, or comma-separated), or empty if categories are already in content.
+                Note: Category names containing internal commas (e.g. 'Columbus, Georgia') should either be passed
+                as a list, delimited by semicolons/pipes, quoted, or included directly in content via [[Category:...]] tags.
+    content: Wikitext content for the page. If content includes a valid opener (such as a bold lead paragraph)
+             and/or trailing {{bop}} and categories, they will be preserved without duplication.
+    summary: Edit summary for the change.
     """
     logger.info(f"WWOS: Create page '{page_name}'")
     try:
@@ -294,14 +311,13 @@ def import_from_wikipedia(url: str, categories: str, title: Optional[str] = None
         formatted_content = wtw.format_content(raw_content, canonical_url, real_title)
         
         # Combine categories
-        user_cats = {cat.strip() for cat in categories.split(",") if cat.strip()}
-        all_cats = user_cats.union(set(wik_categories))
-        combined_cats = ", ".join(all_cats)
-        
+        user_cats = set(cwp.parse_categories(categories))
+        all_cats = list(user_cats.union(set(wik_categories)))
+
         # Create page
         success = cwp.create_wwos_page(
             page_name=target_title,
-            categories=combined_cats,
+            categories=all_cats,
             summary=f"Imported from {url}",
             content_body=formatted_content
         )
