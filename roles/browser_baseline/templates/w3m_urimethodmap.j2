@@ -1,0 +1,9 @@
+# ==============================================================================
+# w3m URI method map (managed by Ansible roles/browser_baseline)
+# ==============================================================================
+{% for s in browser_baseline_search_shortcuts %}
+{% if s.keyword is defined and s.url_template is defined %}
+{{ s.keyword }}: {{ s.url_template | replace('{searchTerms}', '%s') }}
+{% endif %}
+{% endfor %}
+ddg: https://duckduckgo.com/lite/?q=%s

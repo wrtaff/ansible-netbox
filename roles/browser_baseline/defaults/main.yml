@@ -1,9 +1,9 @@
 # ==============================================================================
 # Filename:       roles/browser_baseline/defaults/main.yml
-# Version:        1.5
+# Version:        1.6
 # Author:         Pops AI / Gemini
-# Last Modified:  2026-09-11
-# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411, #4467, #4485, #4523, #4557
+# Last Modified:  2026-09-12
+# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411, #4467, #4485, #4523, #4557, #4604
 #
 # Purpose:
 #     Default variables for the browser_baseline Ansible role.
@@ -18,6 +18,7 @@ browser_baseline_homepage_url: "http://heimdall.home.arpa"
 browser_baseline_manage_chrome: true
 browser_baseline_manage_firefox: true
 browser_baseline_manage_dillo: true
+browser_baseline_manage_w3m: true
 
 # Target user for user-level dotfile/config placement
 browser_baseline_user: "will"
@@ -164,3 +165,16 @@ firefox_named_profiles:
 # ------------------------------------------------------------------------------
 dillo_package_name: "dillo"
 browser_baseline_dillo_font_factor: 1.25
+
+# ------------------------------------------------------------------------------
+# w3m Configuration
+# ------------------------------------------------------------------------------
+w3m_package_name: "w3m"
+w3m_display_charset: "UTF-8"
+w3m_document_charset: "UTF-8"
+w3m_color_mode: 1
+w3m_use_cookie: 1
+w3m_show_cookie: 0
+w3m_accept_cookie: 1
+w3m_accept_bad_cookie: 0
+w3m_ssl_verify: 1

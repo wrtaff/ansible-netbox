@@ -1,14 +1,14 @@
 ---
 # ==============================================================================
 # Filename:       roles/browser_baseline/tasks/main.yml
-# Version:        1.3
+# Version:        1.4
 # Author:         Pops AI / Gemini
-# Last Modified:  2026-09-07
-# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411, #4467, #4512
+# Last Modified:  2026-09-12
+# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411, #4467, #4512, #4604
 #
 # Purpose:
 #     Main task list for the browser_baseline role. Deploys Google Chrome,
-#     Firefox, Dillo, default browser configuration, and enterprise policies.
+#     Firefox, Dillo, w3m, default browser configuration, and enterprise policies.
 # ==============================================================================
 
 - name: Apply Google Chrome baseline
@@ -22,6 +22,10 @@
 - name: Apply Dillo browser baseline
   ansible.builtin.include_tasks: dillo.yml
   when: browser_baseline_manage_dillo | bool
+
+- name: Apply w3m browser baseline
+  ansible.builtin.include_tasks: w3m.yml
+  when: browser_baseline_manage_w3m | bool
 
 - name: Configure Firefox as system and user default web browser
   ansible.builtin.include_tasks: default_browser.yml

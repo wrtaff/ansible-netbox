@@ -1,0 +1,36 @@
+# ==============================================================================
+# w3m configuration (managed by Ansible roles/browser_baseline)
+# ==============================================================================
+
+# Character encoding
+display_charset {{ w3m_display_charset | default('UTF-8') }}
+document_charset {{ w3m_document_charset | default('UTF-8') }}
+auto_detect 2
+
+# Display & Color
+color {{ w3m_color_mode | default(1) }}
+tabstop 8
+indent_wrapped 2
+
+# Cookies & Privacy
+use_cookie {{ w3m_use_cookie | default(1) }}
+show_cookie {{ w3m_show_cookie | default(0) }}
+accept_cookie {{ w3m_accept_cookie | default(1) }}
+accept_bad_cookie {{ w3m_accept_bad_cookie | default(0) }}
+
+# Security
+ssl_verify_server {{ w3m_ssl_verify | default(1) }}
+
+# Navigation & Search
+wrap_search 1
+ignore_case 1
+follow_redirection 10
+meta_refresh 1
+use_mouse 1
+clear_buffer 1
+
+# File paths
+bookmark /home/{{ browser_baseline_user }}/.w3m/bookmark.html
+keymap /home/{{ browser_baseline_user }}/.w3m/keymap
+siteconf /home/{{ browser_baseline_user }}/.w3m/siteconf
+urimethodmap /home/{{ browser_baseline_user }}/.w3m/urimethodmap
