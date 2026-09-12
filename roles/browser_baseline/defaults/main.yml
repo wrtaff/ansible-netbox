@@ -1,9 +1,9 @@
 # ==============================================================================
 # Filename:       roles/browser_baseline/defaults/main.yml
-# Version:        1.4
+# Version:        1.5
 # Author:         Pops AI / Gemini
-# Last Modified:  2026-09-08
-# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411, #4467, #4485, #4523
+# Last Modified:  2026-09-11
+# Trac Tickets:   #2783, #4407, #4408, #4409, #4410, #4411, #4467, #4485, #4523, #4557
 #
 # Purpose:
 #     Default variables for the browser_baseline Ansible role.
@@ -87,6 +87,11 @@ browser_baseline_search_shortcuts:
     url_template: "https://en.wikipedia.org/w/index.php?search={searchTerms}&go=Go"
     dillo_url: "https://en.wikipedia.org/w/index.php?search=%s&go=Go"
     icon_url: "https://en.wikipedia.org/favicon.ico"
+  - name: "Google Drive"
+    keyword: "gdr"
+    url_template: "https://drive.google.com/drive/u/0/search?q={searchTerms}"
+    dillo_url: ""
+    icon_url: "https://drive.google.com/favicon.ico"
 
 # ------------------------------------------------------------------------------
 # Chrome Configuration & Policy

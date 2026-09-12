@@ -4,7 +4,9 @@
 
 # Search shortcuts
 {% for s in browser_baseline_search_shortcuts %}
+{% if s.dillo_url is defined and s.dillo_url %}
 search_url="{{ s.keyword }} {{ s.name }} {{ s.dillo_url }}"
+{% endif %}
 {% endfor %}
 
 # Font scaling baseline

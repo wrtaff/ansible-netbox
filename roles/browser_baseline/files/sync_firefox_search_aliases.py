@@ -22,6 +22,7 @@ ALIAS_MAP = {
     "trac": "trac",
     "wikipedia": "wik",
     "wikipedia (en)": "wik",
+    "google drive": "gdr",
 }
 
 def get_lz4():

@@ -31,8 +31,10 @@ A single managed bookmarks list is rendered across all three browsers:
 ### 2.2 Common Search Shortcut Keywords (`browser_baseline_search_shortcuts`)
 A unified set of search engine shortcuts is bound across all three browsers:
 * `ww <query>`: Search WWOS (`http://wwos.home.arpa/index.php?search=...`)
+* `nb <query>`: Search NetBox (`http://netbox1.home.arpa/search/?q=...`)
 * `trac <query>`: Search Trac (`http://trac.gafla.us.com/search?q=...`)
 * `wik <query>`: Search Wikipedia (`https://en.wikipedia.org/...`)
+* `gdr <query>`: Search Google Drive (`https://drive.google.com/drive/u/0/search?q=...`)
 
 ### 2.3 Concurrent Named Firefox Profiles
 Firefox is configured out of the box with multiple concurrent, isolated named profiles:
