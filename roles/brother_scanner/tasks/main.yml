@@ -88,7 +88,7 @@
     create: yes
   ignore_errors: yes # Might fail if brscan-skey isn't installed yet or path is different
 
-- name: Create desktop shortcut for Scan to SMB
+- name: Create desktop shortcut for Scan to SMB (Letter Duplex)
   copy:
     dest: "/home/{{ ansible_user | default('will') }}/Desktop/Scan_to_SMB.desktop"
     content: |
@@ -97,6 +97,28 @@
       Terminal=true
       Name=Scan to SMB (Letter Duplex)
       Exec=/opt/brother/scanner/scripts/scan_to_smb.sh
+      Icon=scanner
+      Categories=Utility;
+    mode: '0755'
+    owner: "{{ ansible_user | default('will') }}"
+
+- name: Deploy raw SMB simplex push-to-scan wrapper script
+  copy:
+    dest: /opt/brother/scanner/scripts/scan_to_smb_simplex.sh
+    content: |
+      #!/bin/bash
+      exec /opt/brother/scanner/scripts/scan_to_smb.sh --simplex "$@"
+    mode: '0755'
+
+- name: Create desktop shortcut for Scan to SMB (Letter Simplex)
+  copy:
+    dest: "/home/{{ ansible_user | default('will') }}/Desktop/Scan_to_SMB_Simplex.desktop"
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Terminal=true
+      Name=Scan to SMB (Letter Simplex)
+      Exec=/opt/brother/scanner/scripts/scan_to_smb_simplex.sh
       Icon=scanner
       Categories=Utility;
     mode: '0755'
