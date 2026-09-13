@@ -24,10 +24,16 @@ if [ "$1" = "--simplex" ] || [ "$1" = "--single" ] || [ "$1" = "-s" ]; then
 fi
 
 echo "Starting ${SCAN_DESC} Letter scan to ${OUTPUT_PDF}..."
+if command -v notify-send >/dev/null 2>&1; then
+    notify-send -i scanner "Brother Scanner" "Starting ${SCAN_DESC} scan to SMB..."
+fi
 
 # Ensure target directory exists (if mounted)
 if [ ! -d "${OUTPUT_DIR}" ]; then
     echo "ERROR: Output directory ${OUTPUT_DIR} not found or not mounted."
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -u critical -i dialog-error "Brother Scanner" "ERROR: ${OUTPUT_DIR} not mounted."
+    fi
     exit 1
 fi
 
@@ -56,8 +62,14 @@ convert "${TMP_PREFIX}_p*.tiff" -compress zip "${OUTPUT_PDF}"
 
 if [ -f "${OUTPUT_PDF}" ]; then
     echo "Successfully saved to ${OUTPUT_PDF}"
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -i scanner "Brother Scanner" "Scan complete: $(basename "${OUTPUT_PDF}")"
+    fi
 else
     echo "ERROR: Scan failed, no PDF generated."
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -u critical -i dialog-error "Brother Scanner" "Scan failed: no PDF generated."
+    fi
 fi
 
 # Cleanup temp TIFFs

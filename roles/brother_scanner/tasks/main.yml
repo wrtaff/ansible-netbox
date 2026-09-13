@@ -99,8 +99,10 @@
       Exec=/opt/brother/scanner/scripts/scan_to_smb.sh
       Icon=scanner
       Categories=Utility;
+      StartupNotify=false
     mode: '0755'
     owner: "{{ ansible_user | default('will') }}"
+    group: "{{ ansible_user | default('will') }}"
 
 - name: Deploy raw SMB simplex push-to-scan wrapper script
   copy:
@@ -121,5 +123,7 @@
       Exec=/opt/brother/scanner/scripts/scan_to_smb_simplex.sh
       Icon=scanner
       Categories=Utility;
+      StartupNotify=false
     mode: '0755'
     owner: "{{ ansible_user | default('will') }}"
+    group: "{{ ansible_user | default('will') }}"
