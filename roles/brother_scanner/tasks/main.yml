@@ -43,6 +43,17 @@
   ignore_errors: yes
   notify: Reload udev rules
 
+- name: Ensure MODE and GROUP permissions are active in Brother udev rules
+  replace:
+    path: "{{ item }}"
+    regexp: '^#(MODE="0666"|GROUP="scanner")'
+    replace: '\1'
+  with_items:
+    - /etc/udev/rules.d/60-brother-libsane-type1.rules
+    - /etc/udev/rules.d/60-brother-brscan4-libsane-type1.rules
+  ignore_errors: yes
+  notify: Reload udev rules
+
 - name: Create scan script directory
   file:
     path: /opt/brother/scanner/scripts
