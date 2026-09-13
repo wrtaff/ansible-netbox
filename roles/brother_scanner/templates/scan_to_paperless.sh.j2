@@ -17,8 +17,19 @@ OUTPUT_PDF="${TMP_PREFIX}.pdf"
 
 echo "Starting scan to ${OUTPUT_PDF}..."
 
+# Dynamically locate Brother scanner device or use configured default
+DEVICE_NAME="{{ scanner_device_name | default('') }}"
+if [ -z "${DEVICE_NAME}" ]; then
+    DEVICE_NAME=$(scanimage -L 2>/dev/null | grep -oE "brother[0-9]*:[^ '\"]+" | head -n 1)
+fi
+
+DEVICE_OPT=""
+if [ -n "${DEVICE_NAME}" ]; then
+    DEVICE_OPT="--device-name=${DEVICE_NAME}"
+fi
+
 # Scan using scanimage (ADF, duplex if supported, 150dpi)
-scanimage --device-name="brother4:bus5;dev1" --resolution 150 --mode Gray --source "Automatic Document Feeder(centrally aligned,Duplex)" --batch="${TMP_PREFIX}_p%04d.tiff" --format=tiff
+scanimage ${DEVICE_OPT} --resolution 150 --mode Gray --source "Automatic Document Feeder(centrally aligned,Duplex)" --batch="${TMP_PREFIX}_p%04d.tiff" --format=tiff
 
 # Convert to PDF with lossless ZIP compression to reduce size without degrading OCR
 # Note: Paperless-ngx can also consume TIFFs directly and OCR them, 

@@ -23,8 +23,19 @@ if [ ! -d "${OUTPUT_DIR}" ]; then
     exit 1
 fi
 
+# Dynamically locate Brother scanner device or use configured default
+DEVICE_NAME="{{ scanner_device_name | default('') }}"
+if [ -z "${DEVICE_NAME}" ]; then
+    DEVICE_NAME=$(scanimage -L 2>/dev/null | grep -oE "brother[0-9]*:[^ '\"]+" | head -n 1)
+fi
+
+DEVICE_OPT=""
+if [ -n "${DEVICE_NAME}" ]; then
+    DEVICE_OPT="--device-name=${DEVICE_NAME}"
+fi
+
 # Scan using scanimage (ADF, duplex, True Gray, 150dpi, Letter Geometry)
-scanimage --device-name="{{ scanner_device_name | default('brother4:bus3;dev1') }}" \
+scanimage ${DEVICE_OPT} \
           --resolution 150 \
           --mode "True Gray" \
           --source "Automatic Document Feeder(left aligned,Duplex)" \
