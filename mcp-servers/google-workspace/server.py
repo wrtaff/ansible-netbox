@@ -378,7 +378,7 @@ def drive_update(file_id: str, name: Optional[str] = None, description: Optional
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.drive_update_file(file_id=file_id, name=name, description=description, parent=parent, output_format='json')
+            gwm.drive_update_file(file_id=file_id, name=name, description=description, parent_id=parent, output_format='json')
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
