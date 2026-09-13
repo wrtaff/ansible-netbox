@@ -6,6 +6,8 @@
       - sane-utils
       - libusb-0.1-4
       - gscan2pdf
+      - ocrmypdf
+      - fonts-lato
       - imagemagick
       - unpaper
       - curl
@@ -127,3 +129,26 @@
     mode: '0755'
     owner: "{{ ansible_user | default('will') }}"
     group: "{{ ansible_user | default('will') }}"
+
+- name: Ensure user .config directory exists
+  file:
+    path: "/home/{{ ansible_user | default('will') }}/.config"
+    state: directory
+    owner: "{{ ansible_user | default('will') }}"
+    group: "{{ ansible_user | default('will') }}"
+    mode: '0755'
+
+- name: Probe Brother scanner SANE device name
+  shell: scanimage -L 2>/dev/null | grep -a -oE "brother[0-9]*:[^ '\"]+" | head -n 1
+  register: brother_scanner_device_probe
+  changed_when: false
+  failed_when: false
+
+- name: Deploy standardized gscan2pdf configuration
+  template:
+    src: gscan2pdfrc.j2
+    dest: "/home/{{ ansible_user | default('will') }}/.config/gscan2pdfrc"
+    owner: "{{ ansible_user | default('will') }}"
+    group: "{{ ansible_user | default('will') }}"
+    mode: '0644'
+

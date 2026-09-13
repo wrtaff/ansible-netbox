@@ -1,0 +1,258 @@
+{
+   "Blank threshold" : 0.005,
+   "Dark threshold" : 0.12,
+   "OCR on scan" : false,
+   "OCR output" : "replace",
+   "Page range" : "all",
+   "Paper" : {
+      "A3" : {
+         "l" : 0,
+         "t" : 0,
+         "x" : 297,
+         "y" : 420
+      },
+      "A4" : {
+         "l" : 0,
+         "t" : 0,
+         "x" : 210,
+         "y" : 297
+      },
+      "A5" : {
+         "l" : 0,
+         "t" : 0,
+         "x" : 210,
+         "y" : 148
+      },
+      "Post_card" : {
+         "br-x" : 1,
+         "br-y" : 110,
+         "l" : 0,
+         "t" : 0,
+         "x" : 1,
+         "y" : 150
+      },
+      "US Legal" : {
+         "l" : 0,
+         "t" : 0,
+         "x" : 211,
+         "y" : 356
+      },
+      "US Letter" : {
+         "l" : 0,
+         "t" : 0,
+         "x" : 211,
+         "y" : 279
+      }
+   },
+   "SANE version" : "1.2.1",
+   "TMPDIR" : null,
+   "adf-defaults-scan-all-pages" : 1,
+   "allow-batch-flatbed" : false,
+   "author" : "",
+   "author-suggestions" : [
+      "gscan2pdf"
+   ],
+   "auto-open-scan-dialog" : 1,
+   "available-tmp-warning" : 10,
+   "brightness tool" : 65,
+   "cache" : null,
+   "cache options" : 1,
+   "cache-device-list" : 1,
+   "cancel-between-pages" : false,
+   "close_dialog_on_save" : true,
+   "contrast tool" : 65,
+   "convert whitespace to underscores" : 1,
+   "current_psh" : null,
+   "current_udt" : "ocrmypdf %i %o",
+   "cwd" : "/mnt/smb/share/Documents/Scans_Folder",
+   "cycle sane handle" : false,
+   "datetime offset" : [
+      0,
+      0,
+      0,
+      0
+   ],
+   "default filename" : "%Da %DY-%Dm-%Dd %DH%DM%DS.%De",
+   "default profile" : null,
+   "default-scan-options" : {
+      "backend" : [
+         {
+            "br-x" : 211
+         },
+         {
+            "br-y" : 279
+         },
+         {
+            "mode" : "True Gray"
+         },
+         {
+            "source" : "Automatic Document Feeder(left aligned,Duplex)"
+         },
+         {
+            "resolution" : 200
+         }
+      ],
+      "frontend" : {
+         "num_pages" : 0,
+         "paper" : "US Letter"
+      }
+   },
+   "device" : "{{ brother_scanner_device_probe.stdout | default('brother4:bus7;dev1') }}",
+   "device blacklist" : "",
+   "device list" : [
+      {
+         "label" : "Brother ADS-2000",
+         "model" : "ADS-2000",
+         "name" : "{{ brother_scanner_device_probe.stdout | default('brother4:bus7;dev1') }}",
+         "type" : "USB scanner",
+         "vendor" : "Brother"
+      }
+   ],
+   "downsample" : 0,
+   "downsample dpi" : 150,
+   "frontend" : "libimage-sane-perl",
+   "ignore-duplex-capabilities" : false,
+   "image type" : "pdf",
+   "keywords" : "",
+   "keywords-suggestions" : [],
+   "libimage-sane-perl version" : "5",
+   "message" : {
+      "Detected %%d diacritics" : {
+         "response" : "ok"
+      },
+      "Error in boxClipToRectangle: box outside rectangle\nError in pixScanForForeground: invalid box" : {
+         "response" : "ok"
+      },
+      "[image2 @ %%x] Encoder did not produce proper pts, making some up." : {
+         "response" : "ok"
+      },
+      "[image2 @ %%x] The specified filename '/tmp/%%t.pnm' does not contain an image sequence pattern or a pattern is invalid." : {
+         "response" : "ok"
+      },
+      "[image2 @ %%x] Use a pattern such as %03d for an image sequence or use the -update option (with -frames:v %%d if needed) to write a single image." : {
+         "response" : "ok"
+      },
+      "[image2 @ %%x] Using AVStream.codec to pass codec parameters to muxers is deprecated, use AVStream.codecpar instead." : {
+         "response" : "ok"
+      },
+      "error opening device" : {
+         "response" : "ignore"
+      }
+   },
+   "message_window_height" : 200,
+   "message_window_width" : 600,
+   "ocr engine" : "tesseract",
+   "ocr language" : "eng",
+   "pdf compression" : "auto",
+   "pdf font" : "/usr/share/fonts/truetype/lato/Lato-Light.ttf",
+   "post_save_hook" : false,
+   "profile" : {},
+   "ps_backend" : "pdftops",
+   "quality" : 75,
+   "restore window" : 1,
+   "rotate facing" : 0,
+   "rotate reverse" : 0,
+   "scan prefix" : "",
+   "scan-reload-triggers" : [
+      "mode"
+   ],
+   "scan_window_height" : 680,
+   "scan_window_width" : 649,
+   "selection" : {
+      "height" : 0,
+      "width" : 0,
+      "x" : 0,
+      "y" : 0
+   },
+   "set_timestamp" : 1,
+   "subject" : "",
+   "subject-suggestions" : [],
+   "text_position" : "behind",
+   "threshold tool" : 80,
+   "threshold-before-ocr" : false,
+   "thumb panel" : 160,
+   "tiff compression" : null,
+   "timezone offset" : [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+   ],
+   "title" : "gscan2pdf",
+   "title-suggestions" : [
+      "gscan2pdf"
+   ],
+   "to_png" : 1,
+   "udt_on_scan" : false,
+   "unpaper on scan" : false,
+   "unpaper options" : {
+      "black-threshold" : 0.33,
+      "border-align" : "top",
+      "border-margin" : "0,0",
+      "deskew-scan-direction" : "bottom,left,right",
+      "direction" : "ltr",
+      "layout" : "single",
+      "no-blackfilter" : 1,
+      "no-blurfilter" : 1,
+      "no-border-align" : "",
+      "no-border-scan" : 1,
+      "no-deskew" : "",
+      "no-grayfilter" : 1,
+      "no-mask-center" : 1,
+      "no-mask-scan" : "",
+      "no-noisefilter" : 1,
+      "output-pages" : 1,
+      "white-threshold" : 0.9
+   },
+   "unsharp amount" : 1,
+   "unsharp radius" : 0,
+   "unsharp sigma" : 1,
+   "unsharp threshold" : 0.05,
+   "use_time" : 1,
+   "use_timezone" : 1,
+   "user_defined_tools" : [
+      "gimp %i",
+      "ocrmypdf %i %o"
+   ],
+   "version" : "2.13.4",
+   "view files toggle" : "",
+   "viewer_tools" : 100,
+   "visible-scan-options" : {
+      "Paper size" : 1,
+      "adf-mode" : 1,
+      "adf_mode" : 1,
+      "batch-scan" : 1,
+      "br-x" : 1,
+      "br-y" : 1,
+      "brightness" : 1,
+      "button-wait" : 1,
+      "calibration-cache" : 1,
+      "compression" : 1,
+      "contrast" : 1,
+      "gain" : 1,
+      "l" : 1,
+      "mode" : 1,
+      "overscan-bottom" : 1,
+      "overscan-top" : 1,
+      "page-height" : 1,
+      "page-width" : 1,
+      "pageheight" : 1,
+      "pagewidth" : 1,
+      "resolution" : 1,
+      "source" : 1,
+      "speed" : 1,
+      "t" : 1,
+      "threshold" : 1,
+      "wait-for-button" : 1,
+      "x" : 1,
+      "y" : 1
+   },
+   "window_height" : 1160,
+   "window_maximize" : false,
+   "window_width" : 1873,
+   "window_x" : 429,
+   "window_y" : 323
+}
