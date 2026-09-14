@@ -124,6 +124,7 @@
   loop:
     - gdrive-spool-watcher.path
     - gdrive-spool-watcher.service
+    - gdrive-spool-failure.service
   tags:
     - gdrive_printing_setup
   when: gdrive_print_enabled | default(false) | bool

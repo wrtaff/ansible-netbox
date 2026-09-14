@@ -1,0 +1,8 @@
+[Unit]
+Description=Handle Google Drive print spool failure
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/sbin/cupsdisable -r "Google Drive upload failed - check spool quarantine" {{ gdrive_queue_name }}

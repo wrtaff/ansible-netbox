@@ -30,6 +30,8 @@ gdrive_folder_id: "1Ubrwq-ZhRiCuADsiaNC9uplvcUXr0lhX"
 gdrive_uploader_user: "gdrive-uploader"
 gdrive_uploader_group: "gdrive-uploader"
 gdrive_print_enabled: false
+gdrive_alert_email: "wrtaff@gmail.com"
+gdrive_alert_hosts: "limbo-f0.home.arpa,athena.home.arpa"
 
 printers:
   - name: "HP_LaserJet_P2055dn"

@@ -2,13 +2,15 @@
 Description=Upload Google Drive print spool
 After=network-online.target
 Wants=network-online.target
+OnFailure=gdrive-spool-failure.service
 
 [Service]
 Type=oneshot
 User={{ gdrive_uploader_user }}
 Group={{ gdrive_uploader_group }}
 UMask=0002
-ExecStart=/usr/local/bin/gdrive_spool_uploader.py --spool-root {{ gdrive_spool_root }} --folder-id {{ gdrive_folder_id }} --credentials /etc/gdrive-uploader/service-account.json
+ExecStart=/usr/local/bin/gdrive_spool_uploader.py --spool-root {{ gdrive_spool_root }} --folder-id {{ gdrive_folder_id }} --credentials /etc/gdrive-uploader/service-account.json --alert-email {{ gdrive_alert_email }} --alert-hosts {{ gdrive_alert_hosts }}
+ExecStartPost=+/usr/sbin/cupsenable {{ gdrive_queue_name }}
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=yes
