@@ -83,9 +83,12 @@ class PlaywrightProxy:
         ssh_key = os.path.expanduser(os.environ.get("PLAYWRIGHT_SSH_KEY", "~/.ssh/id_rsa_lab"))
 
         if remote_host and remote_host != "localhost" and remote_host != "127.0.0.1":
-            remote_cmd = f"playwright-mcp --browser {browser}"
+            target_browser = "chromium" if browser in ("chrome", "chromium") else browser
+            remote_cmd = f"playwright-mcp --browser {target_browser}"
             if headless:
                 remote_cmd += " --headless"
+            if target_browser == "chromium":
+                remote_cmd += " --executable-path /root/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"
             cmd = ["ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10"]
             if os.path.exists(ssh_key):
                 cmd.extend(["-i", ssh_key])
