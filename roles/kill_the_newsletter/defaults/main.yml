@@ -43,3 +43,8 @@ ktn_puller_graylog_port: 1514
 # and for the systemd OnFailure handler. Comma-separated. Empty disables mail.
 # Matches roles/disk_alerts routing.
 ktn_puller_alert_email: "root@home.arpa,wrtaff@gmail.com"
+
+# --- Daily digest report ----------------------------------------------------
+ktn_daily_report_time: "07:30:00"
+ktn_daily_report_recipient: "wrtaff@gmail.com"
+ktn_daily_report_enabled: true

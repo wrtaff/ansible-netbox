@@ -314,6 +314,33 @@
     state: started
     daemon_reload: true
 
+- name: Install KTN daily activity report script
+  ansible.builtin.template:
+    src: ktn-daily-report.py.j2
+    dest: /usr/local/sbin/ktn-daily-report
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install KTN daily activity report systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - ktn-daily-report.service
+    - ktn-daily-report.timer
+  notify: Reload systemd
+
+- name: Configure KTN daily report timer state
+  ansible.builtin.systemd:
+    name: ktn-daily-report.timer
+    enabled: "{{ ktn_daily_report_enabled | default(true) | bool }}"
+    state: "{{ 'started' if (ktn_daily_report_enabled | default(true) | bool) else 'stopped' }}"
+    daemon_reload: true
+
 - name: Apply KTN configuration before enabling the public proxy
   ansible.builtin.meta: flush_handlers
 
