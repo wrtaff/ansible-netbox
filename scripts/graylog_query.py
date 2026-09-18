@@ -148,9 +148,14 @@ def get_token(force_refresh: bool = False) -> str:
 
 
 def _graylog_get(endpoint: str, timeout: int, params: Optional[dict] = None):
-    headers = {"Accept": "application/json", "X-Requested-By": "pops-agent"}
+    token = get_token()
+    headers = {
+        "Accept": "application/json",
+        "X-Requested-By": "pops-agent",
+        "Authorization": f"Bearer {token}",
+    }
     response = requests.get(
-        endpoint, auth=(get_token(), "token"), headers=headers,
+        endpoint, headers=headers,
         params=params, timeout=timeout, verify=False,
     )
     if response.status_code != 401:
@@ -158,8 +163,14 @@ def _graylog_get(endpoint: str, timeout: int, params: Optional[dict] = None):
 
     # A cache is never authoritative. Retry once with the current Vault value.
     _clear_token_cache()
+    token = get_token(force_refresh=True)
+    headers = {
+        "Accept": "application/json",
+        "X-Requested-By": "pops-agent",
+        "Authorization": f"Bearer {token}",
+    }
     response = requests.get(
-        endpoint, auth=(get_token(force_refresh=True), "token"), headers=headers,
+        endpoint, headers=headers,
         params=params, timeout=timeout, verify=False,
     )
     return response
