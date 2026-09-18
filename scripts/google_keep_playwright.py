@@ -379,8 +379,10 @@ class GoogleKeepPlaywright:
                         let newState = currentState;
 
                         if (targetState === null || targetState === undefined || targetState !== currentState) {
-                            cb.click();
-                            newState = !currentState;
+                            cb.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                            cb.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+                            cb.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                            newState = (cb.getAttribute('aria-checked') === 'true');
                         }
 
                         resList.push({
@@ -394,8 +396,9 @@ class GoogleKeepPlaywright:
                     return { success: true, results: resList };
                 }''', {"noteId": note_id, "matchTexts": texts, "targetState": target_state})
 
+                await page.wait_for_timeout(4000)
                 await page.keyboard.press("Escape")
-                await page.wait_for_timeout(2500)
+                await page.wait_for_timeout(1000)
 
                 return {
                     "success": True,
