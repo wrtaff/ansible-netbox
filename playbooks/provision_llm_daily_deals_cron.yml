@@ -7,7 +7,7 @@
 #
 # Purpose:
 #    Deploys a cron job on athena to refresh the OpenRouter model deal
-#    recommendations on WWOS (Large language model#Daily value) daily at 06:30.
+#    recommendations on WWOS (Large language model#Daily value) daily at 04:00.
 #
 # Usage:
 #    ansible-playbook -i inventory.ini playbooks/provision_llm_daily_deals_cron.yml
@@ -39,10 +39,10 @@
         modification_time: preserve
         access_time: preserve
 
-    - name: 3. Create cron job for update_llm_daily_deals (daily at 06:30)
+    - name: 3. Create cron job for update_llm_daily_deals (daily at 04:00)
       ansible.builtin.cron:
         name: "WWOS LLM daily deals refresh"
-        minute: "30"
-        hour: "6"
+        minute: "0"
+        hour: "4"
         job: "{{ python_bin }} {{ script_path }} >> {{ log_file }} 2>&1"
         state: present
