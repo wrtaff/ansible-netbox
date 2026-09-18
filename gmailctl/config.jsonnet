@@ -2427,6 +2427,17 @@
     },
     {
       filter: {
+        from: "Jim@modeltraintechnology.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/zcp49r0tpzzn5mqbt49l"
+        ]
+      }
+    },
+    {
+      filter: {
         from: "googlecommunityteam-noreply@google.com OR jay-jweusa.com@shared1.ccsend.com OR googlestore-noreply@google.com"
       },
       actions: {
