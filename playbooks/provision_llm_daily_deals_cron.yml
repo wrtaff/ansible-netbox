@@ -1,0 +1,48 @@
+# ==============================================================================
+# Filename:       playbooks/provision_llm_daily_deals_cron.yml
+# Version:        1.0
+# Author:         opencode
+# Last Modified:  2026-09-18
+# Context:        http://trac.gafla.us.com/ticket/4652
+#
+# Purpose:
+#    Deploys a cron job on athena to refresh the OpenRouter model deal
+#    recommendations on WWOS (Large language model#Daily value) daily at 04:00.
+#
+# Usage:
+#    ansible-playbook -i inventory.ini playbooks/provision_llm_daily_deals_cron.yml
+# ==============================================================================
+---
+- name: Deploy LLM Daily Deals Update Cron Job
+  hosts: athena
+  become: false
+
+  vars:
+    script_path: "/home/will/pops/scripts/update_llm_daily_deals.py"
+    python_bin: "/usr/bin/python3"
+    log_file: "/var/log/llm_daily_deals.log"
+
+  tasks:
+    - name: 1. Ensure update_llm_daily_deals.py is executable
+      ansible.builtin.file:
+        path: "{{ script_path }}"
+        mode: '0755'
+
+    - name: 2. Ensure /var/log/llm_daily_deals.log exists with correct permissions
+      become: true
+      ansible.builtin.file:
+        path: "{{ log_file }}"
+        state: touch
+        owner: will
+        group: will
+        mode: '0644'
+        modification_time: preserve
+        access_time: preserve
+
+    - name: 3. Create cron job for update_llm_daily_deals (daily at 04:00)
+      ansible.builtin.cron:
+        name: "WWOS LLM daily deals refresh"
+        minute: "0"
+        hour: "4"
+        job: "{{ python_bin }} {{ script_path }} >> {{ log_file }} 2>&1"
+        state: present
