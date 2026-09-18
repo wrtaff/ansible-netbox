@@ -2438,6 +2438,28 @@
     },
     {
       filter: {
+        from: "EnterprisePlus@email.enterprise.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/rqnpbxza5ytrnpvvs2yx"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "noreply@h5.hilton.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/rqnpbxza5ytrnpvvs2yx"
+        ]
+      }
+    },
+    {
+      filter: {
         from: "googlecommunityteam-noreply@google.com OR jay-jweusa.com@shared1.ccsend.com OR googlestore-noreply@google.com"
       },
       actions: {
