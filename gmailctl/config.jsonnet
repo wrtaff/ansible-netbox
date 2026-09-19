@@ -2372,7 +2372,7 @@
     },
     {
       filter: {
-        from: "info@columbusjazzsociety.com"
+        from: "info@columbusjazzsociety.com OR families@columbusstate.campusespmail.com OR engagesupport@daxkoengage.com OR marketing@mail.rivercenter.org"
       },
       actions: {
         archive: true,
@@ -2471,7 +2471,25 @@
     },
     {
       filter: {
-        from: "veteransaffairs@messages.va.gov OR TRICARE@news.dha.mil OR express-scripts@mail.express-scripts.com"
+        from: "veteransaffairs@messages.va.gov OR veteranshealth@messages.va.gov OR TRICARE@news.dha.mil OR express-scripts@mail.express-scripts.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/qvy2voq4e9t3vepeijdg"
+        ]
+      }
+    },
+    {
+      filter: {
+        and: [
+          {
+            from: "DFAS-SmartDocs@mail.mil"
+          },
+          {
+            subject: "Sailor For Life"
+          }
+        ]
       },
       actions: {
         archive: true,
@@ -2504,7 +2522,7 @@
     },
     {
       filter: {
-        from: "USNAAlumniAssociationandFoundation@usna.com"
+        from: "USNAAlumniAssociationandFoundation@usna.com OR myusnafeedback@usna.com"
       },
       actions: {
         archive: true,
@@ -2598,7 +2616,7 @@
     },
     {
       filter: {
-        from: "specials@e.uline.com OR DeltaAirLines@o.delta.com OR wakullasprings@adventuresunbound.com OR hello@wikimedia.org OR noreply@email.openai.com OR workspace@google.com"
+        from: "specials@e.uline.com OR DeltaAirLines@o.delta.com OR wakullasprings@adventuresunbound.com OR hello@wikimedia.org OR noreply@email.openai.com OR workspace@google.com OR donotreply@referrals.selectminds.com"
       },
       actions: {
         archive: true,
@@ -2631,12 +2649,23 @@
     },
     {
       filter: {
-        from: "autoreply@volunteer.redcross.org OR ISDSAFnewsletter@volunteer.redcross.org"
+        from: "autoreply@volunteer.redcross.org OR ISDSAFnewsletter@volunteer.redcross.org OR adrain.riser2@volunteer.redcross.org"
       },
       actions: {
         archive: true,
         labels: [
           "ktn/ljvvi7unr7lq56c7kjft"
+        ]
+      }
+    },
+    {
+      filter: {
+        from: "info@d.americanforcestravel.travelweb.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/ik0ttyuxt63f74rt9h4e"
         ]
       }
     }
