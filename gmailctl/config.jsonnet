@@ -2372,7 +2372,10 @@
     },
     {
       filter: {
-        from: "info@columbusjazzsociety.com"
+        // Rebaselined 2026-09-18 (Trac #4665 discovery): live Gmail had 3 more
+        // OR senders than this git-tracked config -- restored from `gmailctl
+        // diff` output rather than a blind file replace.
+        from: "info@columbusjazzsociety.com OR families@columbusstate.campusespmail.com OR engagesupport@daxkoengage.com OR marketing@mail.rivercenter.org"
       },
       actions: {
         archive: true,
@@ -2471,7 +2474,9 @@
     },
     {
       filter: {
-        from: "veteransaffairs@messages.va.gov OR TRICARE@news.dha.mil OR express-scripts@mail.express-scripts.com"
+        // Rebaselined 2026-09-18 (Trac #4665 discovery): restored veteranshealth@
+        // sender, present live but missing from this git-tracked config.
+        from: "veteransaffairs@messages.va.gov OR veteranshealth@messages.va.gov OR TRICARE@news.dha.mil OR express-scripts@mail.express-scripts.com"
       },
       actions: {
         archive: true,
@@ -2504,7 +2509,9 @@
     },
     {
       filter: {
-        from: "USNAAlumniAssociationandFoundation@usna.com"
+        // Rebaselined 2026-09-18 (Trac #4665 discovery): restored
+        // myusnafeedback@usna.com, present live but missing here.
+        from: "USNAAlumniAssociationandFoundation@usna.com OR myusnafeedback@usna.com"
       },
       actions: {
         archive: true,
@@ -2575,6 +2582,20 @@
       }
     },
     {
+      // Trac #4567: feed ktn/x2wv8b1o4h3k8xu9ftnx (One Useful Thing, Ethan Mollick)
+      // was recovered undocumented -- had only ever been hand-labeled onto one
+      // past message, no recurring filter. Adding the filter now (2026-09-18).
+      filter: {
+        from: "oneusefulthing@substack.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/x2wv8b1o4h3k8xu9ftnx"
+        ]
+      }
+    },
+    {
       filter: {
         from: "magazine-georgiaemc.com@shared1.ccsend.com"
       },
@@ -2598,7 +2619,9 @@
     },
     {
       filter: {
-        from: "specials@e.uline.com OR DeltaAirLines@o.delta.com OR wakullasprings@adventuresunbound.com OR hello@wikimedia.org OR noreply@email.openai.com OR workspace@google.com"
+        // Rebaselined 2026-09-18 (Trac #4665 discovery): restored
+        // donotreply@referrals.selectminds.com, present live but missing here.
+        from: "specials@e.uline.com OR DeltaAirLines@o.delta.com OR wakullasprings@adventuresunbound.com OR hello@wikimedia.org OR noreply@email.openai.com OR workspace@google.com OR donotreply@referrals.selectminds.com"
       },
       actions: {
         archive: true,
@@ -2631,12 +2654,51 @@
     },
     {
       filter: {
-        from: "autoreply@volunteer.redcross.org OR ISDSAFnewsletter@volunteer.redcross.org"
+        // Rebaselined 2026-09-18 (Trac #4665 discovery): restored
+        // adrain.riser2@volunteer.redcross.org, present live but missing here.
+        from: "autoreply@volunteer.redcross.org OR ISDSAFnewsletter@volunteer.redcross.org OR adrain.riser2@volunteer.redcross.org"
       },
       actions: {
         archive: true,
         labels: [
           "ktn/ljvvi7unr7lq56c7kjft"
+        ]
+      }
+    },
+    {
+      // Rebaselined 2026-09-18 (Trac #4665 discovery): this filter was live in
+      // Gmail with no declaration anywhere in this file at all -- a `gmailctl
+      // apply` would have deleted it outright. See "Recovered undocumented
+      // feeds" in skills/domain/ktn-kill-the-newsletter.md (American Forces
+      // Travel, label already declared, rule was missing).
+      filter: {
+        from: "info@d.americanforcestravel.travelweb.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/ik0ttyuxt63f74rt9h4e"
+        ]
+      }
+    },
+    {
+      // Rebaselined 2026-09-18 (Trac #4665 discovery): this filter (sender +
+      // subject) was live in Gmail with no declaration anywhere in this file.
+      filter: {
+        and: [
+          {
+            from: "DFAS-SmartDocs@mail.mil"
+          },
+          {
+            subject: "\"Sailor For Life\"",
+            isEscaped: true
+          }
+        ]
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/qvy2voq4e9t3vepeijdg"
         ]
       }
     }
