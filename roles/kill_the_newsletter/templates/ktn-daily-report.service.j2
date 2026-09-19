@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily digest email report for Kill the Newsletter
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ktn-daily-report
+User=root
+StandardOutput=journal
+StandardError=journal

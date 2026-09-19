@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily digest email timer for Kill the Newsletter
+After=network.target
+
+[Timer]
+OnCalendar=*-*-* {{ ktn_daily_report_time | default('07:30:00') }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

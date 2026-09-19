@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Daily summary report for Kill the Newsletter! (KTN) activity.
+MANAGED BY ANSIBLE -- roles/kill_the_newsletter.
+"""
+
+import argparse
+import datetime
+import os
+import re
+import sqlite3
+import subprocess
+import sys
+
+DB_PATH = "{{ ktn_data_directory }}/kill-the-newsletter.db"
+DEFAULT_RECIPIENT = "{{ ktn_daily_report_recipient | default('wrtaff@gmail.com') }}"
+
+
+def generate_report(hours=24):
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    since_dt = (now_utc - datetime.timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Connect to SQLite in read-only mode
+    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    entries = conn.execute("""
+        SELECT f.title, e.title, e.createdAt, f.publicId
+        FROM feedEntries e
+        JOIN feeds f ON e.feed = f.id
+        WHERE e.createdAt >= ?
+        ORDER BY e.createdAt DESC
+    """, (since_dt,)).fetchall()
+
+    # Query systemd journal for puller stats
+    log_cmd = [
+        "journalctl", "-u", "ktn-imap-puller.service",
+        "--since", f"{hours} hours ago", "--no-pager"
+    ]
+    total_delivered = 0
+    total_errors = 0
+    total_skipped = 0
+    runs = 0
+
+    try:
+        res = subprocess.run(log_cmd, capture_output=True, text=True, timeout=30)
+        for line in res.stdout.splitlines():
+            if "KTN IMAP puller run finished:" in line:
+                runs += 1
+                m = re.search(r"(\d+) delivered, (\d+) skipped, (\d+) error\(s\)", line)
+                if m:
+                    total_delivered += int(m.group(1))
+                    total_skipped += int(m.group(2))
+                    total_errors += int(m.group(3))
+    except Exception as exc:
+        puller_log_err = str(exc)
+    else:
+        puller_log_err = None
+
+    now_local = datetime.datetime.now().strftime("%Y-%m-%d %H:%M %Z")
+
+    lines = []
+    lines.append("=" * 60)
+    lines.append(f" Kill the Newsletter! (KTN) Daily Activity Report")
+    lines.append(f" Generated: {now_local} (Window: past {hours} hours)")
+    lines.append("=" * 60)
+    lines.append("")
+    lines.append("System & Ingest Health:")
+    lines.append(f"  • Puller Runs:     {runs}")
+    lines.append(f"  • Relayed to KTN:  {total_delivered}")
+    lines.append(f"  • Skipped:         {total_skipped}")
+    lines.append(f"  • Puller Errors:   {total_errors}")
+    lines.append(f"  • Issues in Feeds: {len(entries)}")
+    if puller_log_err:
+        lines.append(f"  • Log Query Note:  {puller_log_err}")
+    lines.append("")
+
+    lines.append("Newsletters Received & Available in FreshRSS:")
+    if not entries:
+        lines.append("  (No newsletters received in this time window)")
+    else:
+        for idx, (feed_title, entry_title, created_at, pub_id) in enumerate(entries, 1):
+            try:
+                dt_obj = datetime.datetime.fromisoformat(created_at.replace("Z", "+00:00")).astimezone()
+                time_str = dt_obj.strftime("%Y-%m-%d %H:%M %Z")
+            except Exception:
+                time_str = created_at
+            lines.append(f"  {idx}. [{feed_title}]")
+            lines.append(f"     Title: {entry_title}")
+            lines.append(f"     Time:  {time_str}")
+            lines.append(f"     Feed:  http://ktn-lxc-01.home.arpa:8088/feeds/{pub_id}.xml")
+            lines.append("")
+
+    lines.append("-" * 60)
+    lines.append("FreshRSS Web UI: https://ynh2.van-bee.ts.net/freshrss/i/")
+    lines.append("KTN Host: http://ktn-lxc-01.home.arpa:8088/")
+    lines.append("-" * 60)
+
+    body = "\n".join(lines)
+    count = len(entries)
+    suffix = "s" if count != 1 else ""
+    today_str = datetime.date.today().isoformat()
+    subject = f"[KTN] Daily Newsletter Report: {count} issue{suffix} received ({today_str})"
+    return subject, body
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Send or display KTN daily activity report")
+    parser.add_argument("--hours", type=int, default=24, help="Lookback window in hours (default: 24)")
+    parser.add_argument("--stdout", action="store_true", help="Print report to stdout instead of emailing")
+    parser.add_argument("--to", default=DEFAULT_RECIPIENT, help="Recipient email address")
+    args = parser.parse_args()
+
+    subject, body = generate_report(hours=args.hours)
+
+    if args.stdout or not args.to:
+        print(f"Subject: {subject}\n")
+        print(body)
+        return 0
+
+    try:
+        subprocess.run(
+            ["mail", "-s", subject, args.to],
+            input=body.encode("utf-8"),
+            timeout=30,
+            check=True
+        )
+        print(f"Report emailed successfully to {args.to}")
+        return 0
+    except Exception as exc:
+        print(f"Failed to email report: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
