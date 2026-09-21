@@ -2701,6 +2701,28 @@
           "ktn/qvy2voq4e9t3vepeijdg"
         ]
       }
+    },
+    {
+      // Trac #4542: Archive routine Trac ticket notifications while preserving
+      // urgent notifications (Critical/Blocker priority and ticket ownership
+      // reassignment to Will) in the inbox.
+      filter: {
+        and: [
+          {
+            subject: "\"[tickets on trac]\"",
+            isEscaped: true
+          },
+          {
+            query: "-(\"Priority: critical\" OR \"Priority: blocker\" OR \"Priority:  critical\" OR \"Priority:  blocker\" OR \"=> will\" OR \"-> will\")"
+          }
+        ]
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "Trac"
+        ]
+      }
     }
   ]
 }
