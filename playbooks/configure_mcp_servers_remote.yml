@@ -1,10 +1,10 @@
 ---
 # ==============================================================================
 # Filename:       playbooks/configure_mcp_servers_remote.yml
-# Version:        1.5
+# Version:        1.6
 # Author:         Gemini CLI
-# Last Modified:  2026-08-27
-# Context:        http://trac.home.arpa/ticket/3214, http://trac.gafla.us.com/ticket/4123, http://trac.gafla.us.com/ticket/4258
+# Last Modified:  2026-09-22
+# Context:        http://trac.home.arpa/ticket/3214, http://trac.gafla.us.com/ticket/4123, http://trac.gafla.us.com/ticket/4258, http://trac.gafla.us.com/ticket/4469
 #
 # Purpose:
 #   Provisions MCP servers for Gemini CLI on remote desktops.
@@ -19,6 +19,8 @@
 #   ansible-playbook -i inventory.ini playbooks/configure_mcp_servers_remote.yml
 #
 # Revision History:
+#   1.6 (2026-09-22): Template ~/.config/mcp-secrets.env from mcp-secrets.env.j2 to
+#                     harmonize secrets across interactive and non-interactive MCP checks. Trac #4469.
 #   1.5 (2026-08-27): Install playwright python package in virtualenv for Keep subskill.
 #   1.4 (2026-08-19): Switch Playwright MCP to progressive lazy-loading Python
 #                     proxy to eliminate idle Node memory across sessions. Trac #4258.
@@ -255,6 +257,22 @@
         content: "{{ {'context': gemini_context, 'mcpServers': mcp_servers} | to_nice_json }}"
         dest: "{{ gemini_project_dir }}/.gemini/settings.json"
         mode: '0644'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+
+    - name: 12.5 Ensure .config directory exists
+      ansible.builtin.file:
+        path: "/home/{{ gemini_user }}/.config"
+        state: directory
+        mode: '0755'
+        owner: "{{ gemini_user }}"
+        group: "{{ gemini_user }}"
+
+    - name: 12.6 Template mcp-secrets.env with vault secrets
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/mcp-secrets.env.j2"
+        dest: "/home/{{ gemini_user }}/.config/mcp-secrets.env"
+        mode: '0600'
         owner: "{{ gemini_user }}"
         group: "{{ gemini_user }}"
 
