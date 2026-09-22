@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.32
+Version:        1.33
 Author:         Gemini CLI
-Last Modified:  2026-07-23
+Last Modified:  2026-09-21
 Context:        http://trac.gafla.us.com/ticket/3571
 
 Purpose:
@@ -14,6 +14,8 @@ Purpose:
 Usage:
     python3 google_workspace_manager.py auth [--console]
     python3 google_workspace_manager.py gmail-list [--query "query"] [--cite]
+    python3 google_workspace_manager.py gmail-send <to> <subject> <body> [--cc CC] [--reply-to-id ID] [--thread-id ID]
+    python3 google_workspace_manager.py gmail-create-draft <to> <subject> <body> [--cc CC] [--reply-to-id ID] [--thread-id ID]
     python3 google_workspace_manager.py drive-search [--query "name contains '...'] [--cite]
     python3 google_workspace_manager.py drive-get "file_id" [--cite]
     python3 google_workspace_manager.py drive-update "file_id" --name "new_name"
@@ -22,6 +24,9 @@ Usage:
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.33 (2026-09-21): Added thread_id and reply_to_message_id support to
+                        gmail_send_message and gmail_create_draft to enable direct
+                        email replying in threads.
     v1.32 (2026-09-11): Include resolved Gmail labels in gmail-get JSON output so
                         email-handler can verify queue membership before triage.
     v1.31 (2026-07-23): Added drive-delete subcommand to delete a file in Google Drive.
@@ -246,7 +251,7 @@ def gmail_list_messages(query='', max_results=10, output_format='text', cite=Fal
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def gmail_send_message(to, subject, body, cc=None, attachment_path=None, output_format='text'):
+def gmail_send_message(to=None, subject=None, body="", cc=None, attachment_path=None, thread_id=None, reply_to_message_id=None, output_format='text'):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
@@ -255,11 +260,49 @@ def gmail_send_message(to, subject, body, cc=None, attachment_path=None, output_
         message = EmailMessage()
         body = body.replace('\\n', '\n')
         message.set_content(body)
+
+        in_reply_to_val = None
+        references_val = None
+        if reply_to_message_id:
+            orig = service.users().messages().get(userId='me', id=reply_to_message_id, format='metadata', metadataHeaders=['Subject', 'From', 'Reply-To', 'Message-ID', 'Message-Id', 'References']).execute()
+            headers = orig.get('payload', {}).get('headers', [])
+            if not thread_id:
+                thread_id = orig.get('threadId')
+            
+            orig_msg_id = next((h['value'] for h in headers if h['name'].lower() in ('message-id', 'message-id:')), None)
+            orig_subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), None)
+            orig_from = next((h['value'] for h in headers if h['name'].lower() == 'from'), None)
+            orig_reply_to = next((h['value'] for h in headers if h['name'].lower() == 'reply-to'), None)
+            orig_refs = next((h['value'] for h in headers if h['name'].lower() == 'references'), None)
+
+            if not to:
+                to = orig_reply_to or orig_from
+            if not subject and orig_subject:
+                if not orig_subject.lower().startswith('re:'):
+                    subject = f"Re: {orig_subject}"
+                else:
+                    subject = orig_subject
+            
+            if orig_msg_id:
+                in_reply_to_val = orig_msg_id
+                references_val = f"{orig_refs} {orig_msg_id}".strip() if orig_refs else orig_msg_id
+
+        if not to:
+            output({'error': 'Recipient "to" must be provided or inferred from reply_to_message_id.'}, output_format)
+            return
+
+        if not subject:
+            subject = ''
+
         message['To'] = to
         message['Subject'] = subject
         if cc:
             message['Cc'] = cc
-        
+        if in_reply_to_val:
+            message['In-Reply-To'] = in_reply_to_val
+        if references_val:
+            message['References'] = references_val
+
         if attachment_path and os.path.exists(attachment_path):
             mime_type, _ = mimetypes.guess_type(attachment_path)
             if mime_type is None:
@@ -274,12 +317,15 @@ def gmail_send_message(to, subject, body, cc=None, attachment_path=None, output_
         create_message = {
             'raw': encoded_message
         }
+        if thread_id:
+            create_message['threadId'] = thread_id
+
         send_message = service.users().messages().send(userId="me", body=create_message).execute()
         output(send_message, output_format)
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
-def gmail_create_draft(to, subject, body, cc=None, attachment_path=None, output_format='text'):
+def gmail_create_draft(to=None, subject=None, body="", cc=None, attachment_path=None, thread_id=None, reply_to_message_id=None, output_format='text'):
     creds = get_creds()
     service = build('gmail', 'v1', credentials=creds)
     try:
@@ -288,10 +334,48 @@ def gmail_create_draft(to, subject, body, cc=None, attachment_path=None, output_
         message = EmailMessage()
         body = body.replace('\\n', '\n')
         message.set_content(body)
+
+        in_reply_to_val = None
+        references_val = None
+        if reply_to_message_id:
+            orig = service.users().messages().get(userId='me', id=reply_to_message_id, format='metadata', metadataHeaders=['Subject', 'From', 'Reply-To', 'Message-ID', 'Message-Id', 'References']).execute()
+            headers = orig.get('payload', {}).get('headers', [])
+            if not thread_id:
+                thread_id = orig.get('threadId')
+            
+            orig_msg_id = next((h['value'] for h in headers if h['name'].lower() in ('message-id', 'message-id:')), None)
+            orig_subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), None)
+            orig_from = next((h['value'] for h in headers if h['name'].lower() == 'from'), None)
+            orig_reply_to = next((h['value'] for h in headers if h['name'].lower() == 'reply-to'), None)
+            orig_refs = next((h['value'] for h in headers if h['name'].lower() == 'references'), None)
+
+            if not to:
+                to = orig_reply_to or orig_from
+            if not subject and orig_subject:
+                if not orig_subject.lower().startswith('re:'):
+                    subject = f"Re: {orig_subject}"
+                else:
+                    subject = orig_subject
+            
+            if orig_msg_id:
+                in_reply_to_val = orig_msg_id
+                references_val = f"{orig_refs} {orig_msg_id}".strip() if orig_refs else orig_msg_id
+
+        if not to:
+            output({'error': 'Recipient "to" must be provided or inferred from reply_to_message_id.'}, output_format)
+            return
+
+        if not subject:
+            subject = ''
+
         message['To'] = to
         message['Subject'] = subject
         if cc:
             message['Cc'] = cc
+        if in_reply_to_val:
+            message['In-Reply-To'] = in_reply_to_val
+        if references_val:
+            message['References'] = references_val
 
         if attachment_path and os.path.exists(attachment_path):
             mime_type, _ = mimetypes.guess_type(attachment_path)
@@ -309,6 +393,9 @@ def gmail_create_draft(to, subject, body, cc=None, attachment_path=None, output_
                 'raw': encoded_message
             }
         }
+        if thread_id:
+            create_draft['message']['threadId'] = thread_id
+
         draft = service.users().drafts().create(userId="me", body=create_draft).execute()
         output(draft, output_format)
     except HttpError as error:
@@ -983,17 +1070,22 @@ if __name__ == '__main__':
     parser_gmail_list.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
     parser_gmail_send = subparsers.add_parser('gmail-send', help='Send a Gmail message')
-    parser_gmail_send.add_argument('to', help='Recipient email address')
-    parser_gmail_send.add_argument('subject', help='Email subject')
+    parser_gmail_send.add_argument('to', nargs='?', default=None, help='Recipient email address')
+    parser_gmail_send.add_argument('subject', nargs='?', default=None, help='Email subject')
     parser_gmail_send.add_argument('body', help='Email body')
+    parser_gmail_send.add_argument('--cc', help='CC recipients (comma-separated)')
     parser_gmail_send.add_argument('--attachment', help='Path to file to attach')
+    parser_gmail_send.add_argument('--thread-id', help='Thread ID to reply within')
+    parser_gmail_send.add_argument('--reply-to-id', help='Message ID to reply to')
 
     parser_gmail_draft = subparsers.add_parser('gmail-create-draft', help='Create a Gmail draft')
-    parser_gmail_draft.add_argument('to', help='Recipient email address')
-    parser_gmail_draft.add_argument('subject', help='Email subject')
+    parser_gmail_draft.add_argument('to', nargs='?', default=None, help='Recipient email address')
+    parser_gmail_draft.add_argument('subject', nargs='?', default=None, help='Email subject')
     parser_gmail_draft.add_argument('body', help='Email body')
     parser_gmail_draft.add_argument('--cc', help='CC recipients (comma-separated)')
     parser_gmail_draft.add_argument('--attachment', help='Path to file to attach')
+    parser_gmail_draft.add_argument('--thread-id', help='Thread ID to reply within')
+    parser_gmail_draft.add_argument('--reply-to-id', help='Message ID to reply to')
 
     parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
     parser_gmail_get.add_argument('id', help='Message ID')
@@ -1104,9 +1196,9 @@ if __name__ == '__main__':
     elif args.command == 'gmail-list':
         gmail_list_messages(args.query, args.max, args.format, args.cite)
     elif args.command == 'gmail-send':
-        gmail_send_message(args.to, args.subject, args.body, args.attachment, args.format)
+        gmail_send_message(args.to, args.subject, args.body, cc=args.cc, attachment_path=args.attachment, thread_id=args.thread_id, reply_to_message_id=args.reply_to_id, output_format=args.format)
     elif args.command == 'gmail-create-draft':
-        gmail_create_draft(args.to, args.subject, args.body, cc=args.cc, attachment_path=args.attachment, output_format=args.format)
+        gmail_create_draft(args.to, args.subject, args.body, cc=args.cc, attachment_path=args.attachment, thread_id=args.thread_id, reply_to_message_id=args.reply_to_id, output_format=args.format)
     elif args.command == 'gmail-get':
         gmail_get_message(args.id, args.format, args.cite)
     elif args.command == 'gmail-download':
