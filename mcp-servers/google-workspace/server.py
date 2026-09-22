@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.6
+Version:        2.7
 Author:         Gemini CLI
-Last Modified:  2026-08-19
+Last Modified:  2026-09-21
 Context:        http://trac.gafla.us.com/ticket/3571, http://trac.gafla.us.com/ticket/4334
 
 Purpose:
@@ -15,6 +15,9 @@ Purpose:
     re-authentication within AI agent sessions.
 
 Revision History:
+    v2.7 (2026-09-21): Added thread_id and reply_to_message_id parameters to
+                       gmail_send_message and gmail_create_draft tools to enable
+                       direct email replies in threads.
     v2.6 (2026-08-19): Added keep_get_list, keep_add_item, keep_toggle_item,
                        and workspace_reauthenticate tools via Playwright (Trac #4334).
     v2.5 (2026-06-29): Updated gmail_get_message to download image attachments 
@@ -254,15 +257,15 @@ def get_message(message_id: str, trac_ticket: Optional[str] = None, drive_parent
         return handle_auth_error(e)
 
 @mcp.tool(name="gmail_send_message")
-def send_message(to: str, subject: str, body: str, cc: Optional[str] = None, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None) -> str:
-    """Send an email message, optionally with a CC, attachment, or Trac ticket reference."""
-    logger.info(f"Gmail: Sending message to {to}")
+def send_message(to: Optional[str] = None, subject: Optional[str] = None, body: str = "", cc: Optional[str] = None, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None, thread_id: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
+    """Send an email message, optionally replying directly to a message/thread with reply_to_message_id or thread_id, or with CC, attachment, and Trac ticket reference."""
+    logger.info(f"Gmail: Sending message to {to} (reply_to={reply_to_message_id}, thread={thread_id})")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.gmail_send_message(to=to, subject=subject, body=body, cc=cc, attachment_path=attachment_path, output_format='json')
+            gwm.gmail_send_message(to=to, subject=subject, body=body, cc=cc, attachment_path=attachment_path, thread_id=thread_id, reply_to_message_id=reply_to_message_id, output_format='json')
         result_json = f.getvalue()
 
         if trac_ticket:
@@ -288,15 +291,15 @@ def send_message(to: str, subject: str, body: str, cc: Optional[str] = None, att
         return handle_auth_error(e)
 
 @mcp.tool(name="gmail_create_draft")
-def create_draft(to: str, subject: str, body: str, cc: Optional[str] = None, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None) -> str:
-    """Create a draft email, optionally with an attachment. Optionally append to a Trac ticket."""
-    logger.info(f"Gmail: Creating draft for {to}")
+def create_draft(to: Optional[str] = None, subject: Optional[str] = None, body: str = "", cc: Optional[str] = None, attachment_path: Optional[str] = None, trac_ticket: Optional[str] = None, thread_id: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
+    """Create a draft email, optionally replying directly to a message/thread with reply_to_message_id or thread_id, or with CC, attachment, and Trac ticket reference."""
+    logger.info(f"Gmail: Creating draft for {to} (reply_to={reply_to_message_id}, thread={thread_id})")
     import io
     from contextlib import redirect_stdout
     f = io.StringIO()
     try:
         with redirect_stdout(f):
-            gwm.gmail_create_draft(to=to, subject=subject, body=body, cc=cc, attachment_path=attachment_path, output_format='json')
+            gwm.gmail_create_draft(to=to, subject=subject, body=body, cc=cc, attachment_path=attachment_path, thread_id=thread_id, reply_to_message_id=reply_to_message_id, output_format='json')
         result_json = f.getvalue()
 
         if trac_ticket:
