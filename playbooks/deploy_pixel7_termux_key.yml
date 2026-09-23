@@ -1,0 +1,15 @@
+---
+# Playbook: playbooks/deploy_pixel7_termux_key.yml
+# Purpose: Authorize Pixel 7 Termux Ed25519 public key across agent runners
+# Trac: #2912
+
+- name: Deploy Pixel 7 Termux SSH Public Key
+  hosts: agent_runners
+  gather_facts: false
+  tasks:
+    - name: Authorize Pixel 7 Termux public key for user will
+      ansible.builtin.authorized_key:
+        user: will
+        state: present
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM0dhX6S/geU8BCWfjeFN3YBZWtAYTZjbgSlOlpRDFz5 will@pixel7-termux"
+        exclusive: false

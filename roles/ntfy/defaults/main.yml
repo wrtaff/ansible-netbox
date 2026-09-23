@@ -1,0 +1,6 @@
+---
+ntfy_base_url: "https://ntfy-lxc-01.van-bee.ts.net"
+ntfy_listen_http: ":80"
+ntfy_upstream_base_url: "https://ntfy.sh"
+ntfy_auth_default_access: "deny-all"
+ntfy_enable_tailscale: true
