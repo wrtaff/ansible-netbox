@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/graylog/server.py
-Version:        1.0
+Version:        1.1
 Author:         Claude Code
-Last Modified:  2026-07-14
-Context:        http://trac.gafla.us.com/ticket/3439
+Last Modified:  2026-09-23
+Context:        http://trac.gafla.us.com/ticket/4656
 
 Purpose:
     Model Context Protocol (MCP) server for Graylog integration.
@@ -15,6 +15,7 @@ Purpose:
 
 Revision History:
     v1.0 (2026-07-14): Initial implementation wrapping graylog_query.py.
+    v1.1 (2026-09-23): Update to use HTTP Basic token auth per Graylog 6.3 spec (Trac #4656).
 
 Notes:
     Always bump the version number when modifying this file and annotate

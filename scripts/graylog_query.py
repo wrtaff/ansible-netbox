@@ -4,12 +4,13 @@
 Filename:       graylog_query.py
 Version:        1.1
 Author:         Claude Code
-Last Modified:  2026-08-07
-Context:        http://trac.gafla.us.com/ticket/3439
+Last Modified:  2026-09-23
+Context:        http://trac.gafla.us.com/ticket/4656
 
 Purpose:
     Query Graylog via REST API, replacing the manual CSV export workflow.
     Used by the logfile-reviewer skill and other Pops agents.
+    Uses HTTP Basic authentication with access tokens per Graylog 6.3 spec.
     Uses an expiring runtime token cache and retries one HTTP 401 with the
     current Vault value.
 
@@ -152,10 +153,10 @@ def _graylog_get(endpoint: str, timeout: int, params: Optional[dict] = None):
     headers = {
         "Accept": "application/json",
         "X-Requested-By": "pops-agent",
-        "Authorization": f"Bearer {token}",
     }
+    # Graylog 6.3 REST API access tokens authenticate via HTTP Basic Auth: <token>:token
     response = requests.get(
-        endpoint, headers=headers,
+        endpoint, headers=headers, auth=(token, "token"),
         params=params, timeout=timeout, verify=False,
     )
     if response.status_code != 401:
@@ -167,10 +168,9 @@ def _graylog_get(endpoint: str, timeout: int, params: Optional[dict] = None):
     headers = {
         "Accept": "application/json",
         "X-Requested-By": "pops-agent",
-        "Authorization": f"Bearer {token}",
     }
     response = requests.get(
-        endpoint, headers=headers,
+        endpoint, headers=headers, auth=(token, "token"),
         params=params, timeout=timeout, verify=False,
     )
     return response
