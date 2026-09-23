@@ -1,0 +1,11 @@
+# /etc/ntfy/server.yml - Managed by Ansible
+
+base-url: "{{ ntfy_base_url }}"
+listen-http: "{{ ntfy_listen_http }}"
+cache-file: "/var/cache/ntfy/cache.db"
+auth-file: "/var/lib/ntfy/user.db"
+auth-default-access: "{{ ntfy_auth_default_access }}"
+enable-login: true
+upstream-base-url: "{{ ntfy_upstream_base_url }}"
+attachment-cache-dir: "/var/cache/ntfy/attachments"
+behind-proxy: true

@@ -1,0 +1,9 @@
+---
+- name: Deploy ntfy push notification service
+  hosts: ntfy-lxc-01
+  become: true
+  vars_files:
+    - ../vault.yml
+  roles:
+    - tailscale_node
+    - ntfy

@@ -1,0 +1,45 @@
+---
+- name: Ensure /etc/apt/keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download ntfy repository GPG key
+  ansible.builtin.get_url:
+    url: https://archive.heckel.io/apt/pubkey.gpg
+    dest: /etc/apt/keyrings/archive.heckel.io.gpg
+    mode: "0644"
+
+- name: Add ntfy apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/archive.heckel.io.gpg] https://archive.heckel.io/apt debian main"
+    state: present
+    filename: ntfy
+    update_cache: true
+
+- name: Install ntfy
+  ansible.builtin.apt:
+    name: ntfy
+    state: present
+
+- name: Template ntfy server configuration
+  ansible.builtin.template:
+    src: server.yml.j2
+    dest: /etc/ntfy/server.yml
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart ntfy
+
+- name: Enable and start ntfy service
+  ansible.builtin.systemd:
+    name: ntfy
+    enabled: true
+    state: started
+
+- name: Configure Tailnet HTTPS proxy to ntfy
+  ansible.builtin.command: >
+    tailscale serve --bg --https=443 http://127.0.0.1:80
+  changed_when: false
+  when: ntfy_enable_tailscale | bool
