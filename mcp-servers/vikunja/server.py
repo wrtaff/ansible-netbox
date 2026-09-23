@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.6
+Version:        1.7
 Author:         Gemini CLI
-Last Modified:  2026-08-21
-Context:        http://trac.gafla.us.com/ticket/4372
+Last Modified:  2026-09-23
+Context:        http://trac.gafla.us.com/ticket/3321
 
 Purpose:
     Model Context Protocol (MCP) server for Vikunja integration.
@@ -13,6 +13,10 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.7 (2026-09-23): Automatically resolve label names to numeric IDs in vikunja_search_tasks
+                       filter expressions (supporting '=', '!=', 'in', 'not in', and quoted names).
+                       Propagate API JSON error body on non-2xx responses.
+                       Context: http://trac.gafla.us.com/ticket/3321
     v1.6 (2026-08-21): Fix vikunja_get_tasks_by_priority starred/favorite query by removing
                        invalid server-side is_favorite filter and adding pagination. Add
                        priority parameter to vikunja_update_task and preserve existing
@@ -498,14 +502,79 @@ def list_projects() -> str:
         logger.error(f"Error listing projects: {e}")
         return f"Error listing projects: {e}"
 
+def _resolve_labels_in_filter(filter_str: str, host: str, token: str) -> str:
+    """
+    Resolves human-readable label names to numeric label IDs in Vikunja filter strings.
+    Handles:
+      - labels = <name|id>
+      - labels != <name|id>
+      - labels in (<name1>, <name2>) / labels in <name1>, <name2>
+      - labels not in (<name1>, <name2>) / labels not in <name1>, <name2>
+      - Quoted names ('my label', "my label")
+    """
+    if not filter_str or "label" not in filter_str.lower():
+        return filter_str
+
+    try:
+        existing_labels = cvt.get_all_labels(host, token)
+        label_map = {l['title'].lower(): l for l in existing_labels}
+    except Exception as e:
+        logger.warning(f"Failed to fetch labels for filter resolution: {e}")
+        return filter_str
+
+    def _resolve_single_val(val: str) -> str:
+        clean = val.strip().strip("'\"")
+        if clean.isdigit() or (clean.startswith("-") and clean[1:].isdigit()):
+            return clean
+        lbl = label_map.get(clean.lower())
+        if lbl:
+            return str(lbl["id"])
+        logger.warning(f"Label '{clean}' not found in Vikunja during filter resolution; mapping to 0")
+        return "0"
+
+    # 1. Handle "labels in (...)" or "labels in a, b" or "labels not in (...)"
+    def _replace_in(match):
+        field = match.group(1)
+        op = match.group(2)
+        raw_vals = match.group(3).strip().strip("()")
+        parts = [p.strip() for p in raw_vals.split(",") if p.strip()]
+        resolved_parts = [_resolve_single_val(p) for p in parts]
+        return f"{field} {op} {', '.join(resolved_parts)}"
+
+    in_pattern = re.compile(
+        r'\b(labels?)\s+(in|not\s+in)\s*(\([^)]+\)|(?:\s*[\'"][^\'"]+[\'"]|\s*[^\s,()&|]+)(?:\s*,\s*(?:[\'"][^\'"]+[\'"]|[^\s,()&|]+))*)',
+        re.IGNORECASE
+    )
+    filter_str = in_pattern.sub(_replace_in, filter_str)
+
+    # 2. Handle "labels = val", "labels != val", "labels LIKE val", etc.
+    def _replace_cmp(match):
+        field = match.group(1) # labels
+        op = match.group(2)    # = / != / LIKE / etc.
+        raw_val = match.group(3)
+        return f"{field} {op} {_resolve_single_val(raw_val)}"
+
+    cmp_pattern = re.compile(
+        r'\b(labels?)\s*(=|!=|~|like)\s*(\'(?:[^\'\\]|\\.)*\'|"(?:[^"\\]|\\.)*"|[^\s&|()]+)',
+        re.IGNORECASE
+    )
+    filter_str = cmp_pattern.sub(_replace_cmp, filter_str)
+
+    # Normalize singular 'label ' to 'labels '
+    filter_str = re.sub(r'\blabel\s+(=|!=|~|like|in|not\s+in)', r'labels \1', filter_str, flags=re.IGNORECASE)
+
+    return filter_str
+
 @mcp.tool(name="vikunja_search_tasks")
 def search_tasks(filter: str = "done = false") -> str:
     """
     Search for tasks in Vikunja using a filter string.
+    Label names in filters (e.g., 'labels = awp') are automatically resolved to numeric IDs.
     Example filters:
     - 'done = false'
     - 'assignees = will && done = false'
     - 'labels = awp && done = false'
+    - 'labels in (awp, connie) && done = false'
     - 'title ~ some_keyword'
     """
     logger.info(f"Vikunja: Search tasks with filter '{filter}'")
@@ -514,18 +583,30 @@ def search_tasks(filter: str = "done = false") -> str:
         token = os.getenv("VIKUNJA_API_TOKEN")
         host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
         
+        resolved_filter = _resolve_labels_in_filter(filter, host, token)
+        if resolved_filter != filter:
+            logger.info(f"Vikunja: Filter resolved from '{filter}' to '{resolved_filter}'")
+
         # Use the specific endpoint for tasks with filter
         url = f"{host}/api/v1/tasks"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
-        params = {"filter": filter}
+        params = {"filter": resolved_filter}
         
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
+        response = requests.get(url, headers=headers, params=params, timeout=20)
+        if not response.ok:
+            error_body = response.text
+            try:
+                err_json = response.json()
+                if "message" in err_json:
+                    error_body = f"{err_json.get('message')} (code {err_json.get('code')})"
+            except Exception:
+                pass
+            return f"Error searching tasks (HTTP {response.status_code}): {error_body}"
+
         tasks = response.json()
-        
         return json.dumps(tasks, indent=2)
     except Exception as e:
         logger.error(f"Error searching tasks: {e}")
