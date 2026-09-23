@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.8
+Version:        1.9
 Author:         Gemini CLI
 Last Modified:  2026-09-23
 Context:        http://trac.gafla.us.com/ticket/3321
@@ -13,6 +13,9 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.9 (2026-09-23): Add vikunja_delete_task tool with destructive-actions-disabled-by-default
+                       safeguard requiring explicit confirm=True or VIKUNJA_ALLOW_DESTRUCTIVE=true.
+                       Context: http://trac.gafla.us.com/ticket/3321
     v1.8 (2026-09-23): Add CircuitBreaker and retry-with-confirmation pattern for task creation
                        to reconcile unconfirmed tasks and prevent duplicate task creation on timeout (resolves #4198).
                        Context: http://trac.gafla.us.com/ticket/3321
@@ -551,6 +554,62 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
         vikunja_circuit_breaker.record_failure(e)
         logger.error(f"Error updating Vikunja task: {e}")
         return f"Error updating Vikunja task {task_id}: {e}"
+
+def is_destructive_action_allowed() -> bool:
+    """
+    Checks if destructive actions (e.g. task deletion) are permitted via environment configuration.
+    Defaults to False to prevent accidental task purging by automated agents.
+    Can be enabled via VIKUNJA_ALLOW_DESTRUCTIVE=true/1.
+    """
+    val = os.getenv("VIKUNJA_ALLOW_DESTRUCTIVE", "").strip().lower()
+    return val in ("1", "true", "yes", "on", "enable", "enabled")
+
+@mcp.tool(name="vikunja_delete_task")
+def delete_task(task_id: int, confirm: bool = False) -> str:
+    """
+    Delete a task in Vikunja by its ID.
+    Destructive actions are disabled by default: requires confirm=True parameter (and/or
+    VIKUNJA_ALLOW_DESTRUCTIVE=true environment variable) to proceed.
+    """
+    logger.info(f"Vikunja: Delete task {task_id} (confirm={confirm})")
+    try:
+        if not vikunja_circuit_breaker.can_execute():
+            return f"Error deleting Vikunja task: Circuit breaker is OPEN (Vikunja host temporarily unreachable or failing). Try again shortly."
+
+        if not confirm and not is_destructive_action_allowed():
+            return (
+                f"Destructive action blocked: Deleting tasks is disabled by default. "
+                f"Pass confirm=True (or set VIKUNJA_ALLOW_DESTRUCTIVE=true in environment) to permanently delete task #{task_id}."
+            )
+
+        import requests
+        token = os.getenv("VIKUNJA_API_TOKEN")
+        host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
+
+        url = f"{host}/api/v1/tasks/{task_id}"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        response = requests.delete(url, headers=headers, timeout=15)
+        if not response.ok:
+            error_body = response.text
+            try:
+                err_json = response.json()
+                if "message" in err_json:
+                    error_body = f"{err_json.get('message')} (code {err_json.get('code')})"
+            except Exception:
+                pass
+            vikunja_circuit_breaker.record_failure()
+            return f"Error deleting Vikunja task #{task_id} (HTTP {response.status_code}): {error_body}"
+
+        vikunja_circuit_breaker.record_success()
+        return f"Successfully deleted Vikunja task #{task_id}"
+    except Exception as e:
+        vikunja_circuit_breaker.record_failure(e)
+        logger.error(f"Error deleting Vikunja task #{task_id}: {e}")
+        return f"Error deleting Vikunja task #{task_id}: {e}"
 
 @mcp.tool(name="vikunja_create_trac_ticket")
 def create_trac_ticket(task_id: int, component: Optional[str] = None, priority: str = "major", keywords: str = "awp, crdo, Jen") -> str:
