@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.7
+Version:        1.8
 Author:         Gemini CLI
 Last Modified:  2026-09-23
 Context:        http://trac.gafla.us.com/ticket/3321
@@ -13,6 +13,9 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.8 (2026-09-23): Add CircuitBreaker and retry-with-confirmation pattern for task creation
+                       to reconcile unconfirmed tasks and prevent duplicate task creation on timeout (resolves #4198).
+                       Context: http://trac.gafla.us.com/ticket/3321
     v1.7 (2026-09-23): Automatically resolve label names to numeric IDs in vikunja_search_tasks
                        filter expressions (supporting '=', '!=', 'in', 'not in', and quoted names).
                        Propagate API JSON error body on non-2xx responses.
@@ -48,7 +51,10 @@ import re
 import html
 import logging
 import json
+import time
+import threading
 import datetime
+import urllib.error
 from typing import Optional, List, Union
 
 # Add project root to path to allow importing from scripts
@@ -73,7 +79,60 @@ logger = logging.getLogger("vikunja-mcp")
 # Initialize FastMCP server
 mcp = FastMCP("vikunja-server")
 
-logger.info("Initializing Vikunja MCP Server v1.0")
+logger.info("Initializing Vikunja MCP Server v1.8")
+
+
+class CircuitBreaker:
+    """
+    Thread-safe Circuit Breaker pattern to protect against persistent API failures/timeouts.
+    States: CLOSED (normal), OPEN (fast-fail), HALF_OPEN (canary probe).
+    """
+    def __init__(self, failure_threshold: int = 3, recovery_timeout: float = 15.0, name: str = "vikunja"):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.name = name
+        self.failure_count = 0
+        self.last_state_change = 0.0
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
+        self.lock = threading.Lock()
+
+    def can_execute(self) -> bool:
+        with self.lock:
+            now = time.time()
+            if self.state == "CLOSED":
+                return True
+            elif self.state == "OPEN":
+                if now - self.last_state_change >= self.recovery_timeout:
+                    logger.info(f"CircuitBreaker[{self.name}]: Transitioning from OPEN to HALF_OPEN (probing recovery)")
+                    self.state = "HALF_OPEN"
+                    self.last_state_change = now
+                    return True
+                return False
+            elif self.state == "HALF_OPEN":
+                return True
+            return True
+
+    def record_success(self):
+        with self.lock:
+            if self.state != "CLOSED":
+                logger.info(f"CircuitBreaker[{self.name}]: Transitioning from {self.state} to CLOSED")
+            self.failure_count = 0
+            self.state = "CLOSED"
+
+    def record_failure(self, error: Optional[Exception] = None):
+        with self.lock:
+            self.failure_count += 1
+            now = time.time()
+            if self.state == "HALF_OPEN" or self.failure_count >= self.failure_threshold:
+                if self.state != "OPEN":
+                    logger.warning(
+                        f"CircuitBreaker[{self.name}]: Tripping to OPEN (failures={self.failure_count}, err={error}). Fast-failing for {self.recovery_timeout}s."
+                    )
+                self.state = "OPEN"
+                self.last_state_change = now
+
+
+vikunja_circuit_breaker = CircuitBreaker()
 
 def ensure_auth():
     """Ensures VIKUNJA_API_TOKEN and TRAC_PASSWORD are set in environment, falling back to ~/.bashrc."""
@@ -238,6 +297,50 @@ def format_description_for_vikunja(desc: Optional[str]) -> Optional[str]:
     except Exception:
         return desc
 
+def _confirm_created_task(title: str, project_id: int, host: str, token: str, max_age_seconds: int = 180) -> Optional[dict]:
+    """
+    Reconciles whether a task was created on Vikunja following an unconfirmed/timed-out request.
+    Prevents duplicate task creation on network/timeout errors (resolves #4198).
+    """
+    try:
+        import requests
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+        # 1. Check the newest tasks in the project (sorted descending by ID)
+        url = f"{host}/api/v1/projects/{project_id}/tasks"
+        params = {"sort_by[]": "id", "order_by[]": "desc", "per_page": 20}
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
+        if resp.ok:
+            tasks = resp.json()
+            now = datetime.datetime.now(datetime.timezone.utc)
+            for t in tasks:
+                if t.get("title", "").strip().lower() == title.strip().lower():
+                    created_str = t.get("created")
+                    if created_str:
+                        try:
+                            created_dt = datetime.datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                            age = (now - created_dt).total_seconds()
+                            if age <= max_age_seconds:
+                                return t
+                        except Exception:
+                            return t
+                    else:
+                        return t
+
+        # 2. Fallback: query filter endpoint
+        clean_search = re.sub(r'[\'"\\]', '', title).strip()
+        if clean_search:
+            filter_url = f"{host}/api/v1/tasks"
+            filter_str = f"project_id = {project_id} && title ~ '{clean_search}'"
+            filter_resp = requests.get(filter_url, headers=headers, params={"filter": filter_str}, timeout=10)
+            if filter_resp.ok:
+                for t in filter_resp.json():
+                    if t.get("title", "").strip().lower() == title.strip().lower():
+                        return t
+    except Exception as e:
+        logger.warning(f"Error checking task confirmation: {e}")
+    return None
+
 @mcp.tool(name="vikunja_create_task")
 def create_task(title: str, description: str = "", project_id: int = 1, project: Optional[str] = None, labels: Optional[List[str]] = None, due_date: Optional[str] = None) -> str:
     """
@@ -254,6 +357,9 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
     """
     logger.info(f"Vikunja: Create task '{title}' (project={project!r}, project_id={project_id})")
     try:
+        if not vikunja_circuit_breaker.can_execute():
+            return f"Error creating Vikunja task: Circuit breaker is OPEN (Vikunja host temporarily unreachable or failing). Try again shortly."
+
         token = os.getenv("VIKUNJA_API_TOKEN")
         host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
 
@@ -275,17 +381,66 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
 
         html_description = format_description_for_vikunja(description)
 
-        cvt.create_task(
-            title=clean_title,
-            description=html_description or "",
-            project_id=project_id,
-            is_favorite=True,
-            host=host,
-            token=token,
-            labels=all_labels,
-            due_date=due_date
-        )
-        return f"Successfully created Vikunja task: {clean_title} (project_id={project_id})"
+        try:
+            result = cvt.create_task(
+                title=clean_title,
+                description=html_description or "",
+                project_id=project_id,
+                is_favorite=True,
+                host=host,
+                token=token,
+                labels=all_labels,
+                due_date=due_date
+            )
+            task_id = result.get('id') if isinstance(result, dict) else None
+            vikunja_circuit_breaker.record_success()
+            if task_id:
+                return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id})"
+            return f"Successfully created Vikunja task: {clean_title} (project_id={project_id})"
+        except Exception as e:
+            # Check for timeout or transient network drop
+            is_timeout = isinstance(e, (TimeoutError, urllib.error.URLError)) or "timeout" in str(e).lower() or "timed out" in str(e).lower()
+
+            # Reconciliation check: did the task actually get created despite the timeout/drop?
+            reconciled = _confirm_created_task(clean_title, project_id, host, token)
+            if reconciled:
+                task_id = reconciled.get('id')
+                vikunja_circuit_breaker.record_success()
+                logger.info(f"Reconciled created task #{task_id} ('{clean_title}') after exception: {e}")
+                return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [confirmed via reconciliation after transient timeout]"
+
+            if is_timeout:
+                logger.warning(f"Create task timed out for '{clean_title}'. Retrying once after backoff...")
+                time.sleep(1.0)
+                try:
+                    result = cvt.create_task(
+                        title=clean_title,
+                        description=html_description or "",
+                        project_id=project_id,
+                        is_favorite=True,
+                        host=host,
+                        token=token,
+                        labels=all_labels,
+                        due_date=due_date
+                    )
+                    task_id = result.get('id') if isinstance(result, dict) else None
+                    vikunja_circuit_breaker.record_success()
+                    if task_id:
+                        return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [on retry]"
+                    return f"Successfully created Vikunja task: {clean_title} (project_id={project_id}) [on retry]"
+                except Exception as retry_err:
+                    reconciled_after_retry = _confirm_created_task(clean_title, project_id, host, token)
+                    if reconciled_after_retry:
+                        task_id = reconciled_after_retry.get('id')
+                        vikunja_circuit_breaker.record_success()
+                        return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [confirmed via reconciliation after retry timeout]"
+                    vikunja_circuit_breaker.record_failure(retry_err)
+                    logger.error(f"Error creating Vikunja task after retry: {retry_err}")
+                    return f"Error creating Vikunja task after retry: {retry_err}"
+
+            vikunja_circuit_breaker.record_failure(e)
+            logger.error(f"Error creating Vikunja task: {e}")
+            return f"Error creating Vikunja task: {e}"
     except Exception as e:
         logger.error(f"Error creating Vikunja task: {e}")
         return f"Error creating Vikunja task: {e}"
@@ -295,9 +450,13 @@ def get_task(task_id: int) -> str:
     """Fetch details of a Vikunja task by its ID."""
     logger.info(f"Vikunja: Get task {task_id}")
     try:
+        if not vikunja_circuit_breaker.can_execute():
+            return f"Error fetching Vikunja task: Circuit breaker is OPEN (Vikunja host temporarily unreachable or failing). Try again shortly."
         task = ctfv.get_vikunja_task(task_id)
+        vikunja_circuit_breaker.record_success()
         return json.dumps(task, indent=2)
     except Exception as e:
+        vikunja_circuit_breaker.record_failure(e)
         logger.error(f"Error fetching Vikunja task: {e}")
         return f"Error fetching Vikunja task {task_id}: {e}"
 
@@ -316,6 +475,9 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
     """
     logger.info(f"Vikunja: Update task {task_id}")
     try:
+        if not vikunja_circuit_breaker.can_execute():
+            return f"Error updating Vikunja task: Circuit breaker is OPEN (Vikunja host temporarily unreachable or failing). Try again shortly."
+
         import requests
         token = os.getenv("VIKUNJA_API_TOKEN")
         host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
@@ -328,7 +490,7 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
         
         # Vikunja POST /tasks/{id} replaces omitted fields with zero-values.
         # Fetch existing task to preserve unmodified attributes across partial updates.
-        get_resp = requests.get(task_url, headers=headers)
+        get_resp = requests.get(task_url, headers=headers, timeout=15)
         get_resp.raise_for_status()
         existing = get_resp.json()
 
@@ -339,6 +501,8 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
             "is_favorite": existing.get("is_favorite", False),
             "priority": existing.get("priority", 0),
         }
+        if existing.get("labels"):
+            payload["labels"] = existing.get("labels")
         if existing.get("due_date") and not existing["due_date"].startswith("0001-01-01"):
             payload["due_date"] = existing["due_date"]
 
@@ -361,7 +525,7 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
             else:
                 payload["priority"] = int(priority)
             
-        response = requests.post(task_url, headers=headers, json=payload)
+        response = requests.post(task_url, headers=headers, json=payload, timeout=20)
         response.raise_for_status()
             
         if labels:
@@ -381,8 +545,10 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
             for label in resolved_labels:
                 cvt.add_label_to_task(host, token, task_id, label['id'])
                 
+        vikunja_circuit_breaker.record_success()
         return f"Successfully updated Vikunja task {task_id}"
     except Exception as e:
+        vikunja_circuit_breaker.record_failure(e)
         logger.error(f"Error updating Vikunja task: {e}")
         return f"Error updating Vikunja task {task_id}: {e}"
 
@@ -517,20 +683,15 @@ def _resolve_labels_in_filter(filter_str: str, host: str, token: str) -> str:
 
     try:
         existing_labels = cvt.get_all_labels(host, token)
-        label_map = {l['title'].lower(): l for l in existing_labels}
+        label_map = {}
+        for l in existing_labels:
+            key = l['title'].lower()
+            if key not in label_map:
+                label_map[key] = []
+            label_map[key].append(str(l['id']))
     except Exception as e:
         logger.warning(f"Failed to fetch labels for filter resolution: {e}")
         return filter_str
-
-    def _resolve_single_val(val: str) -> str:
-        clean = val.strip().strip("'\"")
-        if clean.isdigit() or (clean.startswith("-") and clean[1:].isdigit()):
-            return clean
-        lbl = label_map.get(clean.lower())
-        if lbl:
-            return str(lbl["id"])
-        logger.warning(f"Label '{clean}' not found in Vikunja during filter resolution; mapping to 0")
-        return "0"
 
     # 1. Handle "labels in (...)" or "labels in a, b" or "labels not in (...)"
     def _replace_in(match):
@@ -538,7 +699,17 @@ def _resolve_labels_in_filter(filter_str: str, host: str, token: str) -> str:
         op = match.group(2)
         raw_vals = match.group(3).strip().strip("()")
         parts = [p.strip() for p in raw_vals.split(",") if p.strip()]
-        resolved_parts = [_resolve_single_val(p) for p in parts]
+        resolved_parts = []
+        for p in parts:
+            clean = p.strip().strip("'\"")
+            if clean.isdigit() or (clean.startswith("-") and clean[1:].isdigit()):
+                resolved_parts.append(clean)
+            else:
+                lbl_ids = label_map.get(clean.lower())
+                if lbl_ids:
+                    resolved_parts.extend(lbl_ids)
+                else:
+                    resolved_parts.append("0")
         return f"{field} {op} {', '.join(resolved_parts)}"
 
     in_pattern = re.compile(
@@ -552,7 +723,20 @@ def _resolve_labels_in_filter(filter_str: str, host: str, token: str) -> str:
         field = match.group(1) # labels
         op = match.group(2)    # = / != / LIKE / etc.
         raw_val = match.group(3)
-        return f"{field} {op} {_resolve_single_val(raw_val)}"
+        clean = raw_val.strip().strip("'\"")
+        if clean.isdigit() or (clean.startswith("-") and clean[1:].isdigit()):
+            return f"{field} {op} {clean}"
+        lbl_ids = label_map.get(clean.lower())
+        if lbl_ids:
+            if len(lbl_ids) == 1:
+                return f"{field} {op} {lbl_ids[0]}"
+            elif op == "=":
+                return f"{field} in {', '.join(lbl_ids)}"
+            elif op == "!=":
+                return f"{field} not in {', '.join(lbl_ids)}"
+            return f"{field} {op} {lbl_ids[0]}"
+        logger.warning(f"Label '{clean}' not found in Vikunja during filter resolution; mapping to 0")
+        return f"{field} {op} 0"
 
     cmp_pattern = re.compile(
         r'\b(labels?)\s*(=|!=|~|like)\s*(\'(?:[^\'\\]|\\.)*\'|"(?:[^"\\]|\\.)*"|[^\s&|()]+)',
@@ -579,6 +763,9 @@ def search_tasks(filter: str = "done = false") -> str:
     """
     logger.info(f"Vikunja: Search tasks with filter '{filter}'")
     try:
+        if not vikunja_circuit_breaker.can_execute():
+            return f"Error searching tasks: Circuit breaker is OPEN (Vikunja host temporarily unreachable or failing). Try again shortly."
+
         import requests
         token = os.getenv("VIKUNJA_API_TOKEN")
         host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
@@ -604,11 +791,14 @@ def search_tasks(filter: str = "done = false") -> str:
                     error_body = f"{err_json.get('message')} (code {err_json.get('code')})"
             except Exception:
                 pass
+            vikunja_circuit_breaker.record_failure()
             return f"Error searching tasks (HTTP {response.status_code}): {error_body}"
 
         tasks = response.json()
+        vikunja_circuit_breaker.record_success()
         return json.dumps(tasks, indent=2)
     except Exception as e:
+        vikunja_circuit_breaker.record_failure(e)
         logger.error(f"Error searching tasks: {e}")
         return f"Error searching tasks: {e}"
 
@@ -631,6 +821,9 @@ def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> s
     """
     logger.info(f"Vikunja: Get tasks by priority='{priority}' include_done={include_done}")
     try:
+        if not vikunja_circuit_breaker.can_execute():
+            return f"Error fetching tasks by priority: Circuit breaker is OPEN (Vikunja host temporarily unreachable or failing). Try again shortly."
+
         import requests
 
         is_starred = False
@@ -687,6 +880,7 @@ def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> s
                     break
                 page += 1
 
+        vikunja_circuit_breaker.record_success()
         label = "STARRED" if is_starred else next((k for k, v in PRIORITY_MAP.items() if v == priority_int), str(priority_int))
 
         if not tasks:
@@ -704,6 +898,7 @@ def get_tasks_by_priority(priority: str = "now", include_done: bool = True) -> s
 
         return "\n".join(lines)
     except Exception as e:
+        vikunja_circuit_breaker.record_failure(e)
         logger.error(f"Error fetching tasks by priority: {e}")
         return f"Error fetching tasks by priority: {e}"
 
