@@ -144,8 +144,8 @@ def main():
         attributes['status'] = 'closed'
     if args.priority:
         attributes['priority'] = args.priority
-    if args.keywords:
-        attributes['keywords'] = args.keywords.replace(',', ' ')
+    if args.keywords is not None:
+        attributes['keywords'] = ' '.join(args.keywords.replace(',', ' ').split()).lower()
 
     try:
         print(f"Connecting to Trac server at {TRAC_URL.split('@')[1]}...")

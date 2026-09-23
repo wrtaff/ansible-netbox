@@ -83,8 +83,8 @@ def main():
             ./create_trac_ticket.py \\
                 --summary "Fix the network switch" \\
                 --description "First line.\\nSecond line." \\
-                --component "Networking" \\
-                --keywords "PROV-P3, Maintenance, Hardware" \\
+                --component "sysadmin" \\
+                --keywords "prov-p3 maintenance hardware" \\
                 --milestone "Cycle 3" \\
                 --owner "will" \\
                 --cc "gemini,anotheruser"
@@ -94,7 +94,7 @@ def main():
     parser.add_argument("-s", "--summary", required=True, help="A brief, descriptive summary of the ticket.")
     parser.add_argument("-d", "--description", required=True, help="The full description of the ticket. Use '\\n' for newlines.")
     parser.add_argument("-c", "--component", default=DEFAULT_COMPONENT, help=f"The component to assign the ticket to. (Default: {DEFAULT_COMPONENT})\nREMINDER: NEVER create new components without explicit permission.")
-    parser.add_argument("-k", "--keywords", default="", help="Space-separated keywords for the ticket (e.g., 'PROV-P1 SCM'). Commas will be automatically replaced with spaces.")
+    parser.add_argument("-k", "--keywords", default="", help="Space-separated lowercase keywords for the ticket (e.g., 'prov-p1 scm'). Commas will be automatically replaced with spaces.")
     parser.add_argument("-t", "--type", default=DEFAULT_TYPE, help=f"The type of the ticket. (Default: {DEFAULT_TYPE})")
     parser.add_argument("-p", "--priority", default=DEFAULT_PRIORITY, help=f"The priority of the ticket. (Default: {DEFAULT_PRIORITY})")
     parser.add_argument("-i", "--milestone", default="", help="The milestone to assign the ticket to.")
@@ -117,8 +117,8 @@ def main():
         processed_description = markdown_to_moinmoin(processed_description)
     processed_description = sanitize_content(processed_description)
 
-    # Ensure keywords are space-separated
-    processed_keywords = args.keywords.replace(',', ' ')
+    # Ensure keywords are space-separated and lowercase
+    processed_keywords = ' '.join(args.keywords.replace(',', ' ').split()).lower()
 
     attributes = {
         'component': args.component,
@@ -126,7 +126,7 @@ def main():
         'type': args.type,
         'priority': args.priority,
         'milestone': args.milestone,
-        'owner': args.owner,
+        'owner': args.owner.strip().lower() if args.owner else "",
         'cc': args.cc
     }
 
