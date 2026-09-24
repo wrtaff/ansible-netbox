@@ -2,9 +2,9 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.9
+Version:        1.10
 Author:         Gemini CLI
-Last Modified:  2026-09-23
+Last Modified:  2026-09-24
 Context:        http://trac.gafla.us.com/ticket/3321
 
 Purpose:
@@ -13,6 +13,11 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.10 (2026-09-24): Fix create_task docstring: no longer claims unqualified "Markdown
+                       supported" (format_description_for_vikunja does not autolink bare
+                       URLs/#NNNN); docstring now requires HTML for links per
+                       skills/domain/vikunja.md. Doc-only, no behavior change. WP-5.
+                       Context: http://trac.gafla.us.com/ticket/3321
     v1.9 (2026-09-23): Add vikunja_delete_task tool with destructive-actions-disabled-by-default
                        safeguard requiring explicit confirm=True or VIKUNJA_ALLOW_DESTRUCTIVE=true.
                        Context: http://trac.gafla.us.com/ticket/3321
@@ -349,8 +354,9 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
     """
     Create a new task in Vikunja.
     title: Task title (words starting with * are extracted as labels).
-    description: Detailed description (Markdown supported). Put source links here in
-        markdown so they are clickable, e.g. [subject](https://mail.google.com/mail/u/0/#all/<id>).
+    description: HTML required for clickable links/references (bare URLs and #NNNN are
+        NOT auto-linkified). Use <p>/<ul><li>/<a href="...">...</a> -- see the mandatory
+        convention in skills/domain/vikunja.md before calling with a description.
     project_id: Numeric ID of the project (Default: 1 - Inbox).
     project: Project NAME to match to an EXISTING project (e.g. 'maintenance', 'sysadmin').
         Matched case-insensitively; NEVER creates a project. If given, it overrides project_id.
