@@ -4,3 +4,11 @@ ntfy_listen_http: ":80"
 ntfy_upstream_base_url: "https://ntfy.sh"
 ntfy_auth_default_access: "deny-all"
 ntfy_enable_tailscale: true
+
+ntfy_auth_users: []
+ntfy_auth_tokens: []
+ntfy_auth_access:
+  - "publisher:lab-*:wo"
+  - "hass:lab-*:rw"
+  - "will-phone:lab-critical:ro"
+  - "will-phone:lab-warning:ro"
