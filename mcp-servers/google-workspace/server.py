@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.7
+Version:        2.8
 Author:         Gemini CLI
-Last Modified:  2026-09-21
-Context:        http://trac.gafla.us.com/ticket/3571, http://trac.gafla.us.com/ticket/4334
+Last Modified:  2026-09-24
+Context:        http://trac.gafla.us.com/ticket/3571, http://trac.gafla.us.com/ticket/4334, http://trac.gafla.us.com/ticket/4743
 
 Purpose:
     Model Context Protocol (MCP) server for Google Workspace integration.
@@ -15,6 +15,10 @@ Purpose:
     re-authentication within AI agent sessions.
 
 Revision History:
+    v2.8 (2026-09-24): Added Google Drive Comments and Replies tool suite (Trac #4743):
+                       drive_list_comments, drive_get_comment, drive_create_comment,
+                       drive_update_comment, drive_delete_comment, drive_reply_comment,
+                       drive_resolve_comment, drive_reopen_comment, drive_delete_reply.
     v2.7 (2026-09-21): Added thread_id and reply_to_message_id parameters to
                        gmail_send_message and gmail_create_draft tools to enable
                        direct email replies in threads.
@@ -91,7 +95,7 @@ logger = logging.getLogger("google-workspace-mcp")
 # Initialize FastMCP server
 mcp = FastMCP("google-workspace-server")
 
-logger.info("Initializing Google Workspace MCP Server v2.6")
+logger.info("Initializing Google Workspace MCP Server v2.8")
 
 def handle_auth_error(e):
     logger.error(f"Authentication Error: {e}")
@@ -471,6 +475,152 @@ def sheets_update_row(spreadsheet_id: str, range_name: str, values_json: str) ->
         return f.getvalue()
     except gwm.GoogleAuthError as e:
         return handle_auth_error(e)
+
+# --- DRIVE COMMENTS & REPLIES TOOLS ---
+
+@mcp.tool(name="drive_list_comments")
+def drive_list_comments(file_id: str, unresolved_only: bool = False, max_results: int = 100) -> str:
+    """List comment threads on a Google Drive file, with optional filtering for unresolved/open comments only. Returns structured JSON."""
+    logger.info(f"Drive: Listing comments for file {file_id} (unresolved_only={unresolved_only}, max_results={max_results})")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_list_comments(file_id=file_id, unresolved_only=unresolved_only, page_size=max_results, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@mcp.tool(name="drive_get_comment")
+def drive_get_comment(file_id: str, comment_id: str) -> str:
+    """Get details and reply thread for a specific comment on a Google Drive file by comment ID. Returns structured JSON."""
+    logger.info(f"Drive: Getting comment {comment_id} for file {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_get_comment(file_id=file_id, comment_id=comment_id, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@mcp.tool(name="drive_create_comment")
+def drive_create_comment(file_id: str, content: str, quoted_text: Optional[str] = None) -> str:
+    """Create a new comment on a Google Drive file, optionally quoting text from the document. Returns structured JSON."""
+    logger.info(f"Drive: Creating comment on file {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_create_comment(file_id=file_id, content=content, quoted_text=quoted_text, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@mcp.tool(name="drive_update_comment")
+def drive_update_comment(file_id: str, comment_id: str, content: str) -> str:
+    """Update the content of an existing comment on a Google Drive file. Returns structured JSON."""
+    logger.info(f"Drive: Updating comment {comment_id} on file {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_update_comment(file_id=file_id, comment_id=comment_id, content=content, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@mcp.tool(name="drive_delete_comment")
+def drive_delete_comment(file_id: str, comment_id: str) -> str:
+    """Delete a comment thread from a Google Drive file. Returns structured JSON."""
+    logger.info(f"Drive: Deleting comment {comment_id} on file {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_delete_comment(file_id=file_id, comment_id=comment_id, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@mcp.tool(name="drive_reply_comment")
+def drive_reply_comment(file_id: str, comment_id: str, content: str = "", action: Optional[str] = None) -> str:
+    """Reply to an existing comment thread on a Google Drive file, optionally specifying an action ('resolve' or 'reopen'). Returns structured JSON."""
+    logger.info(f"Drive: Replying to comment {comment_id} on file {file_id} (action={action})")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_create_reply(file_id=file_id, comment_id=comment_id, content=content, action=action, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@mcp.tool(name="drive_resolve_comment")
+def drive_resolve_comment(file_id: str, comment_id: str, reply_text: str = "Resolved") -> str:
+    """Resolve an open comment thread on a Google Drive file by appending a resolution reply. Returns structured JSON."""
+    logger.info(f"Drive: Resolving comment {comment_id} on file {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_resolve_comment(file_id=file_id, comment_id=comment_id, content=reply_text, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@mcp.tool(name="drive_reopen_comment")
+def drive_reopen_comment(file_id: str, comment_id: str, reply_text: str = "Reopened") -> str:
+    """Reopen a resolved comment thread on a Google Drive file by appending a reopen reply. Returns structured JSON."""
+    logger.info(f"Drive: Reopening comment {comment_id} on file {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_reopen_comment(file_id=file_id, comment_id=comment_id, content=reply_text, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@mcp.tool(name="drive_delete_reply")
+def drive_delete_reply(file_id: str, comment_id: str, reply_id: str) -> str:
+    """Delete a specific reply from a comment thread on a Google Drive file. Returns structured JSON."""
+    logger.info(f"Drive: Deleting reply {reply_id} from comment {comment_id} on file {file_id}")
+    import io
+    from contextlib import redirect_stdout
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            gwm.drive_delete_reply(file_id=file_id, comment_id=comment_id, reply_id=reply_id, output_format='json')
+        return f.getvalue()
+    except gwm.GoogleAuthError as e:
+        return handle_auth_error(e)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
 # --- CALENDAR TOOLS ---
 
