@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.10
+Version:        1.11
 Author:         Gemini CLI
 Last Modified:  2026-09-24
 Context:        http://trac.gafla.us.com/ticket/3321
@@ -13,6 +13,9 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.11 (2026-09-24): Strip is_favorite clause in vikunja_search_tasks filter and apply as
+                       client-side post-filter, avoiding Vikunja API 400 error.
+                       Resolves: http://trac.gafla.us.com/ticket/4105, Trac #3321 WP-6.
     v1.10 (2026-09-24): Fix create_task docstring: no longer claims unqualified "Markdown
                        supported" (format_description_for_vikunja does not autolink bare
                        URLs/#NNNN); docstring now requires HTML for links per
@@ -815,6 +818,25 @@ def _resolve_labels_in_filter(filter_str: str, host: str, token: str) -> str:
 
     return filter_str
 
+
+def _strip_is_favorite_clause(filter_str: str):
+    """
+    Vikunja's generic filter API rejects 'is_favorite' as a filterable field
+    (HTTP 400, code 4016). Strip any is_favorite clause out of the filter string
+    and return (remaining_filter, want_favorite): want_favorite is True/False if
+    an is_favorite clause was found, else None. Caller applies want_favorite as a
+    client-side post-filter, same pattern as get_tasks_by_priority's starred path.
+    """
+    pattern = re.compile(r'\s*(?:&&\s*)?is_favorite\s*=\s*(true|false)\s*(?:&&\s*)?', re.IGNORECASE)
+    match = pattern.search(filter_str)
+    if not match:
+        return filter_str, None
+    want_favorite = match.group(1).lower() == "true"
+    remaining = pattern.sub(' && ', filter_str, count=1)
+    remaining = re.sub(r'^\s*&&\s*|\s*&&\s*$', '', remaining).strip()
+    return remaining, want_favorite
+
+
 @mcp.tool(name="vikunja_search_tasks")
 def search_tasks(filter: str = "done = false") -> str:
     """
@@ -823,9 +845,11 @@ def search_tasks(filter: str = "done = false") -> str:
     Example filters:
     - 'done = false'
     - 'assignees = will && done = false'
+    - 'is_favorite = true && done = false'
     - 'labels = awp && done = false'
     - 'labels in (awp, connie) && done = false'
     - 'title ~ some_keyword'
+    Note: 'is_favorite' filtering is applied client-side after fetch (does not combine with server-side pagination in a single round-trip).
     """
     logger.info(f"Vikunja: Search tasks with filter '{filter}'")
     try:
@@ -840,13 +864,17 @@ def search_tasks(filter: str = "done = false") -> str:
         if resolved_filter != filter:
             logger.info(f"Vikunja: Filter resolved from '{filter}' to '{resolved_filter}'")
 
+        remaining_filter, want_favorite = _strip_is_favorite_clause(resolved_filter)
+
         # Use the specific endpoint for tasks with filter
         url = f"{host}/api/v1/tasks"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
-        params = {"filter": resolved_filter}
+        params = {}
+        if remaining_filter:
+            params["filter"] = remaining_filter
         
         response = requests.get(url, headers=headers, params=params, timeout=20)
         if not response.ok:
@@ -861,6 +889,8 @@ def search_tasks(filter: str = "done = false") -> str:
             return f"Error searching tasks (HTTP {response.status_code}): {error_body}"
 
         tasks = response.json()
+        if want_favorite is not None:
+            tasks = [t for t in tasks if bool(t.get("is_favorite")) == want_favorite]
         vikunja_circuit_breaker.record_success()
         return json.dumps(tasks, indent=2)
     except Exception as e:
