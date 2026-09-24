@@ -248,6 +248,18 @@ proxmox_backup_jobs:
     mailto: "root@home.arpa"
     mailnotification: "failure"
 
+  - id: "pve4-ntfy-daily"
+    name: "Ntfy Daily"
+    node: "pve4"
+    schedule: "04:30"
+    storage: "pbs01"
+    mode: "snapshot"
+    vmid: "129"
+    notes_template: !unsafe "{{guestname}}"
+    enabled: true
+    mailto: "root@home.arpa"
+    mailnotification: "failure"
+
   # === pve5 guests (04:30 - 05:00) ===
   - id: "pve5-wazuh-daily"
     name: "Wazuh SIEM Daily"
