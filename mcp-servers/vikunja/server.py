@@ -2,7 +2,7 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.11
+Version:        1.12
 Author:         Gemini CLI
 Last Modified:  2026-09-24
 Context:        http://trac.gafla.us.com/ticket/3321
@@ -13,6 +13,9 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.12 (2026-09-24): Paginate search_tasks loop (up to 100 pages) so filters (including
+                       is_favorite) see the full result set across all pages (resolves #4105,
+                       Trac #3321 WP-6.1).
     v1.11 (2026-09-24): Strip is_favorite clause in vikunja_search_tasks filter and apply as
                        client-side post-filter, avoiding Vikunja API 400 error.
                        Resolves: http://trac.gafla.us.com/ticket/4105, Trac #3321 WP-6.
@@ -849,7 +852,7 @@ def search_tasks(filter: str = "done = false") -> str:
     - 'labels = awp && done = false'
     - 'labels in (awp, connie) && done = false'
     - 'title ~ some_keyword'
-    Note: 'is_favorite' filtering is applied client-side after fetch (does not combine with server-side pagination in a single round-trip).
+    Note: Results are fully paginated (up to 100 pages) so broad filters evaluate across all tasks.
     """
     logger.info(f"Vikunja: Search tasks with filter '{filter}'")
     try:
@@ -876,19 +879,31 @@ def search_tasks(filter: str = "done = false") -> str:
         if remaining_filter:
             params["filter"] = remaining_filter
         
-        response = requests.get(url, headers=headers, params=params, timeout=20)
-        if not response.ok:
-            error_body = response.text
-            try:
-                err_json = response.json()
-                if "message" in err_json:
-                    error_body = f"{err_json.get('message')} (code {err_json.get('code')})"
-            except Exception:
-                pass
-            vikunja_circuit_breaker.record_failure()
-            return f"Error searching tasks (HTTP {response.status_code}): {error_body}"
+        tasks = []
+        page = 1
+        max_pages = 100
+        while page <= max_pages:
+            params["page"] = page
+            response = requests.get(url, headers=headers, params=params, timeout=20)
+            if not response.ok:
+                error_body = response.text
+                try:
+                    err_json = response.json()
+                    if "message" in err_json:
+                        error_body = f"{err_json.get('message')} (code {err_json.get('code')})"
+                except Exception:
+                    pass
+                vikunja_circuit_breaker.record_failure()
+                return f"Error searching tasks (HTTP {response.status_code}): {error_body}"
+            batch = response.json()
+            if not batch:
+                break
+            tasks.extend(batch)
+            total_pages = int(response.headers.get("x-pagination-total-pages", 1))
+            if page >= total_pages:
+                break
+            page += 1
 
-        tasks = response.json()
         if want_favorite is not None:
             tasks = [t for t in tasks if bool(t.get("is_favorite")) == want_favorite]
         vikunja_circuit_breaker.record_success()
