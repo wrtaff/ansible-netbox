@@ -752,6 +752,117 @@ def drive_list_comments(file_id, unresolved_only=False, page_size=100, output_fo
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
+def drive_get_comment(file_id, comment_id, output_format='text'):
+    """Get a specific comment on a Google Drive file by comment ID."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        comment = service.comments().get(
+            fileId=file_id,
+            commentId=comment_id,
+            fields="id,author,content,createdTime,modifiedTime,resolved,quotedFileContent,replies(id,author,content,createdTime,modifiedTime,action)"
+        ).execute()
+        if output_format == 'json':
+            output(comment, 'json')
+        else:
+            author = comment.get('author', {}).get('displayName', 'Unknown Author')
+            created = comment.get('createdTime', '')
+            status = "RESOLVED" if comment.get('resolved') else "OPEN"
+            print(f"=== Comment [{status}] by {author} ({created}) ===")
+            quoted = comment.get('quotedFileContent', {}).get('value')
+            if quoted:
+                print(f"  Quoted text: \"{quoted}\"")
+            print(f"  Content: {comment.get('content', '')}")
+            replies = comment.get('replies', [])
+            if replies:
+                for r in replies:
+                    r_author = r.get('author', {}).get('displayName', 'Unknown Author')
+                    r_created = r.get('createdTime', '')
+                    r_action = f" [{r.get('action')}]" if r.get('action') else ""
+                    print(f"    -> Reply by {r_author}{r_action} ({r_created}): {r.get('content', '')}")
+            print()
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def drive_create_comment(file_id, content, quoted_text=None, output_format='text'):
+    """Create a new comment on a Google Drive file, optionally quoting text."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        body = {'content': content}
+        if quoted_text:
+            body['quotedFileContent'] = {'value': quoted_text, 'mimeType': 'text/html'}
+        result = service.comments().create(
+            fileId=file_id,
+            body=body,
+            fields='id,author,content,createdTime,modifiedTime,resolved,quotedFileContent'
+        ).execute()
+        output(result, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def drive_update_comment(file_id, comment_id, content, output_format='text'):
+    """Update the content of an existing comment on a Google Drive file."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        body = {'content': content}
+        result = service.comments().update(
+            fileId=file_id,
+            commentId=comment_id,
+            body=body,
+            fields='id,author,content,createdTime,modifiedTime,resolved'
+        ).execute()
+        output(result, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def drive_delete_comment(file_id, comment_id, output_format='text'):
+    """Delete a comment thread from a Google Drive file."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        service.comments().delete(fileId=file_id, commentId=comment_id).execute()
+        output({'status': 'deleted', 'comment_id': comment_id}, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def drive_create_reply(file_id, comment_id, content="", action=None, output_format='text'):
+    """Create a reply to an existing comment thread, optionally setting action='resolve' or 'reopen'."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        body = {'content': content}
+        if action:
+            body['action'] = action
+        result = service.replies().create(
+            fileId=file_id,
+            commentId=comment_id,
+            body=body,
+            fields='id,author,content,createdTime,modifiedTime,action'
+        ).execute()
+        output(result, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
+def drive_resolve_comment(file_id, comment_id, content="Resolved", output_format='text'):
+    """Resolve an open comment thread by adding a resolve reply action."""
+    return drive_create_reply(file_id, comment_id, content=content, action='resolve', output_format=output_format)
+
+def drive_reopen_comment(file_id, comment_id, content="Reopened", output_format='text'):
+    """Reopen a resolved comment thread by adding a reopen reply action."""
+    return drive_create_reply(file_id, comment_id, content=content, action='reopen', output_format=output_format)
+
+def drive_delete_reply(file_id, comment_id, reply_id, output_format='text'):
+    """Delete a specific reply from a comment thread."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        service.replies().delete(fileId=file_id, commentId=comment_id, replyId=reply_id).execute()
+        output({'status': 'deleted', 'reply_id': reply_id, 'comment_id': comment_id}, output_format)
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
 def drive_create_folder(name, parent_id=None, output_format='text'):
     """Create a folder in Google Drive. Returns existing folder if one with the same name already exists in the parent."""
     creds = get_creds()
@@ -1091,15 +1202,17 @@ def contacts_create_contact(given_name, family_name, job_title=None, company=Non
 # --- MAIN CLI ---
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Google Workspace Unified Manager')
-    parser.add_argument('--format', choices=['text', 'json'], default='text', help='Output format')
+    common_parser = argparse.ArgumentParser(add_help=False)
+    common_parser.add_argument('--format', choices=['text', 'json'], default='text', help='Output format')
+
+    parser = argparse.ArgumentParser(description='Google Workspace Unified Manager', parents=[common_parser])
     subparsers = parser.add_subparsers(dest='command', required=True)
 
-    parser_auth = subparsers.add_parser('auth', help='Refresh or establish authentication')
+    parser_auth = subparsers.add_parser('auth', parents=[common_parser], help='Refresh or establish authentication')
     parser_auth.add_argument('--port', type=int, default=8080, help='Port for local server auth (default: 8080)')
     parser_auth.add_argument('--console', action='store_true', help='Use console-based auth flow (for headless servers)')
 
-    parser_people_create = subparsers.add_parser('people-create', help='Create a Google Contact')
+    parser_people_create = subparsers.add_parser('people-create', parents=[common_parser], help='Create a Google Contact')
     parser_people_create.add_argument('given_name', help='Given name')
     parser_people_create.add_argument('family_name', help='Family name')
     parser_people_create.add_argument('--job', help='Job title')
@@ -1108,12 +1221,12 @@ if __name__ == '__main__':
     parser_people_create.add_argument('--email', help='Email address')
     parser_people_create.add_argument('--notes', help='Notes or biography')
 
-    parser_gmail_list = subparsers.add_parser('gmail-list', help='List Gmail messages')
+    parser_gmail_list = subparsers.add_parser('gmail-list', parents=[common_parser], help='List Gmail messages')
     parser_gmail_list.add_argument('--query', default='', help='Gmail search query')
     parser_gmail_list.add_argument('--max', type=int, default=10, help='Max results')
     parser_gmail_list.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
-    parser_gmail_send = subparsers.add_parser('gmail-send', help='Send a Gmail message')
+    parser_gmail_send = subparsers.add_parser('gmail-send', parents=[common_parser], help='Send a Gmail message')
     parser_gmail_send.add_argument('to', nargs='?', default=None, help='Recipient email address')
     parser_gmail_send.add_argument('subject', nargs='?', default=None, help='Email subject')
     parser_gmail_send.add_argument('body', help='Email body')
@@ -1122,7 +1235,7 @@ if __name__ == '__main__':
     parser_gmail_send.add_argument('--thread-id', help='Thread ID to reply within')
     parser_gmail_send.add_argument('--reply-to-id', help='Message ID to reply to')
 
-    parser_gmail_draft = subparsers.add_parser('gmail-create-draft', help='Create a Gmail draft')
+    parser_gmail_draft = subparsers.add_parser('gmail-create-draft', parents=[common_parser], help='Create a Gmail draft')
     parser_gmail_draft.add_argument('to', nargs='?', default=None, help='Recipient email address')
     parser_gmail_draft.add_argument('subject', nargs='?', default=None, help='Email subject')
     parser_gmail_draft.add_argument('body', help='Email body')
@@ -1131,68 +1244,106 @@ if __name__ == '__main__':
     parser_gmail_draft.add_argument('--thread-id', help='Thread ID to reply within')
     parser_gmail_draft.add_argument('--reply-to-id', help='Message ID to reply to')
 
-    parser_gmail_get = subparsers.add_parser('gmail-get', help='Get message details')
+    parser_gmail_get = subparsers.add_parser('gmail-get', parents=[common_parser], help='Get message details')
     parser_gmail_get.add_argument('id', help='Message ID')
     parser_gmail_get.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
-    parser_gmail_download = subparsers.add_parser('gmail-download', help='Download Gmail attachment')
+    parser_gmail_download = subparsers.add_parser('gmail-download', parents=[common_parser], help='Download Gmail attachment')
     parser_gmail_download.add_argument('msg_id', help='Message ID')
     parser_gmail_download.add_argument('att_id', help='Attachment ID')
     parser_gmail_download.add_argument('filename', help='Filename')
     parser_gmail_download.add_argument('--out', help='Output directory')
 
-    parser_gmail_header = subparsers.add_parser('gmail-get-by-header', help='Get message details by header string')
+    parser_gmail_header = subparsers.add_parser('gmail-get-by-header', parents=[common_parser], help='Get message details by header string')
     parser_gmail_header.add_argument('header', help='Full email header string')
 
-    parser_gmail_modify = subparsers.add_parser('gmail-modify-labels', help='Modify labels on a Gmail message')
+    parser_gmail_modify = subparsers.add_parser('gmail-modify-labels', parents=[common_parser], help='Modify labels on a Gmail message')
     parser_gmail_modify.add_argument('id', help='Message ID')
     parser_gmail_modify.add_argument('--add', nargs='*', default=[], help='Label names or IDs to add')
     parser_gmail_modify.add_argument('--remove', nargs='*', default=[], help='Label names or IDs to remove')
 
-
-    parser_drive_search = subparsers.add_parser('drive-search', help='Search Google Drive')
+    parser_drive_search = subparsers.add_parser('drive-search', parents=[common_parser], help='Search Google Drive')
     parser_drive_search.add_argument('--query', help='Drive query (e.g. "name contains \'resume\'")')
     parser_drive_search.add_argument('--max', type=int, default=10, help='Max results')
     parser_drive_search.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
-    parser_drive_get = subparsers.add_parser('drive-get', help='Get file metadata')
+    parser_drive_get = subparsers.add_parser('drive-get', parents=[common_parser], help='Get file metadata')
     parser_drive_get.add_argument('id', help='File ID')
     parser_drive_get.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
-    parser_drive_comments = subparsers.add_parser('drive-comments', help='List comments on a Google Drive file')
+    parser_drive_comments = subparsers.add_parser('drive-comments', parents=[common_parser], help='List comments on a Google Drive file')
     parser_drive_comments.add_argument('id', help='File ID')
     parser_drive_comments.add_argument('--unresolved-only', action='store_true', help='Only return unresolved/open comments')
     parser_drive_comments.add_argument('--max', type=int, default=100, help='Page size / Max results')
 
-    parser_drive_update = subparsers.add_parser('drive-update', help='Update file metadata in Drive')
+    parser_drive_comment_get = subparsers.add_parser('drive-comment-get', parents=[common_parser], help='Get a specific comment on a Google Drive file')
+    parser_drive_comment_get.add_argument('id', help='File ID')
+    parser_drive_comment_get.add_argument('comment_id', help='Comment ID')
+
+    parser_drive_comment_create = subparsers.add_parser('drive-comment-create', parents=[common_parser], help='Create a comment on a Google Drive file')
+    parser_drive_comment_create.add_argument('id', help='File ID')
+    parser_drive_comment_create.add_argument('content', help='Comment text content')
+    parser_drive_comment_create.add_argument('--quote', help='Quoted text snippet in document')
+
+    parser_drive_comment_update = subparsers.add_parser('drive-comment-update', parents=[common_parser], help='Update a comment on a Google Drive file')
+    parser_drive_comment_update.add_argument('id', help='File ID')
+    parser_drive_comment_update.add_argument('comment_id', help='Comment ID')
+    parser_drive_comment_update.add_argument('content', help='New comment text content')
+
+    parser_drive_comment_delete = subparsers.add_parser('drive-comment-delete', parents=[common_parser], help='Delete a comment on a Google Drive file')
+    parser_drive_comment_delete.add_argument('id', help='File ID')
+    parser_drive_comment_delete.add_argument('comment_id', help='Comment ID')
+
+    parser_drive_reply_create = subparsers.add_parser('drive-reply-create', parents=[common_parser], help='Create a reply to a comment on a Google Drive file')
+    parser_drive_reply_create.add_argument('id', help='File ID')
+    parser_drive_reply_create.add_argument('comment_id', help='Comment ID')
+    parser_drive_reply_create.add_argument('content', help='Reply text content')
+    parser_drive_reply_create.add_argument('--action', choices=['resolve', 'reopen'], help='Action to take on the comment thread')
+
+    parser_drive_comment_resolve = subparsers.add_parser('drive-comment-resolve', parents=[common_parser], help='Resolve a comment thread on a Google Drive file')
+    parser_drive_comment_resolve.add_argument('id', help='File ID')
+    parser_drive_comment_resolve.add_argument('comment_id', help='Comment ID')
+    parser_drive_comment_resolve.add_argument('--reply', default='Resolved', help='Resolution reply content (default: Resolved)')
+
+    parser_drive_comment_reopen = subparsers.add_parser('drive-comment-reopen', parents=[common_parser], help='Reopen a comment thread on a Google Drive file')
+    parser_drive_comment_reopen.add_argument('id', help='File ID')
+    parser_drive_comment_reopen.add_argument('comment_id', help='Comment ID')
+    parser_drive_comment_reopen.add_argument('--reply', default='Reopened', help='Reopen reply content (default: Reopened)')
+
+    parser_drive_reply_delete = subparsers.add_parser('drive-reply-delete', parents=[common_parser], help='Delete a reply from a comment thread on a Google Drive file')
+    parser_drive_reply_delete.add_argument('id', help='File ID')
+    parser_drive_reply_delete.add_argument('comment_id', help='Comment ID')
+    parser_drive_reply_delete.add_argument('reply_id', help='Reply ID')
+
+    parser_drive_update = subparsers.add_parser('drive-update', parents=[common_parser], help='Update file metadata in Drive')
     parser_drive_update.add_argument('id', help='File ID')
     parser_drive_update.add_argument('--name', help='New filename')
     parser_drive_update.add_argument('--desc', help='New description')
     parser_drive_update.add_argument('--parent', help='New parent folder ID to move file to')
 
-    parser_drive_delete = subparsers.add_parser('drive-delete', help='Delete a file from Drive')
+    parser_drive_delete = subparsers.add_parser('drive-delete', parents=[common_parser], help='Delete a file from Drive')
     parser_drive_delete.add_argument('id', help='File ID')
 
-    parser_drive_download = subparsers.add_parser('drive-download', help='Download a file from Drive')
+    parser_drive_download = subparsers.add_parser('drive-download', parents=[common_parser], help='Download a file from Drive')
     parser_drive_download.add_argument('id', help='File ID')
     parser_drive_download.add_argument('out', help='Output file path')
 
-    parser_drive_upload = subparsers.add_parser('drive-upload', help='Upload a file to Drive')
+    parser_drive_upload = subparsers.add_parser('drive-upload', parents=[common_parser], help='Upload a file to Drive')
     parser_drive_upload.add_argument('file_path', help='Path to local file')
     parser_drive_upload.add_argument('--mime', help='MIME type')
     parser_drive_upload.add_argument('--target-mime', help='Target MIME type (e.g., application/vnd.google-apps.document for Docs)')
     parser_drive_upload.add_argument('--parent', help='Parent folder ID')
 
-    parser_drive_export = subparsers.add_parser('drive-export', help='Export a Google Doc')
+    parser_drive_export = subparsers.add_parser('drive-export', parents=[common_parser], help='Export a Google Doc')
     parser_drive_export.add_argument('id', help='File ID')
     parser_drive_export.add_argument('--mime', default='text/plain', help='MIME type to export to (default: text/plain)')
     parser_drive_export.add_argument('--out', help='Output file path')
 
-    parser_cal_list = subparsers.add_parser('cal-list', help='List calendar events')
+    parser_cal_list = subparsers.add_parser('cal-list', parents=[common_parser], help='List calendar events')
     parser_cal_list.add_argument('--max', type=int, default=10, help='Max results')
     parser_cal_list.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
-    parser_cal_create = subparsers.add_parser('cal-create', help='Create calendar event')
+    parser_cal_create = subparsers.add_parser('cal-create', parents=[common_parser], help='Create calendar event')
     parser_cal_create.add_argument('summary', help='Event summary')
     parser_cal_create.add_argument('start', help='Start time (ISO format)')
     parser_cal_create.add_argument('--duration', type=int, default=60, help='Duration in minutes')
@@ -1202,7 +1353,7 @@ if __name__ == '__main__':
     parser_cal_create.add_argument('--all-day', action='store_true', help='Create an all-day event')
     parser_cal_create.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
-    parser_cal_update = subparsers.add_parser('cal-update', help='Update calendar event')
+    parser_cal_update = subparsers.add_parser('cal-update', parents=[common_parser], help='Update calendar event')
     parser_cal_update.add_argument('id', help='Event ID')
     parser_cal_update.add_argument('--summary', help='Event summary')
     parser_cal_update.add_argument('--start', help='Start time (ISO format)')
@@ -1213,23 +1364,23 @@ if __name__ == '__main__':
     parser_cal_update.add_argument('--all-day', type=str, choices=['true', 'false'], help='Convert to all-day (true) or timed (false)')
     parser_cal_update.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
-    parser_cal_delete = subparsers.add_parser('cal-delete', help='Delete calendar event')
+    parser_cal_delete = subparsers.add_parser('cal-delete', parents=[common_parser], help='Delete calendar event')
     parser_cal_delete.add_argument('id', help='Event ID')
     parser_cal_delete.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
-    parser_cal_get = subparsers.add_parser('cal-get', help='Get calendar event details')
+    parser_cal_get = subparsers.add_parser('cal-get', parents=[common_parser], help='Get calendar event details')
     parser_cal_get.add_argument('id', help='Event ID')
     parser_cal_get.add_argument('--calendar', default='primary', help='Calendar ID (default: primary)')
 
-    parser_tasks_list = subparsers.add_parser('tasks-list', help='List tasks')
+    parser_tasks_list = subparsers.add_parser('tasks-list', parents=[common_parser], help='List tasks')
     parser_tasks_list.add_argument('--max', type=int, default=10, help='Max results')
 
-    parser_tasks_create = subparsers.add_parser('tasks-create', help='Create task')
+    parser_tasks_create = subparsers.add_parser('tasks-create', parents=[common_parser], help='Create task')
     parser_tasks_create.add_argument('title', help='Task title')
     parser_tasks_create.add_argument('--notes', help='Notes')
     parser_tasks_create.add_argument('--due', help='Due date (ISO format)')
 
-    parser_tasks_update = subparsers.add_parser('tasks-update', help='Update task')
+    parser_tasks_update = subparsers.add_parser('tasks-update', parents=[common_parser], help='Update task')
     parser_tasks_update.add_argument('id', help='Task ID')
     parser_tasks_update.add_argument('--title', help='New title')
     parser_tasks_update.add_argument('--notes', help='New notes')
@@ -1265,6 +1416,22 @@ if __name__ == '__main__':
         drive_get_file_metadata(args.id, args.format, args.cite)
     elif args.command == 'drive-comments':
         drive_list_comments(args.id, unresolved_only=args.unresolved_only, page_size=args.max, output_format=args.format)
+    elif args.command == 'drive-comment-get':
+        drive_get_comment(args.id, args.comment_id, output_format=args.format)
+    elif args.command == 'drive-comment-create':
+        drive_create_comment(args.id, args.content, quoted_text=args.quote, output_format=args.format)
+    elif args.command == 'drive-comment-update':
+        drive_update_comment(args.id, args.comment_id, args.content, output_format=args.format)
+    elif args.command == 'drive-comment-delete':
+        drive_delete_comment(args.id, args.comment_id, output_format=args.format)
+    elif args.command == 'drive-reply-create':
+        drive_create_reply(args.id, args.comment_id, args.content, action=args.action, output_format=args.format)
+    elif args.command == 'drive-comment-resolve':
+        drive_resolve_comment(args.id, args.comment_id, content=args.reply, output_format=args.format)
+    elif args.command == 'drive-comment-reopen':
+        drive_reopen_comment(args.id, args.comment_id, content=args.reply, output_format=args.format)
+    elif args.command == 'drive-reply-delete':
+        drive_delete_reply(args.id, args.comment_id, args.reply_id, output_format=args.format)
     elif args.command == 'drive-update':
         drive_update_file(args.id, args.name, args.desc, args.parent, args.format)
     elif args.command == 'drive-delete':
