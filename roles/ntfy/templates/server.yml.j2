@@ -9,3 +9,16 @@ enable-login: true
 upstream-base-url: "{{ ntfy_upstream_base_url }}"
 attachment-cache-dir: "/var/cache/ntfy/attachments"
 behind-proxy: true
+
+auth-users:
+{% for u in ntfy_auth_users %}
+  - "{{ u }}"
+{% endfor %}
+auth-access:
+{% for a in ntfy_auth_access %}
+  - "{{ a }}"
+{% endfor %}
+auth-tokens:
+{% for t in ntfy_auth_tokens %}
+  - "{{ t }}"
+{% endfor %}
