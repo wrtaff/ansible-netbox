@@ -1,18 +1,16 @@
 # ==============================================================================
 # Filename:       roles/backup_manager/templates/jobs.cfg.j2
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini CLI
-# Last Modified:  2026-02-02
-# Context:        http://trac.home.arpa/ticket/3008
+# Last Modified:  2026-09-24
+# Context:        http://trac.gafla.us.com/ticket/3377
 #
 # Purpose:
-#    Jinja2 template for Proxmox /etc/pve/jobs.cfg
+#    Jinja2 template for Proxmox /etc/pve/jobs.cfg (cluster-wide backup jobs)
 # ==============================================================================
 # Ansible Managed File - Do Not Edit Manually
 
-{% set render_node = proxmox_node_name | default(inventory_hostname) %}
 {% for job in proxmox_backup_jobs %}
-{% if job.node is not defined or job.node == render_node %}
 vzdump: {{ job.id | default((job.name | default('uuid-' ~ (job.vmid | string))) | to_uuid) }}
 {% if job.node is defined %}
     node {{ job.node }}
@@ -33,6 +31,5 @@ vzdump: {{ job.id | default((job.name | default('uuid-' ~ (job.vmid | string))) 
 {% endif %}
 {% if job.compress is defined %}
     compress {{ job.compress }}
-{% endif %}
 {% endif %}
 {% endfor %}
