@@ -190,9 +190,9 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
             attributes['summary'] = summary
         if description:
             attributes['description'] = description
-        if keywords:
-            # Enforce space-separated keywords
-            attributes['keywords'] = ' '.join(keywords.replace(',', ' ').split())
+        if keywords is not None:
+            # Enforce space-separated lowercase keywords
+            attributes['keywords'] = ' '.join(keywords.replace(',', ' ').split()).lower()
         if component:
             # Validate component
             valid_components = proxy.ticket.component.getAll()
@@ -212,8 +212,9 @@ def update_ticket(ticket_id: int, comment: str, component: Optional[str] = None,
         if resolution:
             attributes['resolution'] = resolution
         if owner:
-            attributes['owner'] = owner
-            attributes['action_reassign_reassign_owner'] = owner
+            clean_owner = owner.strip().lower()
+            attributes['owner'] = clean_owner
+            attributes['action_reassign_reassign_owner'] = clean_owner
         if action:
             attributes['action'] = action
             if action == 'resolve':
@@ -260,8 +261,8 @@ def create_ticket(summary: str, description: str, component: str, type: str = "t
     try:
         proxy = get_proxy()
         
-        # Enforce space-separated keywords
-        keywords = ' '.join(keywords.replace(',', ' ').split())
+        # Enforce space-separated lowercase keywords
+        clean_keywords = ' '.join(keywords.replace(',', ' ').split()).lower()
         
         # Validate component
         valid_components = proxy.ticket.component.getAll()
@@ -278,7 +279,7 @@ def create_ticket(summary: str, description: str, component: str, type: str = "t
         attributes = {
             'type': str(type),
             'priority': str(priority),
-            'keywords': str(keywords),
+            'keywords': str(clean_keywords),
             'component': str(component),
             'cc': 'will' # Standard practice to cc user
         }

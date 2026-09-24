@@ -612,7 +612,7 @@ def delete_task(task_id: int, confirm: bool = False) -> str:
         return f"Error deleting Vikunja task #{task_id}: {e}"
 
 @mcp.tool(name="vikunja_create_trac_ticket")
-def create_trac_ticket(task_id: int, component: Optional[str] = None, priority: str = "major", keywords: str = "awp, crdo, Jen") -> str:
+def create_trac_ticket(task_id: int, component: Optional[str] = None, priority: str = "major", keywords: str = "awp crdo jen") -> str:
     """
     Create a Trac ticket based on a Vikunja task and link them.
     task_id: The ID of the Vikunja task.
@@ -621,12 +621,13 @@ def create_trac_ticket(task_id: int, component: Optional[str] = None, priority: 
         that guess isn't confident (e.g. project is "Inbox"), defaults to 'recreation' and
         the response flags this so the caller can confirm/correct with the user.
     priority: Trac priority.
-    keywords: Comma-separated keywords.
+    keywords: Space-separated keywords (automatically normalized to lowercase).
     """
     logger.info(f"Vikunja: Create Trac ticket from task {task_id}")
     try:
         token = os.getenv("VIKUNJA_API_TOKEN")
         host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
+        norm_keywords = ' '.join(keywords.replace(',', ' ').split()).lower()
 
         # 1. Fetch Vikunja Task
         task = ctfv.get_vikunja_task(task_id)
@@ -660,7 +661,7 @@ def create_trac_ticket(task_id: int, component: Optional[str] = None, priority: 
             description += f"\n\n{wiki_desc}"
 
         # 2. Create XML Payload
-        xml_payload = ctfv.create_trac_ticket_xml(summary, description, component, priority, keywords)
+        xml_payload = ctfv.create_trac_ticket_xml(summary, description, component, priority, norm_keywords)
 
         # 3. Send to Trac
         response_xml = ctfv.send_to_trac(xml_payload)

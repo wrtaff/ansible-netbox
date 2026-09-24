@@ -185,7 +185,7 @@ def main():
     parser.add_argument("task_id", type=int, help="Vikunja Task ID")
     parser.add_argument("--component", default="recreation", help="Trac component")
     parser.add_argument("--priority", default="major", help="Trac priority")
-    parser.add_argument("--keywords", default="awp, crdo, Jen", help="Comma-separated keywords")
+    parser.add_argument("--keywords", default="awp crdo jen", help="Space-separated keywords")
     parser.add_argument("--add-keywords", help="Additional keywords to append")
 
     args = parser.parse_args()
@@ -211,9 +211,10 @@ def main():
         if wiki_desc:
             description += f"\n\n{wiki_desc}"
         
-        keywords = args.keywords
+        raw_keywords = args.keywords
         if args.add_keywords:
-            keywords += f", {args.add_keywords}"
+            raw_keywords += f" {args.add_keywords}"
+        keywords = ' '.join(raw_keywords.replace(',', ' ').split()).lower()
 
         # 3. Create XML Payload
         xml_payload = create_trac_ticket_xml(summary, description, args.component, args.priority, keywords)
