@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       scripts/google_workspace_manager.py
-Version:        1.33
+Version:        1.34
 Author:         Gemini CLI
-Last Modified:  2026-09-21
-Context:        http://trac.gafla.us.com/ticket/3571
+Last Modified:  2026-09-24
+Context:        http://trac.gafla.us.com/ticket/4743
 
 Purpose:
     Unified manager for Google Workspace services (Calendar, Tasks, Gmail, Drive, Contacts).
@@ -18,12 +18,16 @@ Usage:
     python3 google_workspace_manager.py gmail-create-draft <to> <subject> <body> [--cc CC] [--reply-to-id ID] [--thread-id ID]
     python3 google_workspace_manager.py drive-search [--query "name contains '...'] [--cite]
     python3 google_workspace_manager.py drive-get "file_id" [--cite]
+    python3 google_workspace_manager.py drive-comments "file_id" [--unresolved-only]
     python3 google_workspace_manager.py drive-update "file_id" --name "new_name"
     python3 google_workspace_manager.py drive-delete "file_id"
     python3 google_workspace_manager.py cal-update "event_id" --summary "New Title"
     python3 google_workspace_manager.py people-create "Given" "Family" --job "Title"
 
 Revision History:
+    v1.34 (2026-09-24): Added drive_list_comments and drive-comments CLI subcommand
+                        to query, filter, and display Google Drive / Google Docs
+                        comments and replies (Trac #4743).
     v1.33 (2026-09-21): Added thread_id and reply_to_message_id support to
                         gmail_send_message and gmail_create_draft to enable direct
                         email replying in threads.
@@ -708,6 +712,46 @@ def drive_get_file_metadata(file_id, output_format='text', cite=False):
     except HttpError as error:
         output({'error': str(error)}, output_format)
 
+def drive_list_comments(file_id, unresolved_only=False, page_size=100, output_format='text'):
+    """List comments and replies on a Google Drive file (Doc, Sheet, etc.)."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        results = service.comments().list(
+            fileId=file_id,
+            pageSize=page_size,
+            fields="comments(id,author,content,createdTime,modifiedTime,resolved,quotedFileContent,replies(id,author,content,createdTime,modifiedTime,action))"
+        ).execute()
+        comments = results.get('comments', [])
+        if unresolved_only:
+            comments = [c for c in comments if not c.get('resolved', False)]
+        
+        if output_format == 'json':
+            output(comments, 'json')
+        else:
+            if not comments:
+                print(f"No {'unresolved ' if unresolved_only else ''}comments found on file {file_id}.")
+                return
+            for c in comments:
+                author = c.get('author', {}).get('displayName', 'Unknown Author')
+                created = c.get('createdTime', '')
+                status = "RESOLVED" if c.get('resolved') else "OPEN"
+                print(f"=== Comment [{status}] by {author} ({created}) ===")
+                quoted = c.get('quotedFileContent', {}).get('value')
+                if quoted:
+                    print(f"  Quoted text: \"{quoted}\"")
+                print(f"  Content: {c.get('content', '')}")
+                replies = c.get('replies', [])
+                if replies:
+                    for r in replies:
+                        r_author = r.get('author', {}).get('displayName', 'Unknown Author')
+                        r_created = r.get('createdTime', '')
+                        r_action = f" [{r.get('action')}]" if r.get('action') else ""
+                        print(f"    -> Reply by {r_author}{r_action} ({r_created}): {r.get('content', '')}")
+                print()
+    except HttpError as error:
+        output({'error': str(error)}, output_format)
+
 def drive_create_folder(name, parent_id=None, output_format='text'):
     """Create a folder in Google Drive. Returns existing folder if one with the same name already exists in the parent."""
     creds = get_creds()
@@ -1115,6 +1159,11 @@ if __name__ == '__main__':
     parser_drive_get.add_argument('id', help='File ID')
     parser_drive_get.add_argument('--cite', action='store_true', help='Generate WWOS-style citation')
 
+    parser_drive_comments = subparsers.add_parser('drive-comments', help='List comments on a Google Drive file')
+    parser_drive_comments.add_argument('id', help='File ID')
+    parser_drive_comments.add_argument('--unresolved-only', action='store_true', help='Only return unresolved/open comments')
+    parser_drive_comments.add_argument('--max', type=int, default=100, help='Page size / Max results')
+
     parser_drive_update = subparsers.add_parser('drive-update', help='Update file metadata in Drive')
     parser_drive_update.add_argument('id', help='File ID')
     parser_drive_update.add_argument('--name', help='New filename')
@@ -1214,6 +1263,8 @@ if __name__ == '__main__':
         drive_search(args.query, args.max, args.format, args.cite)
     elif args.command == 'drive-get':
         drive_get_file_metadata(args.id, args.format, args.cite)
+    elif args.command == 'drive-comments':
+        drive_list_comments(args.id, unresolved_only=args.unresolved_only, page_size=args.max, output_format=args.format)
     elif args.command == 'drive-update':
         drive_update_file(args.id, args.name, args.desc, args.parent, args.format)
     elif args.command == 'drive-delete':
