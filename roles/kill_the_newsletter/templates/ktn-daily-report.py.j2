@@ -22,7 +22,7 @@ def generate_report(hours=24):
     # Connect to SQLite in read-only mode
     conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     entries = conn.execute("""
-        SELECT f.title, e.title, e.createdAt, f.publicId
+        SELECT f.title, e.title, e.createdAt, f.publicId, e.publicId
         FROM feedEntries e
         JOIN feeds f ON e.feed = f.id
         WHERE e.createdAt >= ?
@@ -63,29 +63,30 @@ def generate_report(hours=24):
     lines.append("=" * 60)
     lines.append("")
     lines.append("System & Ingest Health:")
-    lines.append(f"  • Puller Runs:     {runs}")
-    lines.append(f"  • Relayed to KTN:  {total_delivered}")
-    lines.append(f"  • Skipped:         {total_skipped}")
-    lines.append(f"  • Puller Errors:   {total_errors}")
-    lines.append(f"  • Issues in Feeds: {len(entries)}")
+    lines.append(f"  • Puller Runs:       {runs}")
+    lines.append(f"  • Relayed to KTN:    {total_delivered}")
+    lines.append(f"  • Skipped:           {total_skipped}")
+    lines.append(f"  • Puller Errors:     {total_errors}")
+    lines.append(f"  • Articles in Feeds: {len(entries)}")
     if puller_log_err:
-        lines.append(f"  • Log Query Note:  {puller_log_err}")
+        lines.append(f"  • Log Query Note:    {puller_log_err}")
     lines.append("")
 
     lines.append("Newsletters Received & Available in FreshRSS:")
     if not entries:
         lines.append("  (No newsletters received in this time window)")
     else:
-        for idx, (feed_title, entry_title, created_at, pub_id) in enumerate(entries, 1):
+        for idx, (feed_title, entry_title, created_at, feed_pub_id, entry_pub_id) in enumerate(entries, 1):
             try:
                 dt_obj = datetime.datetime.fromisoformat(created_at.replace("Z", "+00:00")).astimezone()
                 time_str = dt_obj.strftime("%Y-%m-%d %H:%M %Z")
             except Exception:
                 time_str = created_at
             lines.append(f"  {idx}. [{feed_title}]")
-            lines.append(f"     Title: {entry_title}")
-            lines.append(f"     Time:  {time_str}")
-            lines.append(f"     Feed:  http://ktn-lxc-01.home.arpa:8088/feeds/{pub_id}.xml")
+            lines.append(f"     Title:   {entry_title}")
+            lines.append(f"     Time:    {time_str}")
+            lines.append(f"     Article: http://ktn-lxc-01.home.arpa:8088/feeds/{feed_pub_id}/entries/{entry_pub_id}.html")
+            lines.append(f"     Feed:    http://ktn-lxc-01.home.arpa:8088/feeds/{feed_pub_id}.xml")
             lines.append("")
 
     lines.append("-" * 60)
@@ -97,7 +98,7 @@ def generate_report(hours=24):
     count = len(entries)
     suffix = "s" if count != 1 else ""
     today_str = datetime.date.today().isoformat()
-    subject = f"[KTN] Daily Newsletter Report: {count} issue{suffix} received ({today_str})"
+    subject = f"[KTN] Daily Newsletter Report: {count} article{suffix} received ({today_str})"
     return subject, body
 
 
