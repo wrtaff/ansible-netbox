@@ -568,6 +568,9 @@
     {
       name: "ktn/ljvvi7unr7lq56c7kjft"   // American Red Cross
     },
+    {
+      name: "ktn/dfw6lefiwpbwowwudk9s"   // GitHub Notifications
+    },
     // Will's standing "KTN this + filter it" triage queue (skills/domain/
     // kill-the-newsletter.md Core Principle). Not a KTN feed label -- just
     // needs to survive `gmailctl apply` the same way.
@@ -2721,6 +2724,18 @@
         archive: true,
         labels: [
           "Trac"
+        ]
+      }
+    },
+    {
+      // GitHub Notifications -> KTN feed dfw6lefiwpbwowwudk9s (Trac #4751)
+      filter: {
+        from: "notifications@github.com"
+      },
+      actions: {
+        archive: true,
+        labels: [
+          "ktn/dfw6lefiwpbwowwudk9s"
         ]
       }
     }
