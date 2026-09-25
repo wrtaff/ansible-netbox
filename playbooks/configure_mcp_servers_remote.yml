@@ -33,6 +33,7 @@
   hosts: "{{ mcp_target_hosts | default('desktops,agent_runners') }}"
   vars_files:
     - ../vault.yml
+    - ../vault_ntfy.yml   # NTFY_PUBLISHER_TOKEN in mcp-secrets.env (Trac #4748)
   vars:
     gemini_user: "will"
     repo_path: "/home/{{ gemini_user }}/ansible-netbox"

@@ -112,6 +112,7 @@
   become: yes
   vars_files:
     - ../vault.yml
+    - ../vault_ntfy.yml   # NTFY_PUBLISHER_TOKEN in mcp-secrets.env (Trac #4748)
   vars:
     target_user: will
     target_home: "/home/{{ target_user }}"
