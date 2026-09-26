@@ -98,7 +98,7 @@
               xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -n -t string -s "⚡ {{ xfce_host_badge_name }}" || xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -s "⚡ {{ xfce_host_badge_name }}" || true
               xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -n -t int -s 1 || xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -s 1 || true
               xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -n -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || true
-              xfce4-panel -r 2>/dev/null || true
+              xfce4-panel -r >/dev/null 2>&1 &
             fi
           done
         else
@@ -109,5 +109,6 @@
             DISPLAY=$disp xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -n -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || true
           done
         fi
+        sleep 1
       failed_when: false
       changed_when: false
