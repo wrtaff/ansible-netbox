@@ -87,36 +87,27 @@
         update-alternatives --set desktop-background "/usr/local/share/backgrounds/{{ inventory_hostname }}-bg.svg"
       changed_when: true
 
-    - name: Configure Applications Menu button title and panel properties
+    - name: Apply visual branding across active user X and X2Go sessions
       ansible.builtin.shell: |
-        # Set Applications Menu button title to host badge
-        xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -n -t string -s "⚡ {{ xfce_host_badge_name }}" || xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -s "⚡ {{ xfce_host_badge_name }}" || true
-        
-        # Configure panel background color
-        xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -n -t int -s 1 || xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -s 1 || true
-        xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -n -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || true
-        
-        # Configure genmon date/badge click
-        xfconf-query -c xfce4-panel -p /plugins/plugin-8 -s "genmon" || true
-        xfconf-query -c xfce4-panel -p /plugins/plugin-8/cmd -n -t string -s "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh" || xfconf-query -c xfce4-panel -p /plugins/plugin-8/cmd -s "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh" || true
-        xfconf-query -c xfce4-panel -p /plugins/plugin-8/use-label -n -t bool -s false || xfconf-query -c xfce4-panel -p /plugins/plugin-8/use-label -s false || true
-        xfconf-query -c xfce4-panel -p /plugins/plugin-8/update-period -n -t int -s 1000 || xfconf-query -c xfce4-panel -p /plugins/plugin-8/update-period -s 1000 || true
-        xfconf-query -c xfce4-panel -p /plugins/plugin-8/enable-single-row -n -t bool -s true || xfconf-query -c xfce4-panel -p /plugins/plugin-8/enable-single-row -s true || true
-      environment:
-        DISPLAY: "{{ item }}"
-      loop:
-        - ":0"
-        - ":50.0"
-        - ":50"
-      failed_when: false
-      changed_when: false
-
-    - name: Reload xfce4-panel across active displays if running
-      ansible.builtin.shell: |
-        DISPLAY={{ item }} xfce4-panel -r 2>/dev/null || true
-      loop:
-        - ":0"
-        - ":50.0"
-        - ":50"
+        # 1. Update per-session environment for all running xfce4-panel instances (native and X2Go)
+        pids=$(pgrep -u {{ ansible_user | default('will') }} -f 'xfce4-panel' 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+          for pid in $pids; do
+            if [ -r "/proc/$pid/environ" ]; then
+              eval $(strings /proc/$pid/environ | grep -E '^(DISPLAY|DBUS_SESSION_BUS_ADDRESS)=' | sed 's/^/export /')
+              xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -n -t string -s "⚡ {{ xfce_host_badge_name }}" || xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -s "⚡ {{ xfce_host_badge_name }}" || true
+              xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -n -t int -s 1 || xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -s 1 || true
+              xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -n -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || true
+              xfce4-panel -r 2>/dev/null || true
+            fi
+          done
+        else
+          # Fallback for display :0 and :50 when no active panel process is running
+          for disp in ":0" ":50.0" ":50"; do
+            DISPLAY=$disp xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -n -t string -s "⚡ {{ xfce_host_badge_name }}" || true
+            DISPLAY=$disp xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -n -t int -s 1 || true
+            DISPLAY=$disp xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -n -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || true
+          done
+        fi
       failed_when: false
       changed_when: false
