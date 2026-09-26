@@ -152,6 +152,15 @@
         - inventory_hostname != 'ynh2'
         - not mcp_venv_metadata.stat.exists or mcp_venv_probe.rc | default(1) != 0
 
+    - name: 3b. Ensure python3-venv and python3-pip system packages are present
+      become: yes
+      ansible.builtin.package:
+        name:
+          - python3-venv
+          - python3-pip
+        state: present
+      when: inventory_hostname != 'ynh2'
+
     - name: 4. Create managed Python virtual environment
       ansible.builtin.command:
         cmd: "python3 -m venv {{ venv_path }}"
