@@ -145,3 +145,6 @@ exec_always --no-startup-id {{ i3_xrandr_command }}
 # Autostart Polybar and Plank
 exec_always --no-startup-id {{ ansible_facts['user_dir'] }}/.config/polybar/launch.sh
 exec_always --no-startup-id env XDG_SESSION_TYPE=x11 plank
+
+# Wallpaper for physical display (:0)
+exec_always --no-startup-id feh --bg-fill {{ i3_desktop_wallpaper | default('/home/will/Pictures/solarpunk22.jpg') }}
