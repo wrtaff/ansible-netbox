@@ -134,6 +134,11 @@ def main():
         print(f"Connecting to Trac server at {TRAC_URL.split('@')[1]}...")
         server = xmlrpc.client.ServerProxy(TRAC_URL)
 
+        valid_priorities = server.ticket.priority.getAll()
+        if args.priority not in valid_priorities:
+            print(f"Error: Invalid priority '{args.priority}'. Valid priorities are: {', '.join(valid_priorities)}")
+            sys.exit(1)
+
         ticket_id = server.ticket.create(args.summary, processed_description, attributes, NOTIFY)
 
         print("\nSuccessfully created ticket!")

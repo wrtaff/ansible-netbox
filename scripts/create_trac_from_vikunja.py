@@ -36,6 +36,8 @@ import subprocess
 import os
 import sys
 import datetime
+import xmlrpc.client
+from urllib.parse import quote
 from xml.sax.saxutils import escape
 
 def get_trac_password():
@@ -114,6 +116,20 @@ def html_desc_to_wiki(desc_html):
     text = html.unescape(text)
     return text.strip()
 
+
+def validate_priority(priority):
+    """Reject a priority string that isn't in Trac's live enum.
+    This script builds its XML-RPC payload by hand (no xmlrpc.client for the
+    write itself), so unlike the Trac MCP server's create_ticket/update_ticket
+    it had no validation at all -- that's how ticket #4457 and #4760 ended up
+    with priority 'normal', a non-canonical value. Mirrors the check in
+    mcp-servers/trac/server.py so there's one enforced rule everywhere."""
+    encoded_password = quote(TRAC_PASS, safe='')
+    auth_url = TRAC_URL.replace("http://", f"http://{TRAC_USER}:{encoded_password}@", 1)
+    proxy = xmlrpc.client.ServerProxy(auth_url)
+    valid_priorities = proxy.ticket.priority.getAll()
+    if priority not in valid_priorities:
+        raise ValueError(f"Invalid priority '{priority}'. Valid priorities are: {', '.join(valid_priorities)}")
 
 def create_trac_ticket_xml(summary, description, component, priority, keywords):
     # Construct XML payload manually to ensure correct structure for Trac XML-RPC
@@ -217,6 +233,7 @@ def main():
         keywords = ' '.join(raw_keywords.replace(',', ' ').split()).lower()
 
         # 3. Create XML Payload
+        validate_priority(args.priority)
         xml_payload = create_trac_ticket_xml(summary, description, args.component, args.priority, keywords)
         
         # 4. Send to Trac
