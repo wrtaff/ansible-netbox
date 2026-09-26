@@ -32,4 +32,5 @@ vzdump: {{ job.id | default((job.name | default('uuid-' ~ (job.vmid | string))) 
 {% if job.compress is defined %}
     compress {{ job.compress }}
 {% endif %}
+
 {% endfor %}
