@@ -1,5 +1,5 @@
 ---
-- name: Apply host-specific visual identification (XFCE panel badge and desktop background)
+- name: Apply host-specific visual identification (XFCE panel button title, panel color accent, and desktop background)
   hosts: desktops
   gather_facts: true
   become: false
@@ -9,32 +9,38 @@
       limbo-f0:
         badge_name: "LIMBO-F0"
         badge_color: "#0055aa"
+        panel_rgba: [0.0, 0.33, 0.67, 1.0]
         bg_gradient_start: "#0a192f"
         bg_gradient_end: "#020c1b"
       athena:
         badge_name: "ATHENA"
         badge_color: "#551a8b"
+        panel_rgba: [0.33, 0.10, 0.55, 1.0]
         bg_gradient_start: "#1a092b"
         bg_gradient_end: "#0d0217"
       zeus:
         badge_name: "OPTI-CC76"
         badge_color: "#1e5b22"
+        panel_rgba: [0.12, 0.36, 0.13, 1.0]
         bg_gradient_start: "#0a2411"
         bg_gradient_end: "#031207"
       opti-cc76:
         badge_name: "OPTI-CC76"
         badge_color: "#1e5b22"
+        panel_rgba: [0.12, 0.36, 0.13, 1.0]
         bg_gradient_start: "#0a2411"
         bg_gradient_end: "#031207"
       titan2:
         badge_name: "TITAN2"
         badge_color: "#8b6508"
+        panel_rgba: [0.55, 0.40, 0.03, 1.0]
         bg_gradient_start: "#241a05"
         bg_gradient_end: "#120d02"
 
-    active_profile: "{{ host_visual_profiles[inventory_hostname] | default(host_visual_profiles[ansible_facts['hostname']] | default({'badge_name': inventory_hostname | upper, 'badge_color': '#333333', 'bg_gradient_start': '#1a1a24', 'bg_gradient_end': '#0d0d12'})) }}"
+    active_profile: "{{ host_visual_profiles[inventory_hostname] | default(host_visual_profiles[ansible_facts['hostname']] | default({'badge_name': inventory_hostname | upper, 'badge_color': '#333333', 'panel_rgba': [0.2, 0.2, 0.2, 1.0], 'bg_gradient_start': '#1a1a24', 'bg_gradient_end': '#0d0d12'})) }}"
     xfce_host_badge_name: "{{ active_profile.badge_name }}"
     xfce_host_badge_color: "{{ active_profile.badge_color }}"
+    xfce_panel_rgba: "{{ active_profile.panel_rgba }}"
     xfce_bg_gradient_start: "{{ active_profile.bg_gradient_start }}"
     xfce_bg_gradient_end: "{{ active_profile.bg_gradient_end }}"
 
@@ -81,14 +87,36 @@
         update-alternatives --set desktop-background "/usr/local/share/backgrounds/{{ inventory_hostname }}-bg.svg"
       changed_when: true
 
-    - name: Configure xfce4-genmon-plugin on XFCE panel if genmon exists
+    - name: Configure Applications Menu button title and panel properties
       ansible.builtin.shell: |
+        # Set Applications Menu button title to host badge
+        xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -n -t string -s "⚡ {{ xfce_host_badge_name }}" || xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -s "⚡ {{ xfce_host_badge_name }}" || true
+        
+        # Configure panel background color
+        xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -n -t int -s 1 || xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -s 1 || true
+        xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -n -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -t double -s {{ xfce_panel_rgba[0] }} -t double -s {{ xfce_panel_rgba[1] }} -t double -s {{ xfce_panel_rgba[2] }} -t double -s {{ xfce_panel_rgba[3] }} || true
+        
+        # Configure genmon date/badge click
         xfconf-query -c xfce4-panel -p /plugins/plugin-8 -s "genmon" || true
         xfconf-query -c xfce4-panel -p /plugins/plugin-8/cmd -n -t string -s "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh" || xfconf-query -c xfce4-panel -p /plugins/plugin-8/cmd -s "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh" || true
         xfconf-query -c xfce4-panel -p /plugins/plugin-8/use-label -n -t bool -s false || xfconf-query -c xfce4-panel -p /plugins/plugin-8/use-label -s false || true
         xfconf-query -c xfce4-panel -p /plugins/plugin-8/update-period -n -t int -s 1000 || xfconf-query -c xfce4-panel -p /plugins/plugin-8/update-period -s 1000 || true
         xfconf-query -c xfce4-panel -p /plugins/plugin-8/enable-single-row -n -t bool -s true || xfconf-query -c xfce4-panel -p /plugins/plugin-8/enable-single-row -s true || true
       environment:
-        DISPLAY: ":0"
+        DISPLAY: "{{ item }}"
+      loop:
+        - ":0"
+        - ":50.0"
+        - ":50"
+      failed_when: false
+      changed_when: false
+
+    - name: Reload xfce4-panel across active displays if running
+      ansible.builtin.shell: |
+        DISPLAY={{ item }} xfce4-panel -r 2>/dev/null || true
+      loop:
+        - ":0"
+        - ":50.0"
+        - ":50"
       failed_when: false
       changed_when: false
