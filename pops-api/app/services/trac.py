@@ -162,7 +162,19 @@ def create_trac_ticket(
 
     try:
         server = xmlrpc.client.ServerProxy(trac_url)
+        # Validate against Trac's live enum before writing. Without this check,
+        # an arbitrary priority string is written straight to the ticket with
+        # no rejection -- this is how #4457 and #4760 ended up with the
+        # non-canonical value "normal". Mirrors the same check in
+        # mcp-servers/trac/server.py so there's one enforced rule everywhere.
+        valid_priorities = server.ticket.priority.getAll()
+        if priority not in valid_priorities:
+            raise TracError(
+                f"Invalid priority '{priority}'. Valid priorities are: {', '.join(valid_priorities)}"
+            )
         ticket_id = server.ticket.create(summary, processed, attributes, True)
+    except TracError:
+        raise
     except xmlrpc.client.Fault as exc:
         raise TracError(
             f"Trac XML-RPC fault {exc.faultCode}: {exc.faultString}"
