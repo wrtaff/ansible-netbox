@@ -1,0 +1,94 @@
+---
+- name: Apply host-specific visual identification (XFCE panel badge and desktop background)
+  hosts: desktops
+  gather_facts: true
+  become: false
+
+  vars:
+    host_visual_profiles:
+      limbo-f0:
+        badge_name: "LIMBO-F0"
+        badge_color: "#0055aa"
+        bg_gradient_start: "#0a192f"
+        bg_gradient_end: "#020c1b"
+      athena:
+        badge_name: "ATHENA"
+        badge_color: "#551a8b"
+        bg_gradient_start: "#1a092b"
+        bg_gradient_end: "#0d0217"
+      zeus:
+        badge_name: "OPTI-CC76"
+        badge_color: "#1e5b22"
+        bg_gradient_start: "#0a2411"
+        bg_gradient_end: "#031207"
+      opti-cc76:
+        badge_name: "OPTI-CC76"
+        badge_color: "#1e5b22"
+        bg_gradient_start: "#0a2411"
+        bg_gradient_end: "#031207"
+      titan2:
+        badge_name: "TITAN2"
+        badge_color: "#8b6508"
+        bg_gradient_start: "#241a05"
+        bg_gradient_end: "#120d02"
+
+    active_profile: "{{ host_visual_profiles[inventory_hostname] | default(host_visual_profiles[ansible_facts['hostname']] | default({'badge_name': inventory_hostname | upper, 'badge_color': '#333333', 'bg_gradient_start': '#1a1a24', 'bg_gradient_end': '#0d0d12'})) }}"
+    xfce_host_badge_name: "{{ active_profile.badge_name }}"
+    xfce_host_badge_color: "{{ active_profile.badge_color }}"
+    xfce_bg_gradient_start: "{{ active_profile.bg_gradient_start }}"
+    xfce_bg_gradient_end: "{{ active_profile.bg_gradient_end }}"
+
+  tasks:
+    - name: Ensure xfce4-genmon-plugin and clipboard tools are present
+      become: true
+      ansible.builtin.package:
+        name:
+          - xfce4-genmon-plugin
+          - xclip
+          - xsel
+        state: present
+
+    - name: Ensure user XFCE config directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_facts['user_dir'] }}/.config/xfce4"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy host-badged xfce_date_click.sh script
+      ansible.builtin.template:
+        src: ../templates/xfce/xfce_date_click.sh.j2
+        dest: "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh"
+        mode: "0755"
+
+    - name: Ensure /usr/local/share/backgrounds directory exists
+      become: true
+      ansible.builtin.file:
+        path: /usr/local/share/backgrounds
+        state: directory
+        mode: "0755"
+
+    - name: Deploy host-specific SVG desktop background
+      become: true
+      ansible.builtin.template:
+        src: ../templates/xfce/host_background.svg.j2
+        dest: "/usr/local/share/backgrounds/{{ inventory_hostname }}-bg.svg"
+        mode: "0644"
+
+    - name: Configure desktop-background system alternative
+      become: true
+      ansible.builtin.shell: |
+        update-alternatives --install /usr/share/images/desktop-base/desktop-background desktop-background "/usr/local/share/backgrounds/{{ inventory_hostname }}-bg.svg" 100
+        update-alternatives --set desktop-background "/usr/local/share/backgrounds/{{ inventory_hostname }}-bg.svg"
+      changed_when: true
+
+    - name: Configure xfce4-genmon-plugin on XFCE panel if genmon exists
+      ansible.builtin.shell: |
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8 -s "genmon" || true
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8/cmd -n -t string -s "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh" || xfconf-query -c xfce4-panel -p /plugins/plugin-8/cmd -s "{{ ansible_facts['user_dir'] }}/.config/xfce4/xfce_date_click.sh" || true
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8/use-label -n -t bool -s false || xfconf-query -c xfce4-panel -p /plugins/plugin-8/use-label -s false || true
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8/update-period -n -t int -s 1000 || xfconf-query -c xfce4-panel -p /plugins/plugin-8/update-period -s 1000 || true
+        xfconf-query -c xfce4-panel -p /plugins/plugin-8/enable-single-row -n -t bool -s true || xfconf-query -c xfce4-panel -p /plugins/plugin-8/enable-single-row -s true || true
+      environment:
+        DISPLAY: ":0"
+      failed_when: false
+      changed_when: false

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:{{ xfce_bg_gradient_start | default('#1a1a24') }};stop-opacity:1" />
+      <stop offset="100%" style="stop-color:{{ xfce_bg_gradient_end | default('#0d0d12') }};stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)" />
+  <g opacity="0.12">
+    <circle cx="960" cy="540" r="420" fill="none" stroke="{{ xfce_host_badge_color | default('#555555') }}" stroke-width="2"/>
+    <circle cx="960" cy="540" r="300" fill="none" stroke="{{ xfce_host_badge_color | default('#555555') }}" stroke-width="1"/>
+    <circle cx="960" cy="540" r="180" fill="none" stroke="{{ xfce_host_badge_color | default('#555555') }}" stroke-width="1"/>
+  </g>
+  <!-- Host Identity Watermark Bottom-Right -->
+  <rect x="1400" y="910" width="460" height="110" rx="12" fill="{{ xfce_host_badge_color | default('#333333') }}" opacity="0.88" />
+  <text x="1630" y="955" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="34" font-weight="bold" fill="#ffffff" text-anchor="middle" letter-spacing="3">{{ xfce_host_badge_name | default(inventory_hostname | upper) }}</text>
+  <text x="1630" y="995" font-family="DejaVu Sans Mono, monospace" font-size="18" fill="#e0e0e0" text-anchor="middle">{{ ansible_host | default(ansible_facts['default_ipv4']['address'] | default('')) }}</text>
+</svg>
