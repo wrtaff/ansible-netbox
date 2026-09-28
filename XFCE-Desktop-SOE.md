@@ -77,7 +77,7 @@ No logout is normally required.
 
 - `limbo-f0`: XFCE 4.20.4
 - `athena`: XFCE 4.20.x and canonical current behavior
-- `zeus` / `opti-CC76`: XFCE 4.16, preference reference only
+- `zeus` / `opti-CC76`: XFCE 4.20.4 (Debian 13 Trixie), synchronized with `limbo-f0` SOE layout
 
 Do not copy a complete `~/.config/xfce4` tree across these hosts. XFCE
 channels and plugin IDs must be compared and migrated individually.
