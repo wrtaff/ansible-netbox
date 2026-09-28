@@ -1,0 +1,7 @@
+---
+# Trac #4780 WP-3: titan2's tailscale client resolves peers but not
+# *.van-bee.ts.net via the system resolver (tailscale status shows it
+# joined and active; only the MagicDNS name lookup for the ntfy tailnet
+# hostname fails). Falls back to the LAN URL for the ntfy desktop client,
+# per the documented fallback pattern in skills/domain/notifications-manager.md.
+ntfy_desktop_base_url: "http://ntfy-lxc-01.home.arpa"

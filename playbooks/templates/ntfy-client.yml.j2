@@ -2,7 +2,7 @@
 # Read by the shipped ntfy-client.service (systemd --user unit) via
 # `ntfy subscribe --from-config`.
 
-default-host: "{{ ntfy_desktop_base_url }}"
+default-host: "{{ ntfy_desktop_base_url | default(ntfy_desktop_base_url_default) }}"
 default-token: "{{ vault_ntfy_tokens['will-desktop'] }}"
 
 subscribe:

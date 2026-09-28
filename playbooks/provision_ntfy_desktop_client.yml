@@ -31,7 +31,12 @@
   vars:
     target_user: will
     target_uid: 1000
-    ntfy_desktop_base_url: "https://ntfy-lxc-01.van-bee.ts.net"
+    # Overridable per-host via inventory host_vars (e.g. host_vars/titan2.yml
+    # falls back to the LAN URL where tailnet DNS resolution fails). Named
+    # distinctly from ntfy_desktop_base_url so play vars here don't shadow a
+    # host_vars override -- play vars: outrank host_vars in Ansible's
+    # precedence order, so the actual value is read via default() below.
+    ntfy_desktop_base_url_default: "https://ntfy-lxc-01.van-bee.ts.net"
     ntfy_desktop_topics:
       - lab-critical
       - lab-warning
