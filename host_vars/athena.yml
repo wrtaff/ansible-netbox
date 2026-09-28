@@ -1,6 +1,9 @@
 ---
 # host_vars for athena
 
+# Display arrangement for i3 desktop (turn off laptop screen eDP-1, primary HDMI-1 4K)
+i3_xrandr_command: "xrandr --output eDP-1 --off --output HDMI-1 --primary --mode 3840x2160 --pos 0x0 --rotate normal"
+
 # GnuCash book paths (Will & Jen, RNC) for gnucash-mcp
 gnucash_book_path: "/home/will/gnucash_ep301/wnj.gnucash:/home/rhett/gnucash_rnc/rnc.gnucash"
 
