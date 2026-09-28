@@ -104,6 +104,20 @@
         dest: "/home/{{ target_user }}/.config/autostart/systemd-user-env-import.desktop"
         mode: "0644"
 
+    - name: Disable the OS's own xfce4-notifyd autostart entry (Trac #4780 WP-3)
+      ansible.builtin.template:
+        src: xfce4-notifyd-disable.desktop.j2
+        dest: "/home/{{ target_user }}/.config/autostart/xfce4-notifyd.desktop"
+        mode: "0644"
+      # Found on athena: /etc/xdg/autostart/xfce4-notifyd.desktop races the
+      # systemd --user manager at login ("systemctl --user start ... || exec
+      # <raw binary>"), sometimes launching an unmanaged duplicate that wins
+      # the org.freedesktop.Notifications D-Bus name instead of our systemd
+      # unit. This user-level override (same filename, Hidden=true per the
+      # XDG spec) disables that entry everywhere so ntfy-client.service's
+      # `systemctl --user start/restart xfce4-notifyd.service` is the only
+      # thing that ever launches it.
+
     - name: Reload systemd --user daemon
       ansible.builtin.systemd:
         daemon_reload: yes

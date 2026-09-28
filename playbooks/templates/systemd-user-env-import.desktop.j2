@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Import display env into systemd --user
-Comment=X2Go/XFCE do not import DISPLAY and XAUTHORITY into the systemd --user manager by default, which breaks every systemd --user service that needs the X session (xfce4-notifyd, ntfy-client). Managed by Ansible, Trac #4780 WP-2.
-Exec=/bin/sh -c "systemctl --user import-environment DISPLAY XAUTHORITY; dbus-update-activation-environment --systemd DISPLAY XAUTHORITY; systemctl --user try-restart xfce4-notifyd.service ntfy-client.service"
+Comment=X2Go/XFCE do not reliably import DISPLAY and XAUTHORITY into the systemd --user manager, which breaks every systemd --user service that needs the X session (xfce4-notifyd, ntfy-client). On some hosts (athena), XFCE's own xfce4-notifyd.desktop autostart entry also races the systemd --user manager at login and falls back to launching an unmanaged raw xfce4-notifyd process, leaving two competing instances. This entry runs after that race, kills any stray unmanaged instance, and (re)starts everything cleanly under systemd with the correct environment. Managed by Ansible, Trac #4780 WP-2/WP-3.
+Exec=/bin/sh -c "sleep 2; systemctl --user import-environment DISPLAY XAUTHORITY; dbus-update-activation-environment --systemd DISPLAY XAUTHORITY; systemctl --user stop xfce4-notifyd.service ntfy-client.service 2>/dev/null; pkill -u $(id -u) -f /usr/lib/x86_64-linux-gnu/xfce4/notifyd/xfce4-notifyd 2>/dev/null || true; sleep 1; systemctl --user start xfce4-notifyd.service ntfy-client.service"
 X-GNOME-Autostart-enabled=true
 NoDisplay=true
