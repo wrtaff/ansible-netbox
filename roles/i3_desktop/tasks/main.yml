@@ -40,6 +40,16 @@
     dest: "{{ ansible_facts['user_dir'] }}/.config/i3/config"
     mode: "0644"
 
+- name: Deploy .xsessionrc display initialization script
+  when: i3_xrandr_command is defined
+  ansible.builtin.copy:
+    content: |
+      #!/bin/sh
+      # Ensure display outputs are correctly configured prior to window manager startup
+      {{ i3_xrandr_command }} 2>/dev/null || true
+    dest: "{{ ansible_facts['user_dir'] }}/.xsessionrc"
+    mode: "0755"
+
 - name: Deploy Polybar configuration
   ansible.builtin.copy:
     src: polybar_config.ini
