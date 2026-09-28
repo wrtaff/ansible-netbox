@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Import display env into systemd --user
+Comment=X2Go/XFCE do not import DISPLAY and XAUTHORITY into the systemd --user manager by default, which breaks every systemd --user service that needs the X session (xfce4-notifyd, ntfy-client). Managed by Ansible, Trac #4780 WP-2.
+Exec=/bin/sh -c "systemctl --user import-environment DISPLAY XAUTHORITY; dbus-update-activation-environment --systemd DISPLAY XAUTHORITY; systemctl --user try-restart xfce4-notifyd.service ntfy-client.service"
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
