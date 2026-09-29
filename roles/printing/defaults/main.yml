@@ -1,12 +1,13 @@
 # ==============================================================================
 # Filename:       roles/printing/defaults/main.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini CLI
-# Last Modified:  2026-08-29
-# Trac Ticket:    #4436 (Provision network printing via Ansible on limbo-f0 and update WWOS documentation)
+# Last Modified:  2026-09-29
+# Trac Ticket:    #4795 (Overhaul network printing: eliminate duplicate printer advertisements)
 #
 # Purpose:
-#     Default variables for the printing Ansible role on Debian/Ubuntu desktops.
+#     Default variables for the printing Ansible role on Debian/Ubuntu desktops
+#     and print servers (cups-lxc).
 # ==============================================================================
 ---
 printing_packages:
@@ -20,9 +21,10 @@ printing_packages:
 
 printing_services:
   - cups
-  - cups-browsed
 
 enable_cups_web_access: false
+enable_cups_sharing: false
+enable_cups_browsed: false
 
 gdrive_spool_root: "/var/spool/gdrive"
 gdrive_queue_name: "Print_to_Google_Drive"

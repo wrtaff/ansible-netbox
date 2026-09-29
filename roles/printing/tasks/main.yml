@@ -1,9 +1,9 @@
 # ==============================================================================
 # Filename:       roles/printing/tasks/main.yml
-# Version:        1.0
+# Version:        1.1
 # Author:         Gemini CLI
-# Last Modified:  2026-08-29
-# Trac Ticket:    #4436 (Provision network printing via Ansible on limbo-f0 and update WWOS documentation)
+# Last Modified:  2026-09-29
+# Trac Ticket:    #4795 (Overhaul network printing: eliminate duplicate printer advertisements)
 #
 # Purpose:
 #     Main task file for configuring CUPS and lab network printer queues.
@@ -138,6 +138,31 @@
   tags:
     - printing_setup
 
+- name: Manage cups-browsed service state
+  ansible.builtin.systemd:
+    name: cups-browsed
+    state: "{{ 'started' if enable_cups_browsed | bool else 'stopped' }}"
+    enabled: "{{ enable_cups_browsed | bool }}"
+  tags:
+    - printing_setup
+
+- name: Configure CUPS browsing and sharing mode
+  ansible.builtin.lineinfile:
+    path: /etc/cups/cupsd.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: yes
+  loop:
+    - regexp: '^#?Browsing\s+'
+      line: "Browsing {{ 'Yes' if enable_cups_sharing | bool else 'No' }}"
+    - regexp: '^#?BrowseLocalProtocols\s+'
+      line: "BrowseLocalProtocols {{ 'dnssd' if enable_cups_sharing | bool else 'none' }}"
+    - regexp: '^#?DefaultShared\s+'
+      line: "DefaultShared {{ 'Yes' if enable_cups_sharing | bool else 'No' }}"
+  notify: Restart cups
+  tags:
+    - printing_config
+
 - name: Configure CUPS web interface listening (if enabled)
   ansible.builtin.lineinfile:
     path: /etc/cups/cupsd.conf
@@ -191,6 +216,7 @@
     lpadmin -p {{ item.name }}
     -v {{ item.device_uri }}
     -E
+    -o printer-is-shared={{ 'true' if enable_cups_sharing | bool else 'false' }}
     {% if item.device_uri.startswith('ipp://') %}
     -m everywhere
     {% elif item.ppd_file is defined and item.ppd_file != '' %}
@@ -207,6 +233,35 @@
   tags:
     - printing_config
 
+- name: Enforce printer sharing policy on configured queues
+  ansible.builtin.command: >-
+    lpadmin -p {{ item.name }} -o printer-is-shared={{ 'true' if enable_cups_sharing | bool else 'false' }}
+  changed_when: false
+  loop: "{{ printers }}"
+  tags:
+    - printing_config
+
+- name: Register client Print_to_Google_Drive network queue
+  ansible.builtin.command: >-
+    lpadmin -p {{ gdrive_queue_name }}
+    -v ipp://cups.home.arpa:631/printers/{{ gdrive_queue_name }}
+    -E
+    -m everywhere
+    -o printer-is-shared=false
+  args:
+    creates: "/etc/cups/ppd/{{ gdrive_queue_name }}.ppd"
+  when: not (gdrive_print_enabled | default(false) | bool)
+  tags:
+    - printing_config
+
+- name: Enforce printer sharing policy on client Print_to_Google_Drive queue
+  ansible.builtin.command: >-
+    lpadmin -p {{ gdrive_queue_name }} -o printer-is-shared=false
+  changed_when: false
+  when: not (gdrive_print_enabled | default(false) | bool)
+  tags:
+    - printing_config
+
 - name: Clean up temporary PPD files on target workstation
   ansible.builtin.file:
     path: "/tmp/{{ item.ppd_target_filename }}"
@@ -215,6 +270,20 @@
   loop: "{{ printers }}"
   loop_control:
     loop_var: item
+  tags:
+    - printing_cleanup
+
+- name: Remove known stale or duplicate cups-browsed queues on client workstations
+  ansible.builtin.command: "lpadmin -x {{ item }}"
+  loop:
+    - "0-HP-LaserJet-P2055dn-with-Duplexer"
+    - "0-HP_LaserJet_P2055dn_with_Duplexer"
+    - "HP_OfficeJet_Pro_9010_series_60AC50"
+    - "41HP_OfficeJet_Pro_9010_series_60AC50"
+    - "PDF"
+  failed_when: false
+  changed_when: false
+  when: not (gdrive_print_enabled | default(false) | bool)
   tags:
     - printing_cleanup
 
