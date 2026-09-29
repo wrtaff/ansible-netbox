@@ -9,6 +9,15 @@ ntfy_auth_users: []
 ntfy_auth_tokens: []
 ntfy_auth_access:
   - "publisher:lab-*:wo"
+  - "publisher:desktop-will:wo"
+  - "publisher:desktop-all:wo"
   - "hass:lab-*:rw"
   - "will-phone:lab-critical:ro"
   - "will-phone:lab-warning:ro"
+  - "will-desktop:lab-critical:ro"
+  - "will-desktop:lab-warning:ro"
+  - "will-desktop:desktop-will:ro"
+  - "will-desktop:desktop-all:ro"
+  - "household-desktop:lab-critical:ro"
+  - "household-desktop:lab-warning:ro"
+  - "household-desktop:desktop-all:ro"

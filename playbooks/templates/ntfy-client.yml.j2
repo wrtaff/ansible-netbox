@@ -1,0 +1,12 @@
+# /home/{{ target_user }}/.config/ntfy/client.yml - Managed by Ansible (Trac #4780 WP-2)
+# Read by the shipped ntfy-client.service (systemd --user unit) via
+# `ntfy subscribe --from-config`.
+
+default-host: "{{ ntfy_desktop_base_url | default(ntfy_desktop_base_url_default) }}"
+default-token: "{{ vault_ntfy_tokens['will-desktop'] }}"
+
+subscribe:
+{% for topic in ntfy_desktop_topics %}
+  - topic: "{{ topic }}"
+    command: 'notify-send -a ntfy "$t" "$m"'
+{% endfor %}

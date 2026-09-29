@@ -1,0 +1,135 @@
+---
+# Filename:       playbooks/provision_ntfy_desktop_client.yml
+# Version:        1.0
+# Author:         Claude Sonnet 5
+# Last Modified:  2026-09-28
+# Trac Ticket:    #4780 (WP-2)
+#
+# Purpose:
+#     Installs the ntfy client and the shipped ntfy-client.service (systemd
+#     --user unit) so this desktop shows a native notification for every
+#     message on lab-critical, lab-warning, desktop-will, and desktop-all,
+#     mirroring what Will's phone already receives (Trac #3377, #4748) plus
+#     the two new desktop-only ad hoc topics from #4780 WP-1.
+#
+#     Also fixes a prerequisite found on zeus (opti-CC76) during WP-2: X2Go
+#     XFCE sessions don't import DISPLAY/XAUTHORITY into the systemd --user
+#     manager, so every systemd --user service that needs the X session
+#     (including XFCE's own xfce4-notifyd.service, and this playbook's
+#     ntfy-client.service) fails with "cannot open display". An autostart
+#     entry re-imports both variables and restarts the affected services at
+#     the start of every session.
+#
+# Usage:
+#     ansible-playbook -i inventory.ini playbooks/provision_ntfy_desktop_client.yml --limit zeus
+
+- name: Provision ntfy desktop notification client
+  hosts: all
+  become: no
+  vars_files:
+    - ../vault_ntfy.yml
+  vars:
+    target_user: will
+    target_uid: 1000
+    # Overridable per-host via inventory host_vars (e.g. host_vars/titan2.yml
+    # falls back to the LAN URL where tailnet DNS resolution fails). Named
+    # distinctly from ntfy_desktop_base_url so play vars here don't shadow a
+    # host_vars override -- play vars: outrank host_vars in Ansible's
+    # precedence order, so the actual value is read via default() below.
+    ntfy_desktop_base_url_default: "https://ntfy-lxc-01.van-bee.ts.net"
+    ntfy_desktop_topics:
+      - lab-critical
+      - lab-warning
+      - desktop-will
+      - desktop-all
+
+  tasks:
+    - name: Ensure /etc/apt/keyrings directory exists
+      become: yes
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download ntfy repository GPG key
+      become: yes
+      ansible.builtin.get_url:
+        url: https://archive.ntfy.sh/apt/keyring.gpg
+        dest: /etc/apt/keyrings/ntfy.gpg
+        mode: "0644"
+
+    - name: Add ntfy apt repository
+      become: yes
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/ntfy.gpg] https://archive.ntfy.sh/apt stable main"
+        state: present
+        filename: ntfy
+        update_cache: true
+
+    - name: Install ntfy
+      become: yes
+      ansible.builtin.apt:
+        name: ntfy
+        state: present
+
+    - name: Ensure the system-wide ntfy server is not enabled on a desktop
+      become: yes
+      ansible.builtin.systemd:
+        name: ntfy.service
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: Ensure ~/.config/ntfy directory exists
+      ansible.builtin.file:
+        path: "/home/{{ target_user }}/.config/ntfy"
+        state: directory
+        mode: "0700"
+
+    - name: Template ntfy client config (topics, token)
+      ansible.builtin.template:
+        src: ntfy-client.yml.j2
+        dest: "/home/{{ target_user }}/.config/ntfy/client.yml"
+        mode: "0600"
+
+    - name: Ensure ~/.config/autostart directory exists
+      ansible.builtin.file:
+        path: "/home/{{ target_user }}/.config/autostart"
+        state: directory
+        mode: "0755"
+
+    - name: Template autostart entry to import DISPLAY/XAUTHORITY into systemd --user
+      ansible.builtin.template:
+        src: systemd-user-env-import.desktop.j2
+        dest: "/home/{{ target_user }}/.config/autostart/systemd-user-env-import.desktop"
+        mode: "0644"
+
+    - name: Disable the OS's own xfce4-notifyd autostart entry (Trac #4780 WP-3)
+      ansible.builtin.template:
+        src: xfce4-notifyd-disable.desktop.j2
+        dest: "/home/{{ target_user }}/.config/autostart/xfce4-notifyd.desktop"
+        mode: "0644"
+      # Found on athena: /etc/xdg/autostart/xfce4-notifyd.desktop races the
+      # systemd --user manager at login ("systemctl --user start ... || exec
+      # <raw binary>"), sometimes launching an unmanaged duplicate that wins
+      # the org.freedesktop.Notifications D-Bus name instead of our systemd
+      # unit. This user-level override (same filename, Hidden=true per the
+      # XDG spec) disables that entry everywhere so ntfy-client.service's
+      # `systemctl --user start/restart xfce4-notifyd.service` is the only
+      # thing that ever launches it.
+
+    - name: Reload systemd --user daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+        scope: user
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ target_uid }}"
+
+    - name: Enable and restart ntfy-client.service (systemd --user)
+      ansible.builtin.systemd:
+        name: ntfy-client.service
+        enabled: yes
+        state: restarted
+        scope: user
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ target_uid }}"
