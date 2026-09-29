@@ -219,7 +219,8 @@ def main():
 
                 if args.apply:
                     # Update keywords only
-                    server.ticket.update(tid, "", {"keywords": new_kws}, False, "gemini")
+                    author = os.getenv("TRAC_AUTHOR", f"opencode@{os.uname().nodename}")
+                    server.ticket.update(tid, "", {"keywords": new_kws}, False, author)
                     print("   -> Updated successfully.")
         except Exception as e:
             print(f"Error on ticket #{tid}: {e}")
