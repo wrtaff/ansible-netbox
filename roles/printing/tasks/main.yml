@@ -247,17 +247,8 @@
     -v ipp://cups.home.arpa:631/printers/{{ gdrive_queue_name }}
     -E
     -m everywhere
-    -o printer-is-shared=false
   args:
     creates: "/etc/cups/ppd/{{ gdrive_queue_name }}.ppd"
-  when: not (gdrive_print_enabled | default(false) | bool)
-  tags:
-    - printing_config
-
-- name: Enforce printer sharing policy on client Print_to_Google_Drive queue
-  ansible.builtin.command: >-
-    lpadmin -p {{ gdrive_queue_name }} -o printer-is-shared=false
-  changed_when: false
   when: not (gdrive_print_enabled | default(false) | bool)
   tags:
     - printing_config
