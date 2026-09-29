@@ -26,6 +26,7 @@ import xmlrpc.client
 CUSTOM_TOKEN_MAP = {
     "<15": "lessthan15",
     "LessThan15": "lessthan15",
+    "less-than15": "lessthan15",
     "@wakul": "wakul",
     "@WAKUL": "wakul",
     "@pdbshop": "pdbshop",
