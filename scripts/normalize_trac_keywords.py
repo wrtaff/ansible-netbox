@@ -25,6 +25,8 @@ import xmlrpc.client
 # Custom mappings for known non-standard tokens
 CUSTOM_TOKEN_MAP = {
     "<15": "lessthan15",
+    "LessThan15": "lessthan15",
+    "less-than15": "lessthan15",
     "@wakul": "wakul",
     "@WAKUL": "wakul",
     "@pdbshop": "pdbshop",
@@ -101,6 +103,45 @@ CUSTOM_TOKEN_MAP = {
     "bStructural": "bstructural",
     "Pi-hole": "pihole",
     "Pihole": "pihole",
+    "PersDev": "persdev",
+    "sys-admin": "sysadmin",
+    "io-t": "iot",
+    "workingfolder": "working-folder",
+    "pi-hole": "pihole",
+    "bigbox": "big-box",
+    "wknd-project": "wkndproject",
+    "livingroom": "living-room",
+    "wire-works": "wireworks",
+    "pixel-7": "pixel7",
+    "masterbath": "master-bath",
+    "home-assistant": "homeassistant",
+    "powderroom": "powder-room",
+    "git-hub": "github",
+    "googlefi": "google-fi",
+    "i-phone8": "iphone8",
+    "own-tracks": "owntracks",
+    "g-drive": "gdrive",
+    "mac-os": "macos",
+    "laundryroom": "laundry-room",
+    "matt-jacobs": "mattjacobs",
+    "toshlaptop": "tosh-laptop",
+    "self-hosted": "selfhosted",
+    "i-phone": "iphone",
+    "net-box1": "netbox1",
+    "eye-care": "eyecare",
+    "craftcloset": "craft-closet",
+    "iphonese": "iphone-se",
+    "river-center": "rivercenter",
+    "i-pad": "ipad",
+    "wi-fi": "wifi",
+    "w-j": "wj",
+    "tail-net": "tailnet",
+    "masterbathroom": "master-bathroom",
+    "nabu-casa": "nabucasa",
+    "guestroom": "guest-room",
+    "i-phone7": "iphone7",
+    "body-shop": "bodyshop",
+    "i-mac": "imac",
 }
 
 def get_trac_password():
@@ -219,7 +260,8 @@ def main():
 
                 if args.apply:
                     # Update keywords only
-                    server.ticket.update(tid, "", {"keywords": new_kws}, False, "gemini")
+                    author = os.getenv("TRAC_AUTHOR", f"opencode@{os.uname().nodename}")
+                    server.ticket.update(tid, "", {"keywords": new_kws}, False, author)
                     print("   -> Updated successfully.")
         except Exception as e:
             print(f"Error on ticket #{tid}: {e}")
