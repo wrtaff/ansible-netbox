@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       create_vikunja_task.py
-Version:        1.5
+Version:        1.6
 Author:         Gemini CLI
-Last Modified:  2026-04-16
-Context:        http://trac.home.arpa/ticket/3321
+Last Modified:  2026-09-29
+Context:        http://trac.home.arpa/ticket/3321, http://trac.gafla.us.com/ticket/4768
 
 Purpose:
     Creates a new task in a Vikunja instance. This script is designed to be 
@@ -13,76 +13,78 @@ Purpose:
     supports setting the task title, description, project ID, "favorite" 
     status, and labels.
 
-    Update 1.5 (2026-04-16):
-    - Refactored create_task to raise exceptions instead of calling sys.exit(1)
-      to support integration into MCP servers.
-    - Updated header with Trac ticket link per WWOS standards.
+Secrets:
+    VIKUNJA_API_TOKEN   (environment) — Bearer token for Vikunja REST API
 
-    Update 1.4:
-    - Added support for setting task due dates via --due argument.
-
-    Update 1.3:
-    - Fixed label attachment logic: Labels are now added via a separate API call
-      after task creation, as per Vikunja API requirements.
-
-Usage:
-    # Set the API token in your environment:
-    export VIKUNJA_API_TOKEN='your_token_here'
-
-    # Create a simple task in the default project (Inbox):
-    ./create_vikunja_task.py --title "My New Task"
-
-    # Create a task with labels (prefixed with *):
-    ./create_vikunja_task.py --title "Buy milk *grocery *urgent"
-    # Result: Title "Buy milk", Labels ["grocery", "urgent"]
-
-    # Create a task in a specific project with a description:
-    ./create_vikunja_task.py --title "Task Name" --description "Detailed notes here" --project-id 5
-
-    # Create a task and do NOT mark it as a favorite:
-    ./create_vikunja_task.py --title "Low Priority Task" --no-favorite
-
-    # Override the default host and provide the token as an argument:
-    ./create_vikunja_task.py --title "External Task" --host "https://vikunja.example.com" --token "tk_..."
-
-Arguments:
-    --title          (Required) The summary/title of the task. Words starting
-                     with '*' are extracted as labels.
-    --description    The detailed description of the task (Markdown supported).
-    --project-id     The ID of the project to add the task to (Default: 1 - Inbox).
-    --no-favorite    If set, the task will not be marked as a favorite/starred.
-    --host           The Vikunja instance URL (Default: http://todo.home.arpa).
-    --token          The Vikunja API token (Overrides VIKUNJA_API_TOKEN env var).
-    --due            Due date (ISO format, e.g., 2026-03-04T13:00:00)
-
-Version History:
-    v1.4 (2026-03-03) - Added support for task due dates.
-    v1.3 (2026-01-30) - Fixed label attachment:
-        - Labels are now attached via /api/v1/tasks/{id}/labels endpoint.
-    v1.2 (2026-01-30) - Enhanced label support:
-        - Now fetches existing labels to resolve IDs (case-insensitive).
-        - Automatically creates new labels if they don't exist.
-    v1.1 (2026-01-30) - Added label parsing:
-        - Words in the title starting with '*' are now extracted as labels.
-    v1.0 (2026-01-30) - Initial version:
-        - Portable Python implementation using urllib.
-
-Dependencies:
-    - Standard Python 3 libraries (urllib, json, ssl, argparse).
-
-Exit Codes:
-    0 - Success (Task created successfully)
-    1 - Failure (API error, connection error, or missing configuration)
+Revision History:
+    v1.6 (2026-09-29): Implement Vikunja Todo Standard: due_date normalization
+                       (America/New_York to UTC Z), description auto-conversion
+                       to HTML via markdown, Inbox project warning, and HTTP 400
+                       field hints (Trac #4768 WP-2).
+    v1.5 (2026-04-16): Refactored create_task to raise exceptions instead of calling
+                       sys.exit(1) to support integration into MCP servers.
+                       Updated header with Trac ticket link per WWOS standards.
+    v1.4 (2026-03-03): Added support for setting task due dates via --due argument.
+    v1.3 (2026-01-30): Fixed label attachment logic: Labels are now added via a
+                       separate API call after task creation, per Vikunja API.
 ================================================================================
 """
-
-import argparse
 import os
+import sys
 import json
+import argparse
 import urllib.request
 import urllib.error
 import ssl
-import sys
+import datetime
+
+
+def normalize_due_date(due_date):
+    """
+    Normalize due_date input into an RFC3339/ISO-8601 UTC timestamp ending in 'Z'.
+    Interprets naive dates and date-only strings in America/New_York.
+    Returns normalized_due_date string or raises ValueError on invalid format.
+    """
+    if not due_date or not str(due_date).strip():
+        return None
+    s = str(due_date).strip()
+    try:
+        import zoneinfo
+        tz_ny = zoneinfo.ZoneInfo("America/New_York")
+    except Exception:
+        tz_ny = datetime.timezone(datetime.timedelta(hours=-5))
+
+    try:
+        if s.endswith("Z") or s.endswith("z"):
+            dt = datetime.datetime.fromisoformat(s[:-1] + "+00:00")
+        else:
+            dt = datetime.datetime.fromisoformat(s)
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=tz_ny)
+
+        utc_dt = dt.astimezone(datetime.timezone.utc)
+        return utc_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        raise ValueError(f"Invalid due_date format: '{due_date}'. Use ISO-8601 (e.g. 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM:SSZ').")
+
+
+def format_description_for_vikunja(desc):
+    """
+    Converts Markdown description to HTML so Vikunja's TipTap editor renders clickable links.
+    Preserves existing HTML.
+    """
+    if not desc or not desc.strip():
+        return desc
+    s = desc.strip()
+    if s.startswith("<p>") or "</a>" in s or "</div>" in s or "<ul>" in s:
+        return desc
+    try:
+        import markdown
+        return markdown.markdown(s)
+    except Exception:
+        return desc
+
 
 def get_ssl_context():
     ctx = ssl.create_default_context()
@@ -146,6 +148,15 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
         print("Error: VIKUNJA_API_TOKEN environment variable not set and --token not provided.")
         sys.exit(1)
 
+    if project_id == 1:
+        print("Warning: Task filed in Inbox (project_id=1). Domain projects: board (65), church (56), eldercare (63), finance (35), food (3), geeks (74), healthcare (14), maintenance (9), persdev (61), recreation (66), sysadmin (64).")
+
+    if due_date:
+        due_date = normalize_due_date(due_date)
+
+    if description:
+        description = format_description_for_vikunja(description)
+
     # Resolve Labels
     resolved_labels = []
     if labels:
@@ -174,7 +185,7 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
     
     payload = {
         "title": title,
-        "description": description,
+        "description": description or "",
         "is_favorite": is_favorite
     }
     if due_date:
@@ -207,7 +218,10 @@ def create_task(title, description="", project_id=1, is_favorite=True, host="htt
                 raise Exception(f"Unexpected status code {response.status}: {response.read().decode('utf-8')}")
 
     except urllib.error.HTTPError as e:
-        raise Exception(f"HTTP Error {e.code}: {e.reason} - {e.read().decode('utf-8')}")
+        body = e.read().decode('utf-8')
+        if e.code == 400:
+            raise Exception(f"HTTP Error 400: {e.reason} - {body}. Hint: check due_date format (must be ISO-8601 UTC) or project ID.")
+        raise Exception(f"HTTP Error {e.code}: {e.reason} - {body}")
     except urllib.error.URLError as e:
         raise Exception(f"URL Error: {e.reason}")
 
