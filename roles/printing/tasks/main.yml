@@ -163,17 +163,6 @@
   tags:
     - printing_config
 
-- name: Configure CUPS client server endpoint on desktop workstations
-  ansible.builtin.copy:
-    content: "ServerName cups.home.arpa:631\n"
-    dest: /etc/cups/client.conf
-    owner: root
-    group: root
-    mode: '0644'
-  when: not (enable_cups_sharing | default(false) | bool)
-  tags:
-    - printing_config
-
 - name: Configure CUPS web interface listening (if enabled)
   ansible.builtin.lineinfile:
     path: /etc/cups/cupsd.conf
@@ -224,7 +213,7 @@
 
 - name: Add network printers using lpadmin
   ansible.builtin.command: >-
-    lpadmin -p {{ item.name }}
+    lpadmin -h /run/cups/cups.sock -p {{ item.name }}
     -v {{ item.device_uri }}
     -E
     -o printer-is-shared={{ 'true' if enable_cups_sharing | bool else 'false' }}
@@ -246,7 +235,7 @@
 
 - name: Enforce printer sharing policy on configured queues
   ansible.builtin.command: >-
-    lpadmin -p {{ item.name }} -o printer-is-shared={{ 'true' if enable_cups_sharing | bool else 'false' }}
+    lpadmin -h /run/cups/cups.sock -p {{ item.name }} -o printer-is-shared={{ 'true' if enable_cups_sharing | bool else 'false' }}
   changed_when: false
   loop: "{{ printers }}"
   tags:
@@ -254,7 +243,7 @@
 
 - name: Register client Print_to_Google_Drive network queue
   ansible.builtin.command: >-
-    lpadmin -p {{ gdrive_queue_name }}
+    lpadmin -h /run/cups/cups.sock -p {{ gdrive_queue_name }}
     -v ipp://cups.home.arpa:631/printers/{{ gdrive_queue_name }}
     -E
     -m everywhere
@@ -276,7 +265,7 @@
     - printing_cleanup
 
 - name: Remove known stale or duplicate queues across workstations and print servers
-  ansible.builtin.command: "lpadmin -x {{ item }}"
+  ansible.builtin.command: "lpadmin -h /run/cups/cups.sock -x {{ item }}"
   loop:
     - "0-HP-LaserJet-P2055dn-with-Duplexer"
     - "0-HP_LaserJet_P2055dn_with_Duplexer"
@@ -289,7 +278,7 @@
     - printing_cleanup
 
 - name: Set system default printer destination
-  ansible.builtin.command: "lpadmin -d {{ item.name }}"
+  ansible.builtin.command: "lpadmin -h /run/cups/cups.sock -d {{ item.name }}"
   changed_when: false
   when: item.is_default | default(false) | bool
   loop: "{{ printers }}"
@@ -297,7 +286,7 @@
     - printing_config
 
 - name: Set user default printer queue
-  ansible.builtin.command: "lpoptions -d {{ item.name }}"
+  ansible.builtin.command: "lpoptions -h /run/cups/cups.sock -d {{ item.name }}"
   changed_when: true
   when: item.is_default | default(false) | bool
   loop: "{{ printers }}"
@@ -313,3 +302,14 @@
   when: gdrive_print_enabled | default(false) | bool
   tags:
     - gdrive_printing_setup
+
+- name: Configure CUPS client server endpoint on desktop workstations
+  ansible.builtin.copy:
+    content: "ServerName cups.home.arpa:631\n"
+    dest: /etc/cups/client.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: not (enable_cups_sharing | default(false) | bool)
+  tags:
+    - printing_config
