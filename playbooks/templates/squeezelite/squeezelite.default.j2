@@ -1,0 +1,14 @@
+# Configuration for squeezelite daemon
+# Managed via Ansible (playbooks/install_squeezelite.yml) - Trac #4782
+
+# Squeezelite name (-n)
+SL_NAME="{{ squeezelite_player_name }}"
+
+# Squeezebox/LMS Server IP (-s)
+SL_SERVER_IP="{{ squeezelite_server_ip }}"
+
+# Audio device (-o)
+SL_SOUNDCARD="{{ squeezelite_audio_device }}"
+
+# Extra options (daemonize -z, etc.)
+SL_EXTRA_OPTS="{{ squeezelite_extra_opts }}"

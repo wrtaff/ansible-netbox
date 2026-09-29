@@ -1,0 +1,55 @@
+# Filename:       install_squeezelite.yml
+# Version:        1.0
+# Author:         Gemini CLI (gemini-3.7-flash@ar0)
+# Last Modified:  2026-09-28
+# Trac Ticket:    #4782
+# Purpose:        Install and configure squeezelite lightweight audio player daemon on managed desktop hosts.
+# Use Case:       Provides a headless, network-controllable audio endpoint integrated with Lyrion Music Server (LMS)
+#                 and Home Assistant / Music Assistant (Slimproto).
+# Installation Method: Debian apt package (squeezelite)
+# Prerequisites:  Debian-based host in the desktops inventory group with configured audio output (ALSA/PulseAudio/PipeWire)
+# Configuration:  /etc/default/squeezelite, squeezelite.service
+# Secrets:        ansible_become_pass (vault.yml) - sudo on desktop hosts
+# Usage:          ansible-playbook -i inventory.ini playbooks/install_squeezelite.yml --limit limbo-f0 --check --diff
+# Removal Instructions: Stop/disable systemd service and apt purge squeezelite.
+# WWOS:           http://wwos.home.arpa/index.php/Playbooks/install_squeezelite.yml
+# GitHub:         https://github.com/wrtaff/ansible-netbox/blob/main/playbooks/install_squeezelite.yml
+---
+- name: Install and configure squeezelite on managed desktops
+  hosts: desktops
+  become: true
+  vars_files:
+    - ../vault.yml
+  vars:
+    squeezelite_server_ip: "192.168.0.210"
+    squeezelite_player_name: "{{ inventory_hostname }}"
+    squeezelite_audio_device: "default"
+    squeezelite_extra_opts: "-z"
+
+  tasks:
+    - name: Install squeezelite package
+      ansible.builtin.apt:
+        name: squeezelite
+        state: present
+        update_cache: true
+
+    - name: Deploy /etc/default/squeezelite configuration
+      ansible.builtin.template:
+        src: templates/squeezelite/squeezelite.default.j2
+        dest: /etc/default/squeezelite
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart squeezelite service
+
+    - name: Ensure squeezelite systemd service is enabled and started
+      ansible.builtin.systemd:
+        name: squeezelite
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Restart squeezelite service
+      ansible.builtin.systemd:
+        name: squeezelite
+        state: restarted
