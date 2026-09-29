@@ -101,6 +101,7 @@ CUSTOM_TOKEN_MAP = {
     "bStructural": "bstructural",
     "Pi-hole": "pihole",
     "Pihole": "pihole",
+    "PersDev": "persdev",
 }
 
 def get_trac_password():
