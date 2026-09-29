@@ -264,7 +264,7 @@
   tags:
     - printing_cleanup
 
-- name: Remove known stale or duplicate cups-browsed queues on client workstations
+- name: Remove known stale or duplicate queues across workstations and print servers
   ansible.builtin.command: "lpadmin -x {{ item }}"
   loop:
     - "0-HP-LaserJet-P2055dn-with-Duplexer"
@@ -274,11 +274,18 @@
     - "PDF"
   failed_when: false
   changed_when: false
-  when: not (gdrive_print_enabled | default(false) | bool)
   tags:
     - printing_cleanup
 
-- name: Set default printer queue
+- name: Set system default printer destination
+  ansible.builtin.command: "lpadmin -d {{ item.name }}"
+  changed_when: false
+  when: item.is_default | default(false) | bool
+  loop: "{{ printers }}"
+  tags:
+    - printing_config
+
+- name: Set user default printer queue
   ansible.builtin.command: "lpoptions -d {{ item.name }}"
   changed_when: true
   when: item.is_default | default(false) | bool

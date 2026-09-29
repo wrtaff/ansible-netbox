@@ -1,0 +1,12 @@
+---
+# ==============================================================================
+# Host Variables: cups-lxc (Central CUPS Print Server)
+# Trac Ticket:    #4445, #4795
+#
+# Purpose:
+#     Authoritative server variables for central CUPS print server container.
+# ==============================================================================
+enable_cups_sharing: true
+enable_cups_browsed: false
+enable_cups_web_access: true
+gdrive_print_enabled: true
