@@ -1,10 +1,10 @@
 ---
 # ==============================================================================
 # Filename:       playbooks/configure_mcp_servers_remote.yml
-# Version:        1.6
+# Version:        1.7
 # Author:         Gemini CLI
-# Last Modified:  2026-09-22
-# Context:        http://trac.home.arpa/ticket/3214, http://trac.gafla.us.com/ticket/4123, http://trac.gafla.us.com/ticket/4258, http://trac.gafla.us.com/ticket/4469
+# Last Modified:  2026-09-29
+# Context:        http://trac.home.arpa/ticket/3214, http://trac.gafla.us.com/ticket/4123, http://trac.gafla.us.com/ticket/4258, http://trac.gafla.us.com/ticket/4469, http://trac.gafla.us.com/ticket/4768
 #
 # Purpose:
 #   Provisions MCP servers for Gemini CLI on remote desktops.
@@ -19,6 +19,8 @@
 #   ansible-playbook -i inventory.ini playbooks/configure_mcp_servers_remote.yml
 #
 # Revision History:
+#   1.7 (2026-09-29): Add markdown dependency to pip list for Vikunja MCP server
+#                     format_description_for_vikunja. Trac #4768 WP-1.
 #   1.6 (2026-09-22): Template ~/.config/mcp-secrets.env from mcp-secrets.env.j2 to
 #                     harmonize secrets across interactive and non-interactive MCP checks. Trac #4469.
 #   1.5 (2026-08-27): Install playwright python package in virtualenv for Keep subskill.
@@ -177,6 +179,7 @@
           - "mcp<2"
           - fastmcp
           - requests
+          - markdown
           - pynetbox==7.4.1
           - google-api-python-client
           - google-auth-oauthlib
