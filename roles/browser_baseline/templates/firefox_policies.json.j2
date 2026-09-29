@@ -27,15 +27,7 @@
 {% endfor %}
       ]
     },
-    "ManagedBookmarks": [
-      {
-        "toplevel_name": "Managed Bookmarks"
-      }{% for bm in browser_baseline_common_bookmarks %},
-      {
-        "name": "{{ bm.name }}",
-        "url": "{{ bm.url }}"
-      }{% endfor %}
-    ],
+    "ManagedBookmarks": {{ ([{"toplevel_name": "Managed Bookmarks"}, {"name": "Heimdall", "url": browser_baseline_homepage_url}] + (lookup('file', 'managed_bookmarklets.json') | from_json)) | to_json }},
     "ExtensionSettings": {
 {% for ext_id, ext_conf in firefox_extension_settings.items() %}
       "{{ ext_id }}": {
