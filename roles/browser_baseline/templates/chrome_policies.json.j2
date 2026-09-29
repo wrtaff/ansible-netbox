@@ -24,15 +24,7 @@
   "AutofillAddressEnabled": false,
   "AutofillCreditCardEnabled": false,
   "ExtensionInstallForcelist": {{ chrome_extension_install_forcelist | to_json }},
-  "ManagedBookmarks": [
-    {
-      "toplevel_name": "Managed Bookmarks"
-    }{% for bm in browser_baseline_common_bookmarks %},
-    {
-      "name": "{{ bm.name }}",
-      "url": "{{ bm.url }}"
-    }{% endfor %}
-  ],
+  "ManagedBookmarks": {{ ([{"toplevel_name": "Managed Bookmarks"}, {"name": "Heimdall", "url": browser_baseline_homepage_url}] + (lookup('file', 'chrome_bookmarklets.json') | from_json)) | to_json }},
   "3rdparty": {
     "extensions": {
       "nngceckbapebfimnlniiiahkandclblb": {
