@@ -136,6 +136,28 @@ class TestVikunjaMCPHardening(unittest.TestCase):
         self.assertIn("due_date", res)
         self.assertIn("project ID", res)
 
+    def test_cvt_normalize_due_date(self):
+        from scripts import create_vikunja_task as cvt
+        self.assertIsNone(cvt.normalize_due_date(None))
+        self.assertEqual(cvt.normalize_due_date("2026-10-01"), "2026-10-01T04:00:00Z")
+        self.assertEqual(cvt.normalize_due_date("2026-10-01T09:00:00"), "2026-10-01T13:00:00Z")
+        self.assertEqual(cvt.normalize_due_date("2026-10-01T13:00:00Z"), "2026-10-01T13:00:00Z")
+        with self.assertRaises(ValueError):
+            cvt.normalize_due_date("invalid-date")
+
+    def test_cvt_format_description_for_vikunja(self):
+        from scripts import create_vikunja_task as cvt
+        self.assertEqual(cvt.format_description_for_vikunja(""), "")
+        self.assertEqual(cvt.format_description_for_vikunja(None), None)
+        # HTML is preserved
+        html_desc = "<p>Already HTML with <a href='http://trac.gafla.us.com/ticket/4768'>link</a></p>"
+        self.assertEqual(cvt.format_description_for_vikunja(html_desc), html_desc)
+        # Markdown is converted
+        md_desc = "This is *markdown* with [Trac](http://trac.home.arpa)"
+        converted = cvt.format_description_for_vikunja(md_desc)
+        self.assertIn("<p>", converted)
+        self.assertIn("<a href=\"http://trac.home.arpa\">Trac</a>", converted)
+
 
 if __name__ == "__main__":
     unittest.main()
