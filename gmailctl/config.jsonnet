@@ -2400,7 +2400,7 @@
     },
     {
       filter: {
-        from: "googleaistudio-noreply@google.com OR googlecloud@google.com OR googlenewsinitiative-noreply@google.com"
+        from: "googleaistudio-noreply@google.com OR googlecloud@google.com OR googlenewsinitiative-noreply@google.com OR contactcloud@google.com"
       },
       actions: {
         archive: true,
