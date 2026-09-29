@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/vikunja/server.py
-Version:        1.12
+Version:        1.13
 Author:         Gemini CLI
-Last Modified:  2026-09-24
-Context:        http://trac.gafla.us.com/ticket/3321
+Last Modified:  2026-09-29
+Context:        http://trac.gafla.us.com/ticket/3321, http://trac.gafla.us.com/ticket/4768
 
 Purpose:
     Model Context Protocol (MCP) server for Vikunja integration.
@@ -13,6 +13,9 @@ Purpose:
     to provide tools for managing Vikunja tasks and linking them to Trac.
 
 Revision History:
+    v1.13 (2026-09-29): Implement due_date normalization (America/New_York to UTC ISO-8601),
+                        HTTP 400 field hints, Inbox warning per D3, and project_id
+                        logging (Trac #4768 WP-5).
     v1.12 (2026-09-24): Paginate search_tasks loop (up to 100 pages) so filters (including
                        is_favorite) see the full result set across all pages (resolves #4105,
                        Trac #3321 WP-6.1).
@@ -69,7 +72,7 @@ import time
 import threading
 import datetime
 import urllib.error
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Tuple
 
 # Add project root to path to allow importing from scripts
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -311,6 +314,38 @@ def format_description_for_vikunja(desc: Optional[str]) -> Optional[str]:
     except Exception:
         return desc
 
+
+def _normalize_due_date(due_date: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Normalize due_date input into an RFC3339/ISO-8601 UTC timestamp ending in 'Z'.
+    Interprets naive dates and date-only strings in America/New_York.
+    Returns (normalized_due_date, error_message).
+    """
+    if due_date is None or not str(due_date).strip():
+        return None, None
+    s = str(due_date).strip()
+    try:
+        import zoneinfo
+        tz_ny = zoneinfo.ZoneInfo("America/New_York")
+    except Exception:
+        tz_ny = datetime.timezone(datetime.timedelta(hours=-5))
+
+    try:
+        if s.endswith("Z") or s.endswith("z"):
+            dt = datetime.datetime.fromisoformat(s[:-1] + "+00:00")
+        else:
+            dt = datetime.datetime.fromisoformat(s)
+
+        if dt.tzinfo is None:
+            # Naive or date-only: interpret in America/New_York
+            dt = dt.replace(tzinfo=tz_ny)
+
+        utc_dt = dt.astimezone(datetime.timezone.utc)
+        return utc_dt.strftime("%Y-%m-%dT%H:%M:%SZ"), None
+    except Exception:
+        return None, f"Invalid due_date format: '{due_date}'. Use ISO-8601 (e.g. 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM:SSZ')."
+
+
 def _confirm_created_task(title: str, project_id: int, host: str, token: str, max_age_seconds: int = 180) -> Optional[dict]:
     """
     Reconciles whether a task was created on Vikunja following an unconfirmed/timed-out request.
@@ -379,11 +414,26 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
         host = os.getenv("VIKUNJA_URL", "http://todo.home.arpa").rstrip('/')
 
         # Resolve a project name to an existing project_id (match only, never create).
+        no_project_specified = (project is None or not str(project).strip()) and project_id == 1
         if project is not None and str(project).strip() != "":
             resolved, err = _resolve_project_id(project, host, token)
             if err:
                 return f"Error: {err}"
             project_id = resolved
+
+        # Normalize due_date
+        if due_date:
+            normalized_due, due_err = _normalize_due_date(due_date)
+            if due_err:
+                return f"Error: {due_err}"
+            due_date = normalized_due
+
+        inbox_warning = ""
+        if no_project_specified:
+            inbox_warning = (
+                "\nWARNING: Task was filed in Inbox (project_id=1) because no project was specified. "
+                "Valid domain projects: board, church, eldercare, finance, food, geeks, healthcare, maintenance, persdev, recreation, sysadmin."
+            )
 
         # Re-parse labels from title if provided
         words = title.split()
@@ -410,9 +460,16 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
             task_id = result.get('id') if isinstance(result, dict) else None
             vikunja_circuit_breaker.record_success()
             if task_id:
-                return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id})"
-            return f"Successfully created Vikunja task: {clean_title} (project_id={project_id})"
+                logger.info(f"Vikunja: Created task #{task_id} in project_id={project_id}")
+                return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}){inbox_warning}"
+            return f"Successfully created Vikunja task: {clean_title} (project_id={project_id}){inbox_warning}"
         except Exception as e:
+            err_msg = str(e)
+            if "400" in err_msg or "Invalid model" in err_msg or "Bad Request" in err_msg:
+                formatted_err = f"Error from Vikunja (HTTP 400 - Invalid model): {err_msg}. Hint: check due_date format (must be ISO-8601 UTC) or project ID."
+                logger.error(f"Error creating Vikunja task: {formatted_err}")
+                return formatted_err
+
             # Check for timeout or transient network drop
             is_timeout = isinstance(e, (TimeoutError, urllib.error.URLError)) or "timeout" in str(e).lower() or "timed out" in str(e).lower()
 
@@ -422,7 +479,9 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
                 task_id = reconciled.get('id')
                 vikunja_circuit_breaker.record_success()
                 logger.info(f"Reconciled created task #{task_id} ('{clean_title}') after exception: {e}")
-                return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [confirmed via reconciliation after transient timeout]"
+                if task_id:
+                    logger.info(f"Vikunja: Created task #{task_id} in project_id={project_id}")
+                return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [confirmed via reconciliation after transient timeout]{inbox_warning}"
 
             if is_timeout:
                 logger.warning(f"Create task timed out for '{clean_title}'. Retrying once after backoff...")
@@ -441,14 +500,23 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
                     task_id = result.get('id') if isinstance(result, dict) else None
                     vikunja_circuit_breaker.record_success()
                     if task_id:
-                        return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [on retry]"
-                    return f"Successfully created Vikunja task: {clean_title} (project_id={project_id}) [on retry]"
+                        logger.info(f"Vikunja: Created task #{task_id} in project_id={project_id}")
+                        return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [on retry]{inbox_warning}"
+                    return f"Successfully created Vikunja task: {clean_title} (project_id={project_id}) [on retry]{inbox_warning}"
                 except Exception as retry_err:
+                    retry_err_msg = str(retry_err)
+                    if "400" in retry_err_msg or "Invalid model" in retry_err_msg or "Bad Request" in retry_err_msg:
+                        formatted_err = f"Error from Vikunja (HTTP 400 - Invalid model): {retry_err_msg}. Hint: check due_date format (must be ISO-8601 UTC) or project ID."
+                        logger.error(f"Error creating Vikunja task after retry: {formatted_err}")
+                        return formatted_err
+
                     reconciled_after_retry = _confirm_created_task(clean_title, project_id, host, token)
                     if reconciled_after_retry:
                         task_id = reconciled_after_retry.get('id')
                         vikunja_circuit_breaker.record_success()
-                        return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [confirmed via reconciliation after retry timeout]"
+                        if task_id:
+                            logger.info(f"Vikunja: Created task #{task_id} in project_id={project_id}")
+                        return f"Successfully created Vikunja task #{task_id}: {clean_title} (project_id={project_id}) [confirmed via reconciliation after retry timeout]{inbox_warning}"
                     vikunja_circuit_breaker.record_failure(retry_err)
                     logger.error(f"Error creating Vikunja task after retry: {retry_err}")
                     return f"Error creating Vikunja task after retry: {retry_err}"
@@ -457,6 +525,11 @@ def create_task(title: str, description: str = "", project_id: int = 1, project:
             logger.error(f"Error creating Vikunja task: {e}")
             return f"Error creating Vikunja task: {e}"
     except Exception as e:
+        err_msg = str(e)
+        if "400" in err_msg or "Invalid model" in err_msg or "Bad Request" in err_msg:
+            formatted_err = f"Error from Vikunja (HTTP 400 - Invalid model): {err_msg}. Hint: check due_date format (must be ISO-8601 UTC) or project ID."
+            logger.error(f"Error creating Vikunja task: {formatted_err}")
+            return formatted_err
         logger.error(f"Error creating Vikunja task: {e}")
         return f"Error creating Vikunja task: {e}"
 
@@ -526,7 +599,10 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
         if description is not None:
             payload["description"] = format_description_for_vikunja(description)
         if due_date is not None:
-            payload["due_date"] = due_date
+            normalized_due, due_err = _normalize_due_date(due_date)
+            if due_err:
+                return f"Error: {due_err}"
+            payload["due_date"] = normalized_due
         if is_favorite is not None:
             payload["is_favorite"] = is_favorite
         if done is not None:
@@ -540,8 +616,16 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
             else:
                 payload["priority"] = int(priority)
             
-        response = requests.post(task_url, headers=headers, json=payload, timeout=20)
-        response.raise_for_status()
+        try:
+            response = requests.post(task_url, headers=headers, json=payload, timeout=20)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as http_err:
+            if (response is not None and response.status_code == 400) or "400" in str(http_err):
+                body = response.text if response is not None else ""
+                formatted_err = f"Error from Vikunja (HTTP 400 - Invalid model): {http_err} - {body}. Hint: check due_date format (must be ISO-8601 UTC) or project ID."
+                logger.error(f"Error updating Vikunja task {task_id}: {formatted_err}")
+                return formatted_err
+            raise
             
         if labels:
             resolved_labels = []
@@ -564,6 +648,11 @@ def update_task(task_id: int, title: Optional[str] = None, description: Optional
         return f"Successfully updated Vikunja task {task_id}"
     except Exception as e:
         vikunja_circuit_breaker.record_failure(e)
+        err_msg = str(e)
+        if "400" in err_msg or "Invalid model" in err_msg or "Bad Request" in err_msg:
+            formatted_err = f"Error from Vikunja (HTTP 400 - Invalid model): {err_msg}. Hint: check due_date format (must be ISO-8601 UTC) or project ID."
+            logger.error(f"Error updating Vikunja task {task_id}: {formatted_err}")
+            return formatted_err
         logger.error(f"Error updating Vikunja task: {e}")
         return f"Error updating Vikunja task {task_id}: {e}"
 
