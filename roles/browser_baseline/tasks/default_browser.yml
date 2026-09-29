@@ -79,11 +79,29 @@
     group: "{{ browser_baseline_user }}"
     mode: '0700'
 
-- name: Configure XFCE preferred web browser to Firefox
+# exo-open (XFCE "preferred applications") only accepts helper ids that have a helper .desktop
+# file; "firefox-esr" is not one, so a custom helper is used to keep the profile selector (#4789).
+- name: Ensure user XFCE helpers directory exists
+  ansible.builtin.file:
+    path: "/home/{{ browser_baseline_user }}/.local/share/xfce4/helpers"
+    state: directory
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0755'
+
+- name: Deploy XFCE custom web browser helper (Firefox ESR with profile selector)
+  ansible.builtin.template:
+    src: xfce_custom_webbrowser.desktop.j2
+    dest: "/home/{{ browser_baseline_user }}/.local/share/xfce4/helpers/custom-WebBrowser.desktop"
+    owner: "{{ browser_baseline_user }}"
+    group: "{{ browser_baseline_user }}"
+    mode: '0644'
+
+- name: Configure XFCE preferred web browser to the Firefox profile-selector helper
   ansible.builtin.lineinfile:
     path: "/home/{{ browser_baseline_user }}/.config/xfce4/helpers.rc"
     regexp: '^WebBrowser='
-    line: 'WebBrowser=firefox-esr'
+    line: 'WebBrowser=custom-WebBrowser'
     create: yes
     owner: "{{ browser_baseline_user }}"
     group: "{{ browser_baseline_user }}"
