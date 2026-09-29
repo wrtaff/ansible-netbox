@@ -1,0 +1,25 @@
+---
+# tasks/managed_bookmarks.yml - Redeploy only the Chrome/Chromium and Firefox policy files
+# (Managed Bookmarks) without the package, profile, launcher or default-browser tasks.
+# Usage: include_role: {name: browser_baseline, tasks_from: managed_bookmarks}  (Trac #4789)
+
+- name: Deploy Chrome & Chromium managed policies (Managed Bookmarks)
+  ansible.builtin.template:
+    src: chrome_policies.json.j2
+    dest: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - "{{ chrome_policy_file }}"
+    - "/etc/chromium/policies/managed/default_policies.json"
+  when: browser_baseline_manage_chrome | bool
+
+- name: Deploy Firefox managed policies (Managed Bookmarks)
+  ansible.builtin.template:
+    src: firefox_policies.json.j2
+    dest: "{{ firefox_policy_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+  when: browser_baseline_manage_firefox | bool
