@@ -2,10 +2,10 @@
 """
 ================================================================================
 Filename:       mcp-servers/google-workspace/server.py
-Version:        2.8
+Version:        2.9
 Author:         Gemini CLI
-Last Modified:  2026-09-24
-Context:        http://trac.gafla.us.com/ticket/3571, http://trac.gafla.us.com/ticket/4334, http://trac.gafla.us.com/ticket/4743
+Last Modified:  2026-09-29
+Context:        http://trac.gafla.us.com/ticket/3571, http://trac.gafla.us.com/ticket/4334, http://trac.gafla.us.com/ticket/4743, http://trac.gafla.us.com/ticket/4768
 
 Purpose:
     Model Context Protocol (MCP) server for Google Workspace integration.
@@ -15,6 +15,9 @@ Purpose:
     re-authentication within AI agent sessions.
 
 Revision History:
+    v2.9 (2026-09-29): Updated Tasks tool docstrings (tasks_list, tasks_create,
+                       tasks_update) to state REMINDERS ONLY and route to-dos to
+                       vikunja_create_task (Trac #4768 WP-5).
     v2.8 (2026-09-24): Added Google Drive Comments and Replies tool suite (Trac #4743):
                        drive_list_comments, drive_get_comment, drive_create_comment,
                        drive_update_comment, drive_delete_comment, drive_reply_comment,
@@ -686,7 +689,7 @@ def update_calendar_event(event_id: str, summary: Optional[str] = None, start_ti
 
 @mcp.tool(name="tasks_list")
 def list_tasks(max_results: int = 10) -> str:
-    """List tasks from the default task list."""
+    """List reminder tasks from the default task list. REMINDERS ONLY. Never use for to-dos, tasks, or next-action items; use vikunja_create_task (skills/domain/vikunja.md)."""
     logger.info("Tasks: Listing tasks")
     import io
     from contextlib import redirect_stdout
@@ -700,7 +703,7 @@ def list_tasks(max_results: int = 10) -> str:
 
 @mcp.tool(name="tasks_create")
 def create_task(title: str, notes: Optional[str] = None, due_date: Optional[str] = None) -> str:
-    """Create a new task."""
+    """Create a new reminder task in Google Tasks. REMINDERS ONLY. Never use for to-dos, tasks, or next-action items; use vikunja_create_task (skills/domain/vikunja.md)."""
     logger.info(f"Tasks: Creating task '{title}'")
     import io
     from contextlib import redirect_stdout
@@ -714,7 +717,7 @@ def create_task(title: str, notes: Optional[str] = None, due_date: Optional[str]
 
 @mcp.tool(name="tasks_update")
 def tasks_update(task_id: str, title: Optional[str] = None, notes: Optional[str] = None, due_date: Optional[str] = None) -> str:
-    """Update an existing task's title, notes, or due date."""
+    """Update an existing reminder task's title, notes, or due date. REMINDERS ONLY. Never use for to-dos, tasks, or next-action items; use vikunja_create_task (skills/domain/vikunja.md)."""
     logger.info(f"Tasks: Updating task {task_id}")
     import io
     from contextlib import redirect_stdout
